@@ -1,0 +1,606 @@
+import React, { useState } from 'react';
+import { User, PenTool, Plus, Trash2, Search, Instagram, Facebook, Award, MoreHorizontal, Link as LinkIcon, Tag, Hash, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "../ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../ui/popover';
+import { cn } from '../../lib/utils';
+
+interface Profile {
+    id: string;
+    name: string;
+    slug: string;        // URL用スラグ
+    role: string;        // 肩書き
+    qualifications: string; // 資格
+    categories: string[]; // 得意カテゴリー
+    tags: string[];      // タグ
+    instagram?: string;  // Instagram URL
+    facebook?: string;   // Facebook URL
+    avatar?: string;
+    bio?: string;
+}
+
+const MOCK_PROFILES_DATA: Profile[] = [
+    { 
+        id: 'mika', 
+        name: 'Mika Sensei', 
+        slug: 'mika-sensei',
+        role: 'ヨガインストラクター', 
+        qualifications: 'RYT200, マタニティヨガ認定',
+        categories: ['ヨガ', 'ストレッチ', '瞑想'],
+        tags: ['初心者歓迎', '産後ケア', '骨盤矯正'],
+        instagram: 'https://instagram.com/mika_yoga',
+        facebook: 'https://facebook.com/mikayoga',
+        avatar: 'https://images.unsplash.com/photo-1658279445014-dcc466ac1192?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: '初心者から上級者まで、心と体に寄り添う指導を心がけています。'
+    },
+    { 
+        id: 'sarah', 
+        name: 'Sarah Smith', 
+        slug: 'sarah-smith',
+        role: 'シニアエディター', 
+        qualifications: '管理栄養士, 健康運動指導士',
+        categories: ['食事', '栄養', 'ダイエット'],
+        tags: ['低糖質', 'タンパク質', '海外トレンド'],
+        avatar: 'https://images.unsplash.com/photo-1581065178026-390bc4e78dad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: 'エビデンスに基づいた健康情報を分かりやすく発信します。' 
+    },
+    {
+        id: 'kenji',
+        name: 'Kenji Yamamoto',
+        slug: 'kenji-yamamoto',
+        role: 'ピラティス講師',
+        qualifications: 'Pilates Method Alliance, 理学療法士',
+        categories: ['ピラティス', 'リハビリ'],
+        tags: ['体幹トレーニング', '腰痛改善', '姿勢改善'],
+        avatar: 'https://images.unsplash.com/photo-1738566061505-556830f8b8f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: '理学療法士の視点から、安全で効果的なピラティスを指導します。'
+    },
+    {
+        id: 'akiko',
+        name: 'Akiko Tanaka',
+        slug: 'akiko-tanaka',
+        role: 'フードコーディネーター',
+        qualifications: '調理師, 食生活アドバイザー',
+        categories: ['レシピ', '食事'],
+        tags: ['ヴィーガン', 'グルテンフリー', 'オーガニック'],
+        avatar: 'https://images.unsplash.com/photo-1517778968789-3eea19b05c18?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: '美味しくて体に優しいヘルシーレシピを提案しています。'
+    },
+    {
+        id: 'yuri',
+        name: 'Yuri Sato',
+        slug: 'yuri-sato',
+        role: 'マインドフルネスコーチ',
+        qualifications: 'MBSR修了, 臨床心理士',
+        categories: ['瞑想', 'メンタルケア'],
+        tags: ['ストレス解消', '睡眠改善', 'マインドフルネス'],
+        avatar: 'https://images.unsplash.com/photo-1698230557068-96c3658c2215?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: '心のバランスを整えるための瞑想ガイドを行っています。'
+    },
+    { 
+        id: 'admin', 
+        name: 'Admin', 
+        slug: 'admin',
+        role: '管理者',
+        qualifications: '',
+        categories: ['お知らせ', 'システム'],
+        tags: ['公式', 'メンテナンス'],
+        bio: 'サイト管理者'
+    },
+];
+
+export function AuthorsView() {
+    const [profiles, setProfiles] = useState<Profile[]>(MOCK_PROFILES_DATA);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [activeFilters, setActiveFilters] = useState<Record<string, Set<string>>>({});
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    // Form States
+    const [formData, setFormData] = useState<Partial<Profile>>({});
+
+    const handleOpenCreate = () => {
+        setEditingProfile(null);
+        setFormData({ 
+            name: '', slug: '', role: '', qualifications: '', categories: [], tags: [], 
+            bio: '', avatar: '', instagram: '', facebook: '' 
+        });
+        setIsDialogOpen(true);
+    };
+
+    const handleOpenEdit = (profile: Profile) => {
+        setEditingProfile(profile);
+        setFormData({ ...profile });
+        setIsDialogOpen(true);
+    };
+
+    const handleDelete = (id: string) => {
+        if (window.confirm('この監修者を削除してもよろしいですか？')) {
+            setProfiles(profiles.filter(p => p.id !== id));
+        }
+    };
+
+    const handleSubmit = () => {
+        if (!formData.name || !formData.role || !formData.slug) return;
+        if (editingProfile) {
+            setProfiles(profiles.map(p => p.id === editingProfile.id ? { ...p, ...formData } as Profile : p));
+        } else {
+            const newProfile: Profile = {
+                id: Math.random().toString(36).substr(2, 9),
+                name: formData.name!,
+                slug: formData.slug!,
+                role: formData.role!,
+                qualifications: formData.qualifications || '',
+                categories: formData.categories || [],
+                tags: formData.tags || [],
+                instagram: formData.instagram,
+                facebook: formData.facebook,
+                avatar: formData.avatar,
+                bio: formData.bio
+            };
+            setProfiles([...profiles, newProfile]);
+        }
+        setIsDialogOpen(false);
+    };
+
+    const uniqueCategories = Array.from(new Set(profiles.flatMap(p => p.categories))).sort();
+    const uniqueTags = Array.from(new Set(profiles.flatMap(p => p.tags))).sort();
+    const uniqueRoles = Array.from(new Set(profiles.map(p => p.role))).sort();
+
+    const filteredProfiles = profiles.filter(profile => {
+        const matchesSearch = profile.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              profile.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              profile.role.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matchesSearch) return false;
+
+        return Object.entries(activeFilters).every(([key, filterSet]) => {
+            if (filterSet.size === 0) return true;
+            // @ts-ignore
+            const val = profile[key];
+            if (Array.isArray(val)) return val.some(v => filterSet.has(v));
+            return filterSet.has(val);
+        });
+    }).sort((a, b) => {
+        if (!sortConfig) return 0;
+        // @ts-ignore
+        const aVal = a[sortConfig.key];
+        // @ts-ignore
+        const bVal = b[sortConfig.key];
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    const toggleSelection = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) newSelected.delete(id);
+        else newSelected.add(id);
+        setSelectedIds(newSelected);
+    };
+
+    const toggleSelectAll = (checked: boolean) => {
+        setSelectedIds(checked ? new Set(filteredProfiles.map(p => p.id)) : new Set());
+    };
+
+    const toggleFilter = (key: string, value: string, checked: boolean) => {
+        const newFilters = { ...activeFilters };
+        if (!newFilters[key]) newFilters[key] = new Set();
+        if (checked) newFilters[key].add(value);
+        else newFilters[key].delete(value);
+        setActiveFilters(newFilters);
+    };
+
+    const handleSort = (key: string, direction: 'asc' | 'desc' | null) => {
+        setSortConfig(direction ? { key, direction } : null);
+    };
+
+    const renderHeaderCell = (label: string, key: string, width: number, filterOptions?: string[]) => {
+        const isFilterable = !!filterOptions;
+        const isSortable = true;
+
+        return (
+            <th 
+                className="px-4 py-2.5 relative bg-neutral-50/80 select-none whitespace-nowrap text-xs text-neutral-500 font-medium group border-b border-neutral-200 border-r border-neutral-100/50"
+                style={{ width }}
+            >
+                <div className="flex items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button className={cn(
+                                "flex items-center gap-2 hover:bg-neutral-100 rounded px-1 py-0.5 -ml-1 transition-colors outline-none group/btn",
+                                (activeFilters[key]?.size ?? 0) > 0 && "text-blue-600 bg-blue-50 hover:bg-blue-100",
+                                sortConfig?.key === key && "text-blue-600"
+                            )}>
+                                {label}
+                                {(isFilterable || isSortable) && (
+                                    <ChevronDown size={10} className={cn("text-neutral-300 group-hover/btn:text-neutral-500", (activeFilters[key]?.size ?? 0) > 0 && "text-blue-400")} />
+                                )}
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2" align="start">
+                             <div className="space-y-2">
+                                <div className="text-xs font-medium text-neutral-500 px-2 py-1">{label}</div>
+                                
+                                {isSortable && (
+                                    <div className="space-y-1 border-b border-neutral-100 pb-2 mb-2">
+                                        <button onClick={() => handleSort(key, 'asc')} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-neutral-100">
+                                            <ArrowUpZA size={14} className="text-neutral-400" /> 昇順
+                                        </button>
+                                        <button onClick={() => handleSort(key, 'desc')} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-neutral-100">
+                                            <ArrowDownAZ size={14} className="text-neutral-400" /> 降順
+                                        </button>
+                                    </div>
+                                )}
+
+                                {isFilterable && (
+                                     <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                        {filterOptions.map((opt) => (
+                                            <div key={opt} className="flex items-center justify-between px-2 py-1.5 hover:bg-neutral-50 rounded">
+                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={activeFilters[key]?.has(opt) || false}
+                                                        onChange={(e) => toggleFilter(key, opt, e.target.checked)}
+                                                        className="rounded border-neutral-300 text-blue-600"
+                                                    />
+                                                    <span className="text-sm text-neutral-700 truncate">{opt}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                     </div>
+                                )}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </th>
+        );
+    };
+
+    return (
+        <div className="flex flex-col h-full bg-white">
+            {/* Header Area */}
+            <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-xl font-bold tracking-tight text-neutral-900">監修者管理</h1>
+                    <p className="text-sm text-neutral-500 font-medium">ライター・監修者の情報管理</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={18} />
+                        <Input 
+                            className="w-[300px] pl-11 h-12 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded-full text-sm font-medium transition-all"
+                            placeholder="監修者を検索..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleOpenCreate} className="h-12 !px-8 rounded-full bg-neutral-900 text-white font-bold hover:bg-neutral-800 shadow-sm">
+                        監修者追加
+                    </Button>
+                </div>
+            </header>
+
+            {/* Toolbar */}
+            <div className="flex items-center justify-between py-3 px-6 border-b border-neutral-100 bg-white flex-none">
+                <div className="flex items-center gap-2">
+                    <div className="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded">
+                        {filteredProfiles.length} items
+                    </div>
+                    {(Object.keys(activeFilters).some(k => activeFilters[k].size > 0)) && (
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setActiveFilters({})}>
+                            <X size={12} className="mr-1" /> フィルタ解除
+                        </Button>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {selectedIds.size > 0 && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200">
+                            <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Table View */}
+            <div className="flex-1 overflow-auto bg-white relative">
+                <table className="w-full text-left border-collapse" style={{ minWidth: '1200px' }}>
+                    <thead className="sticky top-0 z-20">
+                        <tr>
+                             <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-0 z-20">
+                                {/* Actions Column Header */}
+                            </th>
+                            <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-[40px] z-20">
+                                <input 
+                                    type="checkbox" 
+                                    checked={filteredProfiles.length > 0 && selectedIds.size === filteredProfiles.length}
+                                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                                    className="rounded border-neutral-300 scale-90 cursor-pointer"
+                                />
+                            </th>
+                            {renderHeaderCell("アイコン", "avatar", 60)}
+                            {renderHeaderCell("名前", "name", 180)}
+                            {renderHeaderCell("スラッグ", "slug", 120)}
+                            {renderHeaderCell("肩書き", "role", 140, uniqueRoles)}
+                            {renderHeaderCell("得意カテゴリ", "categories", 160, uniqueCategories)}
+                            {renderHeaderCell("タグ", "tags", 160, uniqueTags)}
+                            <th className="px-4 py-2.5 bg-neutral-50/80 text-xs text-neutral-500 font-medium border-b border-neutral-200 border-r border-neutral-100/50 w-[180px]">保有資格</th>
+                            <th className="px-4 py-2.5 bg-neutral-50/80 text-xs text-neutral-500 font-medium border-b border-neutral-200 border-r border-neutral-100/50 w-[100px]">SNS</th>
+                            <th className="px-4 py-2.5 bg-neutral-50/80 text-xs text-neutral-500 font-medium border-b border-neutral-200 w-auto">自己紹介</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                        {filteredProfiles.map(profile => (
+                            <tr 
+                                key={profile.id} 
+                                className={cn(
+                                    "group hover:bg-neutral-50/80 transition-colors",
+                                    selectedIds.has(profile.id) && "bg-blue-50/50 hover:bg-blue-50/60"
+                                )}
+                            >
+                                <td className="px-2 py-3.5 bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50 sticky left-0 text-center z-10">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button className="p-1 hover:bg-neutral-100 rounded text-neutral-400 hover:text-neutral-900 transition-colors outline-none focus:bg-neutral-100">
+                                                <MoreVertical size={14} />
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="start" className="w-32">
+                                             <DropdownMenuItem onClick={() => {
+                                                 const newProfile = { ...profile, id: Math.random().toString(36).substr(2, 9), name: `${profile.name} (Copy)` };
+                                                 setProfiles([...profiles, newProfile]);
+                                             }}>
+                                                <Copy size={14} className="mr-2" /> 複製
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleOpenEdit(profile)}>
+                                                <PenTool size={14} className="mr-2" /> 編集
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDelete(profile.id)}>
+                                                <Trash2 size={14} className="mr-2" /> 削除
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </td>
+                                <td className="px-4 py-3.5 bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50 sticky left-[40px] text-center z-10">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedIds.has(profile.id)}
+                                        onChange={() => toggleSelection(profile.id)}
+                                        className="rounded border-neutral-300 scale-90 cursor-pointer"
+                                    />
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <Avatar className="h-8 w-8 border border-neutral-100">
+                                        <AvatarImage src={profile.avatar} />
+                                        <AvatarFallback className="bg-neutral-100 text-neutral-500 text-[10px]">
+                                            {profile.name.slice(0, 2)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <div 
+                                        className="font-medium text-neutral-900 text-sm leading-normal cursor-pointer hover:text-blue-600 hover:underline decoration-blue-300 underline-offset-2 transition-all"
+                                        onClick={() => handleOpenEdit(profile)}
+                                    >
+                                        {profile.name}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <div className="text-xs text-neutral-500 font-mono truncate">
+                                        {profile.slug}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <div className="text-xs text-neutral-600 font-medium">
+                                        {profile.role}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <div className="flex flex-wrap gap-1">
+                                        {profile.categories?.slice(0, 2).map((cat, i) => (
+                                            <span key={i} className="px-1.5 py-0.5 bg-neutral-100 text-neutral-600 text-[10px] rounded border border-neutral-200 whitespace-nowrap">
+                                                {cat}
+                                            </span>
+                                        ))}
+                                        {(profile.categories?.length || 0) > 2 && (
+                                            <span className="text-[10px] text-neutral-400">+{profile.categories.length - 2}</span>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <div className="flex flex-wrap gap-1">
+                                        {profile.tags?.slice(0, 2).map((tag, i) => (
+                                            <span key={i} className="flex items-center gap-0.5 text-[10px] text-neutral-500 whitespace-nowrap">
+                                                <Hash size={8} className="text-neutral-300" />
+                                                {tag}
+                                            </span>
+                                        ))}
+                                        {(profile.tags?.length || 0) > 2 && (
+                                            <span className="text-[10px] text-neutral-400">+{profile.tags.length - 2}</span>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    {profile.qualifications && (
+                                        <div className="flex flex-wrap gap-1">
+                                            {profile.qualifications.split(/[,、]/).slice(0, 2).map((q, i) => (
+                                                <span key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 text-orange-700 text-[10px] rounded border border-orange-100 whitespace-nowrap">
+                                                    <Award size={10} className="text-orange-400" />
+                                                    {q.trim()}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <div className="flex gap-1.5">
+                                        {profile.instagram && (
+                                            <a href={profile.instagram} target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-pink-600 transition-colors">
+                                                <Instagram size={14} />
+                                            </a>
+                                        )}
+                                        {profile.facebook && (
+                                            <a href={profile.facebook} target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-blue-600 transition-colors">
+                                                <Facebook size={14} />
+                                            </a>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <p className="text-[10px] text-neutral-500 line-clamp-2 max-w-md leading-relaxed">
+                                        {profile.bio}
+                                    </p>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Dialog */}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{editingProfile ? '監修者を編集' : '新しい監修者を追加'}</DialogTitle>
+                        <DialogDescription>
+                            信頼性の高い監修者情報を作成してください。スラグはURLに使用されます。
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="grid gap-6 py-4">
+                        <div className="flex items-start gap-6">
+                            <div className="w-24 flex flex-col items-center gap-2 pt-2">
+                                <Avatar className="h-24 w-24 border border-neutral-200">
+                                    <AvatarImage src={formData.avatar} />
+                                    <AvatarFallback className="text-2xl bg-neutral-50">
+                                        {formData.name ? formData.name.slice(0, 2) : <User />}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="w-full">
+                                    <Label htmlFor="avatar" className="sr-only">アバターURL</Label>
+                                    <Input 
+                                        id="avatar" 
+                                        placeholder="画像URL" 
+                                        className="h-7 text-[10px] font-mono text-center px-1"
+                                        value={formData.avatar || ''}
+                                        onChange={e => setFormData({...formData, avatar: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="flex-1 grid gap-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="name">名前 <span className="text-red-500">*</span></Label>
+                                        <Input 
+                                            id="name" 
+                                            placeholder="例: 山田 花子" 
+                                            value={formData.name || ''}
+                                            onChange={e => setFormData({...formData, name: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="role">肩書き <span className="text-red-500">*</span></Label>
+                                        <Input 
+                                            id="role" 
+                                            placeholder="例: ヨガインストラクター" 
+                                            value={formData.role || ''}
+                                            onChange={e => setFormData({...formData, role: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="slug">スラグ (URL) <span className="text-red-500">*</span></Label>
+                                        <Input 
+                                            id="slug" 
+                                            placeholder="例: hanako-yamada" 
+                                            className="font-mono"
+                                            value={formData.slug || ''}
+                                            onChange={e => setFormData({...formData, slug: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="qualifications">保有資格</Label>
+                                        <Input 
+                                            id="qualifications" 
+                                            placeholder="例: RYT200, 理学療法士" 
+                                            value={formData.qualifications || ''}
+                                            onChange={e => setFormData({...formData, qualifications: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="instagram">Instagram URL</Label>
+                                        <Input 
+                                            id="instagram" 
+                                            placeholder="https://instagram.com/..." 
+                                            className="font-mono text-xs"
+                                            value={formData.instagram || ''}
+                                            onChange={e => setFormData({...formData, instagram: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="facebook">Facebook URL</Label>
+                                        <Input 
+                                            id="facebook" 
+                                            placeholder="https://facebook.com/..." 
+                                            className="font-mono text-xs"
+                                            value={formData.facebook || ''}
+                                            onChange={e => setFormData({...formData, facebook: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="bio">自己紹介</Label>
+                                    <Textarea 
+                                        id="bio" 
+                                        placeholder="プロフィール文を入力..." 
+                                        className="h-24 resize-none"
+                                        value={formData.bio || ''}
+                                        onChange={e => setFormData({...formData, bio: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
+                        <Button onClick={handleSubmit} disabled={!formData.name || !formData.slug || !formData.role}>
+                            {editingProfile ? '更新する' : '登録する'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
