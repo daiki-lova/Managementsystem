@@ -42,4 +42,5 @@ export interface ConversionItem {
     clicks: number;
     cv: number;
     period?: string;
+    context?: string;
 }

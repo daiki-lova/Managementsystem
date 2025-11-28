@@ -7,6 +7,19 @@ import { LoginView } from './components/auth/LoginView';
 import { MobileRestrictionView } from './components/mobile/MobileRestrictionView';
 import { AnimatePresence, motion } from 'motion/react';
 import React, { useState, useEffect } from 'react';
+import { Toaster } from './components/ui/sonner';
+import { toast } from 'sonner@2.0.3';
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./components/ui/dialog";
+import { Calendar } from './components/ui/calendar';
+import { Button } from './components/ui/button';
 import type { AppMode, BlockData, ViewState } from './types';
 
 export default function App() {
@@ -15,8 +28,13 @@ export default function App() {
   const [view, setView] = useState<ViewState>('dashboard');
   const [mode, setMode] = useState<AppMode>('write');
   const [status, setStatus] = useState<'draft' | 'saving' | 'saved'>('saved');
+  const [articleStatus, setArticleStatus] = useState<'draft' | 'review' | 'published' | 'scheduled'>('draft');
   const [showPreview, setShowPreview] = useState(false);
   const [dashboardTab, setDashboardTab] = useState<DashboardTab>('home');
+
+  // Schedule Dialog State
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(new Date());
 
   // Mobile Detection
   useEffect(() => {
@@ -49,6 +67,96 @@ export default function App() {
     }, 800);
   };
 
+  const handlePublish = () => {
+    const isUpdating = articleStatus === 'published';
+    setStatus('saving');
+    
+    if (isUpdating) {
+        toast("更新処理を開始しました...", {
+            description: "変更内容を反映しています。",
+        });
+    } else {
+        toast("公開処理を開始しました...", {
+            description: "記事のバリデーションとビルドを実行中です。",
+        });
+    }
+
+    setTimeout(() => {
+        setStatus('saved');
+        setArticleStatus('published');
+        
+        if (isUpdating) {
+             toast.success("記事を更新しました！", {
+                description: "最新の内容が公開されました。",
+            });
+            // For update, we might stay in editor or go back?
+            // Usually stay in editor for quick fixes, but let's consistent with publish
+            // Let's stay in editor for update, go back for new publish?
+            // User request didn't specify, but usually updates allow continued editing.
+            // Let's keep it simple and just toast success for now.
+        } else {
+            toast.success("記事を公開しました！", {
+                description: "記事一覧画面に戻ります。",
+            });
+            // Return to dashboard after a short delay only for new publish
+             setTimeout(() => {
+                setDashboardTab('posts');
+                setView('dashboard');
+            }, 1500);
+        }
+    }, 2000);
+  };
+
+  const handleScheduleOpen = () => {
+      setScheduleDate(new Date());
+      setIsScheduleDialogOpen(true);
+  };
+
+  const handleScheduleConfirm = () => {
+      if (!scheduleDate) return;
+
+      setStatus('saving');
+      setIsScheduleDialogOpen(false);
+      
+      // Mock Scheduling Process
+      setTimeout(() => {
+          setStatus('saved');
+          setArticleStatus('scheduled');
+          toast.success("公開予約が完了しました", {
+              description: `${format(scheduleDate, 'yyyy年MM月dd日 HH:mm', { locale: ja })} に公開されます。`,
+          });
+          
+           setTimeout(() => {
+            setDashboardTab('posts');
+            setView('dashboard');
+        }, 1500);
+      }, 1000);
+  };
+
+  const handleUnpublish = () => {
+      if (confirm("記事を非公開にしますか？\n公開済みの記事が見られなくなります。")) {
+          setStatus('saving');
+          setTimeout(() => {
+            setStatus('saved');
+            setArticleStatus('draft');
+            toast("記事を非公開にしました", {
+                description: "下書きとして保存されました。",
+            });
+          }, 800);
+      }
+  };
+
+  const handleSaveDraft = () => {
+      setStatus('saving');
+      setTimeout(() => {
+        setStatus('saved');
+        setArticleStatus('draft');
+        toast.success("下書きとして保存しました", {
+            description: "いつでも編集を再開できます。",
+        });
+      }, 800);
+  };
+
   const handleNavigateToEditor = (articleId?: string, initialTitle?: string) => {
       if (articleId === 'a2') { // Scenario: "瞑想を続けるための3つのコツ" (AI Generated Draft)
           setTitle(initialTitle || '瞑想を続けるための3つのコツ');
@@ -70,6 +178,7 @@ export default function App() {
           setTags(["瞑想", "習慣化", "マインドフルネス"]);
           setSlug("meditation-tips");
           setDescription("瞑想が続かない人向けに、脳科学に基づいた習慣化のコツを3つ紹介します。");
+          setArticleStatus('draft'); // Reset to draft for editing scenario
       } else if (initialTitle) {
           // Other existing articles
           setTitle(initialTitle);
@@ -79,6 +188,7 @@ export default function App() {
           setTags([]);
           setSlug("");
           setDescription("");
+          setArticleStatus('draft');
       } else {
           // New Article
           setTitle(''); 
@@ -88,12 +198,18 @@ export default function App() {
           setTags([]);
           setSlug("");
           setDescription("");
+          setArticleStatus('draft');
       }
       setView('editor');
   };
 
   if (!isAuthenticated) {
-      return <LoginView onLogin={() => setIsAuthenticated(true)} />;
+      return (
+          <>
+            <LoginView onLogin={() => setIsAuthenticated(true)} />
+            <Toaster />
+          </>
+      );
   }
 
   // Mobile Restriction Logic for Non-Dashboard Views
@@ -103,28 +219,37 @@ export default function App() {
 
   if (view === 'dashboard') {
     return (
-        <Dashboard 
-            onNavigateToEditor={handleNavigateToEditor} 
-            isMobile={isMobile}
-            onLogout={() => setIsAuthenticated(false)}
-            initialTab={dashboardTab}
-        />
+        <>
+            <Dashboard 
+                onNavigateToEditor={handleNavigateToEditor} 
+                isMobile={isMobile}
+                onLogout={() => setIsAuthenticated(false)}
+                initialTab={dashboardTab}
+            />
+            <Toaster />
+        </>
     );
   }
 
   return (
     <div className="h-screen bg-[#F5F7FA] text-neutral-900 font-sans selection:bg-blue-100 flex flex-col overflow-hidden">
+      <Toaster />
       {/* Global Navigation */}
       <div className="flex-none z-50">
         <GlobalHeader 
             mode={mode} 
             setMode={setMode} 
             status={status} 
+            articleStatus={articleStatus}
             onBack={() => {
-            setDashboardTab('posts');
-            setView('dashboard');
+                setDashboardTab('posts');
+                setView('dashboard');
             }}
             onPreview={() => setShowPreview(true)}
+            onPublish={handlePublish}
+            onSchedule={handleScheduleOpen}
+            onSaveDraft={handleSaveDraft}
+            onUnpublish={handleUnpublish}
             title={title}
             thumbnail={thumbnail}
         />
@@ -139,6 +264,28 @@ export default function App() {
         category={category}
         tags={tags}
       />
+      
+      {/* Editor Schedule Dialog */}
+      <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+                <DialogTitle>公開日時を設定</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 flex justify-center">
+                <Calendar
+                    mode="single"
+                    selected={scheduleDate}
+                    onSelect={setScheduleDate}
+                    className="rounded-md border"
+                    locale={ja}
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsScheduleDialogOpen(false)}>キャンセル</Button>
+                <Button onClick={handleScheduleConfirm}>予約する</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <main className="flex-1 overflow-y-auto relative pt-8">
         {/* Write Mode (Always rendered, essentially the base layer) */}
@@ -163,6 +310,7 @@ export default function App() {
           setMetaTitle={setMetaTitle}
           ogImage={ogImage}
           setOgImage={setOgImage}
+          isPublished={articleStatus === 'published'}
         />
       </main>
     </div>

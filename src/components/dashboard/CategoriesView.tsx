@@ -24,6 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../ui/popover';
+import { BulkActionBar } from './BulkActionBar';
 import { cn } from '../../lib/utils';
 import type { Category } from '../../types';
 
@@ -132,6 +133,24 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
         setSortConfig(direction ? { key, direction } : null);
     };
 
+    const handleClearSelection = () => {
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkDelete = () => {
+        // In a real app, you would delete multiple items here
+        const newCategories = categories.filter(c => !selectedIds.has(c.id));
+        onCategoriesChange?.(newCategories);
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkPublish = () => {
+        // Categories don't usually have a "publish" state like articles, 
+        // but we'll keep the interface consistent or maybe just show a toast
+        console.log("Bulk action for categories");
+        setSelectedIds(new Set());
+    };
+
     const renderHeaderCell = (label: string, key: string, width: number, filterOptions?: string[]) => {
         const isFilterable = !!filterOptions;
         const isSortable = true;
@@ -231,13 +250,6 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                         </Button>
                     )}
                 </div>
-                <div className="flex items-center gap-2">
-                    {selectedIds.size > 0 && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200">
-                            <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
-                        </Button>
-                    )}
-                </div>
             </div>
 
             {/* Table View */}
@@ -260,7 +272,6 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                             {renderHeaderCell("スラッグ", "slug", 150)}
                             {renderHeaderCell("監修者設定", "supervisorName", 180)}
                             {renderHeaderCell("システムプロンプト", "systemPrompt", 250)}
-                            {renderHeaderCell("説明", "description", 200)}
                             {renderHeaderCell("記事数", "count", 80)}
                         </tr>
                     </thead>
@@ -358,11 +369,6 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                                     )}
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
-                                    <p className="text-xs text-neutral-500 line-clamp-1">
-                                        {category.description}
-                                    </p>
-                                </td>
-                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
                                     <span className="text-xs font-medium text-neutral-600">
                                         {category.count}
                                     </span>
@@ -371,141 +377,272 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                         ))}
                     </tbody>
                 </table>
+
+                <BulkActionBar 
+                    selectedCount={selectedIds.size}
+                    onClearSelection={handleClearSelection}
+                    onPublish={handleBulkPublish}
+                    onDelete={handleBulkDelete}
+                />
             </div>
 
             {/* Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>{editingCategory ? 'カテゴリーを編集' : '新しいカテゴリーを追加'}</DialogTitle>
-                        <DialogDescription>
-                            記事を分類するためのカテゴリー情報を入力してください。
-                        </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">カテゴリー名 <span className="text-red-500">*</span></Label>
-                            <Input 
-                                id="name" 
-                                placeholder="例: ヨガ" 
-                                value={formData.name || ''}
-                                onChange={e => setFormData({...formData, name: e.target.value})}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="slug">スラグ (URL) <span className="text-red-500">*</span></Label>
-                            <Input 
-                                id="slug" 
-                                placeholder="例: yoga" 
-                                className="font-mono text-xs"
-                                value={formData.slug || ''}
-                                onChange={e => setFormData({...formData, slug: e.target.value})}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="description">説明</Label>
-                            <Textarea 
-                                id="description" 
-                                placeholder="カテゴリーの説明を入力してください..."
-                                className="h-20 resize-none"
-                                value={formData.description || ''}
-                                onChange={e => setFormData({...formData, description: e.target.value})}
-                            />
-                        </div>
+                <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden rounded-xl h-[85vh] max-h-[800px] flex flex-col">
+                    <div className="grid grid-cols-12 flex-1 min-h-0">
+                        {/* Left Column: Basic Info */}
+                        <div className="col-span-5 flex flex-col border-r border-neutral-100 bg-white h-full overflow-hidden">
+                            <DialogHeader className="px-5 py-4 flex-none border-b border-neutral-50">
+                                <DialogTitle className="text-base font-bold text-neutral-900">{editingCategory ? 'カテゴリー編集' : 'カテゴリー追加'}</DialogTitle>
+                                <DialogDescription className="sr-only">
+                                    カテゴリーの基本情報とAI生成設定を編集します。
+                                </DialogDescription>
+                            </DialogHeader>
 
-                        <div className="border-t border-neutral-100 pt-4 mt-2 space-y-4">
-                            <div className="flex items-center gap-2">
-                                <Sparkles size={16} className="text-amber-500" />
-                                <h3 className="text-sm font-bold text-neutral-900">AI生成設定（監修者・プロンプト）</h3>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="supervisor">監修者名</Label>
-                                    <Input 
-                                        id="supervisor" 
-                                        placeholder="例: 高橋 エマ"
-                                        value={formData.supervisorName || ''}
-                                        onChange={e => setFormData({...formData, supervisorName: e.target.value})}
-                                    />
+                            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+                                {/* Category Info Group */}
+                                <div className="space-y-3">
+                                    <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">基本情報</h3>
+                                    <div className="space-y-3">
+                                        <div className="grid gap-1.5">
+                                            <Label htmlFor="name" className="text-xs">カテゴリー名 <span className="text-red-500">*</span></Label>
+                                            <Input 
+                                                id="name" 
+                                                placeholder="例: ヨガ" 
+                                                className="h-8 text-xs"
+                                                value={formData.name || ''}
+                                                onChange={e => setFormData({...formData, name: e.target.value})}
+                                            />
+                                        </div>
+                                        <div className="grid gap-1.5">
+                                            <Label htmlFor="slug" className="text-xs">スラグ (URL) <span className="text-red-500">*</span></Label>
+                                            <Input 
+                                                id="slug" 
+                                                placeholder="例: yoga" 
+                                                className="font-mono text-xs h-8"
+                                                value={formData.slug || ''}
+                                                onChange={e => setFormData({...formData, slug: e.target.value})}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="role">肩書き/資格</Label>
-                                    <Input 
-                                        id="role" 
-                                        placeholder="例: RYT200 認定講師"
-                                        value={formData.supervisorRole || ''}
-                                        onChange={e => setFormData({...formData, supervisorRole: e.target.value})}
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="grid gap-2">
-                                <Label>監修者アイコン画像</Label>
-                                <div className="flex items-start gap-4">
-                                    {formData.supervisorImage ? (
-                                        <div className="relative w-16 h-16 rounded-full overflow-hidden border border-neutral-200 group">
-                                            <img src={formData.supervisorImage} alt="Preview" className="w-full h-full object-cover" />
-                                            <button 
-                                                onClick={() => setFormData({...formData, supervisorImage: undefined})}
-                                                className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                <X className="text-white" size={16} />
-                                            </button>
+                                <div className="w-full h-px bg-neutral-100" />
+
+                                {/* Supervisor Info Group */}
+                                <div className="space-y-3">
+                                    <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">監修者プロフィール</h3>
+                                    <div className="grid gap-1.5">
+                                        <Label className="text-xs">アイコン画像</Label>
+                                        <div className="flex items-center gap-3">
+                                            {formData.supervisorImage ? (
+                                                <div className="relative w-12 h-12 rounded-full overflow-hidden border border-neutral-200 group shrink-0">
+                                                    <img src={formData.supervisorImage} alt="Preview" className="w-full h-full object-cover" />
+                                                    <button 
+                                                        onClick={() => setFormData({...formData, supervisorImage: undefined})}
+                                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <X className="text-white" size={14} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div 
+                                                    className="w-12 h-12 rounded-full bg-neutral-50 flex flex-col items-center justify-center text-neutral-400 hover:bg-neutral-100 cursor-pointer transition-colors border-2 border-dashed border-neutral-200 hover:border-neutral-300 shrink-0"
+                                                    onClick={() => document.getElementById('supervisor-image-upload')?.click()}
+                                                >
+                                                    <ImageIcon size={16} className="mb-0.5" />
+                                                    <span className="text-[8px] font-bold">Upload</span>
+                                                </div>
+                                            )}
+                                            <input 
+                                                id="supervisor-image-upload"
+                                                type="file" 
+                                                accept="image/*" 
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            setFormData({ ...formData, supervisorImage: reader.result as string });
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                            />
+                                            <div className="flex-1">
+                                                <p className="text-[10px] text-neutral-400 leading-tight">
+                                                    200x200px 推奨
+                                                </p>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div 
-                                            className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400 hover:bg-neutral-200 cursor-pointer transition-colors border border-neutral-200"
-                                            onClick={() => document.getElementById('supervisor-image-upload')?.click()}
-                                        >
-                                            <ImageIcon size={20} />
-                                        </div>
-                                    )}
-                                    <input 
-                                        id="supervisor-image-upload"
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="hidden"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                const reader = new FileReader();
-                                                reader.onloadend = () => {
-                                                    setFormData({ ...formData, supervisorImage: reader.result as string });
-                                                };
-                                                reader.readAsDataURL(file);
-                                            }
-                                        }}
-                                    />
-                                    <div className="flex-1 pt-1">
-                                        <p className="text-[11px] text-neutral-500">
-                                            クリックして画像をアップロード、またはドラッグ&ドロップ。<br />
-                                            推奨: 200x200px (正方形)
-                                        </p>
+                                    </div>
+
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="supervisor" className="text-xs">監修者名</Label>
+                                        <Input 
+                                            id="supervisor" 
+                                            placeholder="例: 高橋 エマ"
+                                            className="h-8 text-xs"
+                                            value={formData.supervisorName || ''}
+                                            onChange={e => setFormData({...formData, supervisorName: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="role" className="text-xs">肩書き/資格</Label>
+                                        <Input 
+                                            id="role" 
+                                            placeholder="例: RYT200 認定講師"
+                                            className="h-8 text-xs"
+                                            value={formData.supervisorRole || ''}
+                                            onChange={e => setFormData({...formData, supervisorRole: e.target.value})}
+                                        />
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="prompt">システムプロンプト（トーン・ルール）</Label>
-                                <Textarea 
-                                    id="prompt" 
-                                    placeholder="例: 初心者に寄り添う優しいトーンで執筆してください。専門用語には必ず解説を入れてください。"
-                                    className="h-24 resize-none text-xs font-mono leading-relaxed"
-                                    value={formData.systemPrompt || ''}
-                                    onChange={e => setFormData({...formData, systemPrompt: e.target.value})}
-                                />
-                                <p className="text-[10px] text-neutral-400">
-                                    このカテゴリーの記事をAI生成する際に、常に適用される指示です。
-                                </p>
+                        {/* Right Column: AI Settings */}
+                        <div className="col-span-7 flex flex-col bg-neutral-50/30 h-full overflow-hidden">
+                            <div className="flex-none px-5 py-4 border-b border-neutral-200/50 bg-neutral-50/80 backdrop-blur-sm z-10 flex items-center justify-between h-[57px]">
+                                <div className="flex items-center gap-2 text-neutral-700">
+                                    <Sparkles size={14} className="text-amber-500" />
+                                    <h3 className="font-bold text-xs">AI記事生成設定</h3>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+                                {/* Context */}
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="supervisor-context" className="text-xs text-neutral-900">専門家コンテキスト</Label>
+                                    <div className="p-2 bg-white rounded-lg border border-neutral-200 shadow-sm focus-within:ring-1 focus-within:ring-neutral-900 transition-all">
+                                        <Textarea 
+                                            id="supervisor-context" 
+                                            placeholder="専門知識・経験・得意分野など..."
+                                            className="min-h-[60px] h-16 border-none p-1 resize-none text-xs leading-relaxed focus-visible:ring-0 bg-transparent"
+                                            value={(formData as any).expertContext || ''}
+                                            onChange={e => setFormData({...formData, expertContext: e.target.value} as any)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Tone & Style */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-neutral-900">文体・トーン設定</Label>
+                                    <div className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm space-y-3">
+                                        {/* Style Radio */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <label className={cn(
+                                                "flex items-center gap-2 p-2 rounded border cursor-pointer transition-all hover:bg-neutral-50",
+                                                (formData as any).writingStyle !== 'da-dearu' ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900" : "border-neutral-200"
+                                            )}>
+                                                <input 
+                                                    type="radio" 
+                                                    name="writingStyle" 
+                                                    value="desu-masu"
+                                                    checked={(formData as any).writingStyle !== 'da-dearu'}
+                                                    onChange={() => setFormData({...formData, writingStyle: 'desu-masu'} as any)}
+                                                    className="hidden"
+                                                />
+                                                <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center shrink-0", (formData as any).writingStyle !== 'da-dearu' ? "border-neutral-900" : "border-neutral-300")}>
+                                                    {(formData as any).writingStyle !== 'da-dearu' && <div className="w-1.5 h-1.5 rounded-full bg-neutral-900" />}
+                                                </div>
+                                                <span className="text-xs font-bold text-neutral-900">です・ます調</span>
+                                            </label>
+
+                                            <label className={cn(
+                                                "flex items-center gap-2 p-2 rounded border cursor-pointer transition-all hover:bg-neutral-50",
+                                                (formData as any).writingStyle === 'da-dearu' ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900" : "border-neutral-200"
+                                            )}>
+                                                <input 
+                                                    type="radio" 
+                                                    name="writingStyle" 
+                                                    value="da-dearu"
+                                                    checked={(formData as any).writingStyle === 'da-dearu'}
+                                                    onChange={() => setFormData({...formData, writingStyle: 'da-dearu'} as any)}
+                                                    className="hidden"
+                                                />
+                                                <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center shrink-0", (formData as any).writingStyle === 'da-dearu' ? "border-neutral-900" : "border-neutral-300")}>
+                                                    {(formData as any).writingStyle === 'da-dearu' && <div className="w-1.5 h-1.5 rounded-full bg-neutral-900" />}
+                                                </div>
+                                                <span className="text-xs font-bold text-neutral-900">だ・である調</span>
+                                            </label>
+                                        </div>
+
+                                        {/* Tone Slider */}
+                                        <div className="space-y-2 pt-2 border-t border-neutral-100">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-neutral-500">トーンレベル</span>
+                                                <span className="text-[10px] font-bold text-neutral-900 bg-neutral-100 px-1.5 py-0.5 rounded">Lv.{(formData as any).toneLevel ?? 3}</span>
+                                            </div>
+                                            <input 
+                                                type="range" 
+                                                min="1" 
+                                                max="5" 
+                                                step="1"
+                                                value={(formData as any).toneLevel ?? 3}
+                                                onChange={(e) => setFormData({...formData, toneLevel: parseInt(e.target.value)} as any)}
+                                                className="w-full accent-neutral-900 h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                            <div className="flex justify-between">
+                                                <span className="text-[10px] font-medium text-neutral-400">フォーマル</span>
+                                                <span className="text-[10px] font-medium text-neutral-400">カジュアル</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Persona */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">一人称</Label>
+                                        <select 
+                                            className="flex h-8 w-full rounded-md border border-neutral-200 bg-white px-3 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-neutral-900 transition-shadow"
+                                            value={(formData as any).firstPerson || 'watashi'}
+                                            onChange={(e) => setFormData({...formData, firstPerson: e.target.value} as any)}
+                                        >
+                                            <option value="watashi">私</option>
+                                            <option value="hissha">筆者</option>
+                                            <option value="none">使用しない</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">読者の呼び方</Label>
+                                        <select 
+                                            className="flex h-8 w-full rounded-md border border-neutral-200 bg-white px-3 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-neutral-900 transition-shadow"
+                                            value={(formData as any).readerAddressing || 'anata'}
+                                            onChange={(e) => setFormData({...formData, readerAddressing: e.target.value} as any)}
+                                        >
+                                            <option value="anata">あなた</option>
+                                            <option value="minasan">皆さん</option>
+                                            <option value="minasama">皆さま</option>
+                                            <option value="none">使用しない</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Additional Rules */}
+                                <div className="space-y-1.5 pb-2">
+                                    <Label htmlFor="prompt" className="text-xs">追加の文体ルール</Label>
+                                    <div className="p-2 bg-white rounded-lg border border-neutral-200 shadow-sm focus-within:ring-1 focus-within:ring-neutral-900 transition-all">
+                                        <Textarea 
+                                            id="prompt" 
+                                            placeholder="その他の特定の表現ルール..."
+                                            className="h-12 border-none p-1 resize-none text-xs leading-relaxed focus-visible:ring-0 bg-transparent"
+                                            value={formData.systemPrompt || ''}
+                                            onChange={e => setFormData({...formData, systemPrompt: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Footer Actions inside Right Column to stick to bottom */}
+                            <div className="flex-none p-4 border-t border-neutral-200 bg-white flex justify-end gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="text-xs h-8">キャンセル</Button>
+                                <Button size="sm" onClick={handleSubmit} className="bg-neutral-900 text-white hover:bg-neutral-800 px-6 shadow-md text-xs h-8">保存</Button>
                             </div>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
-                        <Button onClick={handleSubmit} className="bg-neutral-900 text-white hover:bg-neutral-800">保存</Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

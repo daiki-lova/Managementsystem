@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Hash, PenTool, Plus, Trash2, Search, MoreVertical, Copy, ChevronDown, ArrowUpZA, ArrowDownAZ, X } from 'lucide-react';
+import { BulkActionBar } from './BulkActionBar';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -139,6 +140,21 @@ export function TagsView() {
         setSortConfig(direction ? { key, direction } : null);
     };
 
+    const handleClearSelection = () => {
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkDelete = () => {
+        const newTags = tags.filter(t => !selectedIds.has(t.id));
+        setTags(newTags);
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkPublish = () => {
+        // Tags don't have publish state usually
+        setSelectedIds(new Set());
+    };
+
     const renderHeaderCell = (label: string, key: string, width: number, filterOptions?: string[]) => {
         const isFilterable = !!filterOptions;
         const isSortable = true;
@@ -238,13 +254,6 @@ export function TagsView() {
                         </Button>
                     )}
                 </div>
-                <div className="flex items-center gap-2">
-                    {selectedIds.size > 0 && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200">
-                            <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
-                        </Button>
-                    )}
-                </div>
             </div>
 
             {/* Table View */}
@@ -335,6 +344,13 @@ export function TagsView() {
                         ))}
                     </tbody>
                 </table>
+
+                <BulkActionBar 
+                    selectedCount={selectedIds.size}
+                    onClearSelection={handleClearSelection}
+                    onPublish={handleBulkPublish}
+                    onDelete={handleBulkDelete}
+                />
             </div>
 
             {/* Dialog */}

@@ -18,17 +18,12 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { cn } from '../../lib/utils';
 import type { Article, Category, ConversionItem } from '../../types';
 import { AnalyticsView } from './AnalyticsView';
-import { WritingView } from './WritingView'; // Deprecated but kept for safe removal
 import { AuthorsView } from './AuthorsView';
 import { CategoriesView } from './CategoriesView';
 import { TagsView } from './TagsView';
 import { ArticlePreviewModal } from './ArticlePreviewModal';
-import { ContentPlanningView } from './AutopilotView';
-import { DashboardHome } from './DashboardHome';
 import { SettingsView } from './SettingsView';
-import { KeywordsView } from './KeywordsView';
 import { PromptsView } from './PromptsView';
-import { AIPlannerView } from './AIPlannerView';
 import { StrategyView, GeneratedArticleData } from './StrategyView';
 import { ConversionsView } from './ConversionsView';
 import { MediaLibraryView } from './MediaLibraryView';
@@ -520,8 +515,15 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
           )}>
               
             {activeTab === 'home' && (
-                <div className="h-full w-full p-8 overflow-y-auto">
-                    <AnalyticsView onCreateArticle={(title) => onNavigateToEditor(undefined, title)} />
+                <div className={cn(
+                    "h-full w-full overflow-y-auto",
+                    isMobile ? "p-0" : "p-8"
+                )}>
+                    <AnalyticsView 
+                        onCreateArticle={(title) => onNavigateToEditor(undefined, title)} 
+                        onNavigateToPosts={() => setActiveTab('posts')}
+                        isMobile={isMobile}
+                    />
                 </div>
             )}
             {activeTab === 'posts' && (
@@ -568,7 +570,14 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
             {userRole === 'owner' && activeTab === 'tags' && <div className="p-6 h-full overflow-y-auto"><TagsView /></div>}
             {userRole === 'owner' && activeTab === 'authors' && <div className="p-6 h-full overflow-y-auto"><AuthorsView /></div>}
             {userRole === 'owner' && activeTab === 'settings' && <div className="p-6 h-full overflow-y-auto"><SettingsView /></div>}
-            {userRole === 'owner' && activeTab === 'analytics' && <div className="p-8 h-full overflow-y-auto"><AnalyticsView onCreateArticle={(title) => onNavigateToEditor(undefined, title)} /></div>}
+            {userRole === 'owner' && activeTab === 'analytics' && (
+                <div className="p-8 h-full overflow-y-auto">
+                    <AnalyticsView 
+                        onCreateArticle={(title) => onNavigateToEditor(undefined, title)} 
+                        onNavigateToPosts={() => setActiveTab('posts')}
+                    />
+                </div>
+            )}
           </div>
         </div>
       </main>
@@ -615,6 +624,9 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>カテゴリーを追加</DialogTitle>
+            <DialogDescription>
+              記事を分類するための新しいカテゴリーを作成します。
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">

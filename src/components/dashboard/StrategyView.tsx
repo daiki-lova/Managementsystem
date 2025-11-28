@@ -14,6 +14,7 @@ import {
 } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import type { Category, ConversionItem } from '../../types';
+import { GenerationProgressModal } from './GenerationProgressModal';
 
 export type GeneratedArticleData = {
     title: string;
@@ -37,7 +38,13 @@ export function StrategyView({
 }) {
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
     const [selectedConversionIds, setSelectedConversionIds] = useState<Set<string>>(new Set());
-    const [isGenerating, setIsGenerating] = useState(false);
+    
+    // Modal State
+    const [progressModalOpen, setProgressModalOpen] = useState(false);
+    const [currentStep, setCurrentStep] = useState(0);
+    const [progress, setProgress] = useState(0);
+    const [genStatus, setGenStatus] = useState<'idle' | 'processing' | 'error' | 'completed'>('idle');
+    const [generatedResult, setGeneratedResult] = useState<GeneratedArticleData[]>([]);
     
     // Options
     const [generateCount, setGenerateCount] = useState(1);
@@ -66,7 +73,11 @@ export function StrategyView({
 
     const handleGenerate = () => {
         if (totalTasks === 0) return;
-        setIsGenerating(true);
+        
+        setProgressModalOpen(true);
+        setGenStatus('processing');
+        setCurrentStep(0);
+        setProgress(0);
         
         // Create tasks for all combinations
         const tasks: { catId: string, cvId: string, index: number }[] = [];
@@ -78,66 +89,90 @@ export function StrategyView({
             });
         });
 
-        // Simulate bulk generation
-        setTimeout(() => {
-            const generatedArticles: GeneratedArticleData[] = [];
+        // Simulate bulk generation with steps
+        let step = 0;
+        let prog = 0;
+        const interval = setInterval(() => {
+            prog += 1; // Slower
+            if (prog > 100) prog = 100;
+            
+            // Map progress to steps
+            if (prog < 15) step = 0;
+            else if (prog < 30) step = 1;
+            else if (prog < 55) step = 2;
+            else if (prog < 75) step = 3;
+            else if (prog < 90) step = 4;
+            else step = 5;
 
-            tasks.forEach((task, globalIndex) => {
-                const category = categories.find(c => c.id === task.catId);
-                const conversion = conversions.find(c => c.id === task.cvId);
-                
-                let title = `[${category?.name}] ${conversion?.name}`;
-                if (generateCount > 1) {
-                    title += ` (案${task.index + 1})`;
-                }
-                
-                // Determine Status and PublishedAt
-                let status: 'draft' | 'published' | 'scheduled' = 'draft';
-                let publishedAt = '-';
+            setCurrentStep(step);
+            setProgress(prog);
 
-                if (scheduleMode === 'schedule') {
-                    status = 'scheduled';
-                    publishedAt = `${startDate} ${postTime}`;
-                    const dateStr = new Date(startDate).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
-                    title += ` [${dateStr} ${postTime} 公開予約]`; // Keep title suffix for visibility if needed, or remove
-                } else if (scheduleMode === 'now') {
-                    status = 'published';
-                    const now = new Date();
-                    publishedAt = now.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '-');
-                    const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-                    title += ` [${timeStr} 公開済み]`;
-                } else {
-                    status = 'draft';
-                    title += ` [下書き]`;
-                }
+            if (prog >= 100) {
+                clearInterval(interval);
                 
-                generatedArticles.push({
-                    title,
-                    status,
-                    publishedAt,
-                    category: category?.name || '未分類'
+                const generatedArticles: GeneratedArticleData[] = [];
+
+                tasks.forEach((task, globalIndex) => {
+                    const category = categories.find(c => c.id === task.catId);
+                    const conversion = conversions.find(c => c.id === task.cvId);
+                    
+                    let title = `[${category?.name}] ${conversion?.name}`;
+                    if (generateCount > 1) {
+                        title += ` (案${task.index + 1})`;
+                    }
+                    
+                    // Determine Status and PublishedAt
+                    let status: 'draft' | 'published' | 'scheduled' = 'draft';
+                    let publishedAt = '-';
+
+                    if (scheduleMode === 'schedule') {
+                        status = 'scheduled';
+                        publishedAt = `${startDate} ${postTime}`;
+                        const dateStr = new Date(startDate).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
+                        title += ` [${dateStr} ${postTime} 公開予約]`; 
+                    } else if (scheduleMode === 'now') {
+                        status = 'published';
+                        const now = new Date();
+                        publishedAt = now.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '-');
+                        const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                        title += ` [${timeStr} 公開済み]`;
+                    } else {
+                        status = 'draft';
+                        title += ` [下書き]`;
+                    }
+                    
+                    generatedArticles.push({
+                        title,
+                        status,
+                        publishedAt,
+                        category: category?.name || '未分類'
+                    });
                 });
-            });
 
-            onGenerate(generatedArticles);
-            setIsGenerating(false);
-        }, 3000); 
+                setGeneratedResult(generatedArticles);
+                setGenStatus('completed');
+            }
+        }, 50); 
+    };
+
+    const handleComplete = () => {
+        onGenerate(generatedResult);
+        setProgressModalOpen(false);
     };
 
     return (
-        <div className="flex flex-col h-full bg-white text-neutral-900 font-sans relative">
-             {/* Header - Compact */}
-             <header className="h-16 flex-none px-6 flex items-center justify-between border-b border-neutral-100 bg-white">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-lg font-bold tracking-tight text-neutral-900">AI記事企画</h1>
-                    <span className="text-xs text-neutral-400 font-medium">|</span>
-                    <p className="text-xs text-neutral-500 font-medium">カテゴリーとコンバージョンを選択して記事構成を一括生成</p>
+        <div className="flex flex-col h-full bg-white p-6">
+             {/* Header - Consistent with CategoriesView/PostsView */}
+             <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-xl font-bold tracking-tight text-neutral-900">AI記事企画</h1>
+                    <p className="text-sm text-neutral-500 font-medium">カテゴリーとコンバージョンを選択して記事構成を一括生成</p>
                 </div>
             </header>
 
-            <div className="flex-1 overflow-hidden flex relative">
+            <div className="flex-1 min-h-0 bg-white flex overflow-hidden relative">
                 {/* Left Column: Selection Area (Scrollable) */}
-                <div className="flex-1 overflow-y-auto p-6 border-r border-neutral-100">
+                <div className="flex-1 overflow-y-auto p-6">
                     <div className="max-w-3xl space-y-8">
                         
                         {/* Step 1: Category */}
@@ -147,7 +182,7 @@ export function StrategyView({
                                     <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">1</span>
                                     <h2 className="text-sm font-bold text-neutral-900">カテゴリー</h2>
                                 </div>
-                                <div className="text-[10px] font-medium text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
+                                <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
                                     {selectedCategoryIds.size} 選択中
                                 </div>
                             </div>
@@ -158,8 +193,8 @@ export function StrategyView({
                                     return (
                                         <button
                                             key={cat.id}
-                                            onClick={() => !isGenerating && toggleCategory(cat.id)}
-                                            disabled={isGenerating}
+                                            onClick={() => genStatus !== 'processing' && toggleCategory(cat.id)}
+                                            disabled={genStatus === 'processing'}
                                             className={cn(
                                                 "relative p-3 rounded-lg border text-left transition-all group flex items-center justify-between",
                                                 isSelected
@@ -168,7 +203,7 @@ export function StrategyView({
                                             )}
                                         >
                                             <div className="min-w-0 flex-1 mr-2">
-                                                <h3 className="font-bold text-neutral-900 text-xs mb-0.5 truncate">{cat.name}</h3>
+                                                <h3 className={cn("font-bold text-xs mb-0.5 truncate", isSelected ? "text-neutral-900" : "text-neutral-900")}>{cat.name}</h3>
                                                 <div className="flex items-center gap-1 text-[10px] text-neutral-500 truncate">
                                                     <UserCheck size={10} />
                                                     <span>{cat.supervisorName || '未設定'}</span>
@@ -197,7 +232,7 @@ export function StrategyView({
                                     <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">2</span>
                                     <h2 className="text-sm font-bold text-neutral-900">コンバージョン</h2>
                                 </div>
-                                <div className="text-[10px] font-medium text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
+                                <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
                                     {selectedConversionIds.size} 選択中
                                 </div>
                             </div>
@@ -208,12 +243,12 @@ export function StrategyView({
                                     return (
                                         <button
                                             key={cv.id}
-                                            onClick={() => !isGenerating && toggleConversion(cv.id)}
-                                            disabled={isGenerating}
+                                            onClick={() => genStatus !== 'processing' && toggleConversion(cv.id)}
+                                            disabled={genStatus === 'processing'}
                                             className={cn(
                                                 "px-3 py-2.5 rounded-lg border text-xs font-bold transition-all text-left flex items-center justify-between",
                                                 isSelected
-                                                    ? "border-neutral-900 bg-neutral-900 text-white shadow-sm"
+                                                    ? "border-neutral-900 bg-neutral-900 text-white shadow-sm shadow-neutral-200"
                                                     : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300"
                                             )}
                                         >
@@ -235,27 +270,7 @@ export function StrategyView({
                 {/* Right Column: Settings & Action (Fixed Width) */}
                 <div className="w-[360px] flex flex-col border-l border-neutral-100 bg-neutral-50/50 relative overflow-hidden">
                     
-                    {/* Loading Overlay */}
-                    <AnimatePresence>
-                        {isGenerating && (
-                            <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="absolute inset-0 z-20 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center"
-                            >
-                                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4 animate-pulse">
-                                    <Loader2 size={32} className="text-blue-600 animate-spin" />
-                                </div>
-                                <h3 className="text-lg font-bold text-neutral-900 mb-2">AI記事生成中...</h3>
-                                <p className="text-xs text-neutral-500 max-w-[240px] leading-relaxed">
-                                    トレンド分析を行い、最適な記事構成を作成しています。<br/>そのままお待ちください。
-                                </p>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    <div className={cn("p-6 space-y-6 flex-1 overflow-y-auto transition-opacity duration-300", isGenerating ? "opacity-30 pointer-events-none" : "opacity-100")}>
+                    <div className={cn("p-6 space-y-6 flex-1 overflow-y-auto transition-opacity duration-300", genStatus === 'processing' ? "opacity-30 pointer-events-none" : "opacity-100")}>
                         <div className="flex items-center gap-2 mb-2">
                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">3</span>
                              <h2 className="text-sm font-bold text-neutral-900">生成オプション</h2>
@@ -359,7 +374,7 @@ export function StrategyView({
                     </div>
 
                     {/* Footer / Generate Action */}
-                    <div className={cn("p-6 bg-white border-t border-neutral-200 transition-opacity duration-300", isGenerating ? "opacity-30 pointer-events-none" : "opacity-100")}>
+                    <div className={cn("p-6 bg-white border-t border-neutral-200 transition-opacity duration-300", genStatus === 'processing' ? "opacity-30 pointer-events-none" : "opacity-100")}>
                         <div className="flex items-center justify-between mb-4 text-xs">
                             <span className="text-neutral-500">生成対象</span>
                             <span className="font-bold text-neutral-900 text-base">{totalTasks} <span className="text-xs font-normal text-neutral-500">記事</span></span>
@@ -368,7 +383,7 @@ export function StrategyView({
                         <Button 
                             size="lg" 
                             className="w-full rounded-full h-12 text-sm font-bold shadow-lg shadow-neutral-200 bg-neutral-900 text-white hover:bg-neutral-800"
-                            disabled={totalTasks === 0 || isGenerating}
+                            disabled={totalTasks === 0 || genStatus === 'processing'}
                             onClick={handleGenerate}
                         >
                             <Sparkles className="mr-2" size={16} />
@@ -377,6 +392,22 @@ export function StrategyView({
                     </div>
                 </div>
             </div>
+            
+            <GenerationProgressModal
+                isOpen={progressModalOpen}
+                currentStepIndex={currentStep}
+                progress={progress}
+                articleCount={totalTasks}
+                status={genStatus === 'idle' ? 'processing' : genStatus}
+                onCancel={() => {
+                    setGenStatus('idle'); // or error logic
+                    setProgressModalOpen(false);
+                }}
+                onComplete={handleComplete}
+                onRetry={handleGenerate}
+                onSavePartial={handleComplete} // Simplified for demo
+                successCount={Math.floor(totalTasks * (progress / 100))} // Mock success count
+            />
         </div>
     );
 }

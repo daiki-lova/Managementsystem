@@ -302,10 +302,10 @@ export function SettingsView() {
                         </div>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Analysis Prompt */}
+                            {/* 1行目左：キーワード分析・企画 */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-bold text-neutral-900">トレンド分析・企画プロンプト</Label>
+                                    <Label className="text-sm font-bold text-neutral-900">キーワード分析・企画</Label>
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
                                 </div>
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
@@ -319,13 +319,13 @@ export function SettingsView() {
 3. SEOにおける勝ち筋（共起語、関連クエリの網羅）`}
                                     />
                                 </div>
-                                <p className="text-[10px] text-neutral-400 pl-1">※ 「かんたん企画」などの機能で、構成案を作成する際に使用されるベースプロンプトです。</p>
+                                <p className="text-[10px] text-neutral-400 pl-1">キーワードの検索意図分析と記事企画の作成時に使用されます</p>
                             </div>
 
-                            {/* Article Structure Prompt */}
+                            {/* 1行目右：構成案生成 */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-bold text-neutral-900">記事構成・アウトラインプロンプト</Label>
+                                    <Label className="text-sm font-bold text-neutral-900">構成案生成</Label>
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
                                 </div>
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
@@ -340,62 +340,40 @@ export function SettingsView() {
 - 記事の最後には、具体的なアクションプラン（まとめ）を提示する`}
                                     />
                                 </div>
-                                <p className="text-[10px] text-neutral-400 pl-1">※ 記事の骨子（見出し構成）を作成する際に適用される共通ルールです。</p>
+                                <p className="text-[10px] text-neutral-400 pl-1">H2・H3見出しの階層構造を作成する際に使用されます</p>
+                            </div>
+
+                            {/* 2行目左：校正・推敲 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-sm font-bold text-neutral-900">校正・推敲</Label>
+                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
+                                </div>
+                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
+                                    <Textarea 
+                                        className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
+                                        placeholder="校正・推敲の指示を入力してください..."
+                                    />
+                                </div>
+                                <p className="text-[10px] text-neutral-400 pl-1">誤字脱字、表記ゆれ、ファクトチェックの基準として使用されます</p>
+                            </div>
+
+                            {/* 2行目右：SEO最適化 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-sm font-bold text-neutral-900">SEO最適化</Label>
+                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
+                                </div>
+                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
+                                    <Textarea 
+                                        className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
+                                        placeholder="SEO最適化の指示を入力してください..."
+                                    />
+                                </div>
+                                <p className="text-[10px] text-neutral-400 pl-1">メタ情報の生成、キーワード配置、内部リンク提案に使用されます</p>
                             </div>
                         </div>
                     </section>
-
-                    <div className="w-full h-px bg-neutral-100"></div>
-
-                    {/* Group 4: Safety Rules */}
-                    <section>
-                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-rose-600">
-                                <Shield size={16} strokeWidth={2.5} />
-                            </div>
-                            <h2 className="text-lg font-bold text-neutral-900">品質・安全設定</h2>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-6">
-                             {/* Rule 1 */}
-                            <div className="p-5 rounded-2xl border border-neutral-200 bg-white space-y-4">
-                                <div className="flex items-start justify-between">
-                                    <div className="p-2 bg-rose-50 text-rose-600 rounded-lg inline-block">
-                                        <AlertCircle size={18} />
-                                    </div>
-                                    <Switch defaultChecked={true} />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-neutral-900 text-sm">YMYLフィルター</h3>
-                                    <p className="text-xs text-neutral-500 mt-1 leading-relaxed">医療・金融など、リスクの高いトピックを自動検知して除外します</p>
-                                </div>
-                            </div>
-
-                            {/* Rule 2 */}
-                            <div className="p-5 rounded-2xl border border-neutral-200 bg-white space-y-4">
-                                <div className="flex items-start justify-between">
-                                    <div className="p-2 bg-neutral-100 text-neutral-600 rounded-lg inline-block">
-                                        <Settings size={18} />
-                                    </div>
-                                    <Switch defaultChecked={true} />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-neutral-900 text-sm">ブランドボイス診断</h3>
-                                    <p className="text-xs text-neutral-500 mt-1 leading-relaxed">すべてのコンテンツがブランドのトーン＆マナーに沿っているか診断します</p>
-                                </div>
-                            </div>
-
-                            {/* Custom Block List */}
-                            <div className="p-5 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50/50 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-neutral-100 transition-colors group">
-                                <div className="w-10 h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center mb-3 group-hover:border-neutral-300 shadow-sm text-neutral-400 group-hover:text-neutral-900 transition-colors">
-                                    <Settings size={18} />
-                                </div>
-                                <span className="text-xs font-bold text-neutral-900">禁止ワード管理</span>
-                                <span className="text-[10px] text-neutral-400 mt-0.5">12件 登録済み</span>
-                            </div>
-                        </div>
-                    </section>
-
                 </div>
             </div>
         </div>

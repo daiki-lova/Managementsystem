@@ -19,19 +19,31 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
+import { TaskSummaryCards } from './TaskSummaryCards';
+import { AnalyticsDetailView } from './AnalyticsDetailView';
 
 interface AnalyticsViewProps {
     onCreateArticle: (title: string) => void;
+    onNavigateToPosts: () => void;
+    isMobile?: boolean;
 }
 
-export function AnalyticsView({ onCreateArticle }: AnalyticsViewProps) {
+export function AnalyticsView({ onCreateArticle, onNavigateToPosts, isMobile }: AnalyticsViewProps) {
+  const [viewMode, setViewMode] = useState<'overview' | 'detail'>('overview');
   const [date, setDate] = useState<{ from: Date; to: Date } | undefined>({
     from: subDays(new Date(), 30),
     to: new Date(),
   });
 
+  if (viewMode === 'detail') {
+      return <AnalyticsDetailView onBack={() => setViewMode('overview')} isMobile={isMobile} />;
+  }
+
   return (
-    <div className="flex flex-col h-full space-y-8">
+    <div className={cn(
+        "flex flex-col space-y-8 pb-20",
+        isMobile ? "w-[93%] mx-auto py-6" : "w-full"
+    )}>
       {/* Header Area */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-neutral-100 pb-6">
         <div className="flex items-center gap-10">
@@ -79,120 +91,201 @@ export function AnalyticsView({ onCreateArticle }: AnalyticsViewProps) {
       </header>
 
       <div className="space-y-10">
-        <OverviewTab />
+        <OverviewTab 
+            onNavigateToPosts={onNavigateToPosts} 
+            onNavigateToDetail={() => setViewMode('detail')}
+        />
       </div>
     </div>
   );
 }
 
-function OverviewTab() {
-  const data = [
-    { name: '3/1', pv: 4000, users: 2400, sessions: 2800 },
-    { name: '3/2', pv: 3000, users: 1398, sessions: 1500 },
-    { name: '3/3', pv: 2000, users: 9800, sessions: 10200 },
-    { name: '3/4', pv: 2780, users: 3908, sessions: 4100 },
-    { name: '3/5', pv: 1890, users: 4800, sessions: 5000 },
-    { name: '3/6', pv: 2390, users: 3800, sessions: 4000 },
-    { name: '3/7', pv: 3490, users: 4300, sessions: 4600 },
-  ];
+function OverviewTab({ onNavigateToPosts, onNavigateToDetail }: { onNavigateToPosts: () => void, onNavigateToDetail: () => void }) {
+  const [metric, setMetric] = useState<'pv' | 'users' | 'sessions'>('pv');
+
+  // Mock Data Logic
+  const getData = () => {
+      const baseData = [
+          { name: '3/1', pv: 4000, users: 2400, sessions: 2800 },
+          { name: '3/2', pv: 3000, users: 1398, sessions: 1500 },
+          { name: '3/3', pv: 2000, users: 9800, sessions: 10200 },
+          { name: '3/4', pv: 2780, users: 3908, sessions: 4100 },
+          { name: '3/5', pv: 1890, users: 4800, sessions: 5000 },
+          { name: '3/6', pv: 2390, users: 3800, sessions: 4000 },
+          { name: '3/7', pv: 3490, users: 4300, sessions: 4600 },
+      ];
+
+      // Slightly randomize or transform based on metric to simulate change
+      if (metric === 'users') {
+          return baseData.map(d => ({ ...d, value: d.users }));
+      } else if (metric === 'sessions') {
+          return baseData.map(d => ({ ...d, value: d.sessions }));
+      }
+      return baseData.map(d => ({ ...d, value: d.pv }));
+  };
+
+  const data = getData();
+  const metricLabel = metric === 'pv' ? 'ページビュー' : metric === 'users' ? 'ユーザー数' : 'セッション';
+  const metricColor = metric === 'pv' ? '#3b82f6' : metric === 'users' ? '#ec4899' : '#8b5cf6';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
+      <TaskSummaryCards 
+          draftCount={12}
+          reviewCount={3}
+          scheduledCount={2}
+          publishedThisWeekCount={8}
+          scheduleTimes={["10:00", "14:00"]}
+          onNavigateToDrafts={onNavigateToPosts}
+          onNavigateToReviews={onNavigateToPosts}
+      />
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard 
-          label="PV (ページビュー)" 
-          value="124,592" 
-          trend="+12.5%" 
-          icon={<BarChart3 size={14} strokeWidth={1.5} />} 
-        />
-        <KpiCard 
-          label="ユーザー数" 
-          value="45,200" 
-          trend="+5.2%" 
-          icon={<Users size={14} strokeWidth={1.5} />} 
-        />
-        <KpiCard 
-          label="平均セッション時間" 
-          value="2m 14s" 
-          trend="+18.0%" 
-          icon={<Search size={14} strokeWidth={1.5} />} 
-        />
-        <KpiCard 
-          label="直帰率" 
-          value="42.8%" 
-          trend="-0.1%" 
-          icon={<MousePointerClick size={14} strokeWidth={1.5} />} 
-          negative={false}
-          trendColor="text-green-500" // Lower bounce rate is good
-        />
-      </div>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+             <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                <BarChart3 size={16} />
+                主要指標サマリー
+             </h3>
+             <Button variant="ghost" size="sm" onClick={onNavigateToDetail} className="text-xs text-neutral-500 h-7">レポート詳細 <ArrowRight size={12} className="ml-1"/></Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <KpiCard 
+            label="PV (ページビュー)" 
+            value="124,592" 
+            trend="+12.5%" 
+            icon={<BarChart3 size={14} strokeWidth={1.5} />} 
+            />
+            <KpiCard 
+            label="ユーザー数" 
+            value="45,200" 
+            trend="+5.2%" 
+            icon={<Users size={14} strokeWidth={1.5} />} 
+            />
+            <KpiCard 
+            label="平均セッション時間" 
+            value="2m 14s" 
+            trend="+18.0%" 
+            icon={<Search size={14} strokeWidth={1.5} />} 
+            />
+            <KpiCard 
+            label="直帰率" 
+            value="42.8%" 
+            trend="-0.1%" 
+            icon={<MousePointerClick size={14} strokeWidth={1.5} />} 
+            negative={false}
+            trendColor="text-green-500" // Lower bounce rate is good
+            />
+        </div>
+      </section>
 
       {/* Main Chart */}
-      <div className="bg-white p-5 rounded-lg border border-neutral-100 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-            <h3 className="font-medium text-xs text-neutral-900">トラフィック推移</h3>
-            <div className="flex gap-2">
-                <select className="text-xs border border-neutral-200 rounded px-2 py-1 outline-none focus:border-blue-400">
-                    <option>ページビュー</option>
-                    <option>ユーザー数</option>
-                    <option>セッション</option>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+             <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                <TrendingUp size={16} />
+                トラフィック推移
+             </h3>
+             <div className="flex items-center gap-2">
+                <select className="text-xs bg-transparent border-none font-medium text-neutral-500 outline-none cursor-pointer hover:text-neutral-900 transition-colors">
+                    <option>過去30日間</option>
+                    <option>過去7日間</option>
+                </select>
+                <Button variant="outline" size="sm" onClick={onNavigateToDetail} className="h-7 text-xs">詳細分析</Button>
+             </div>
+        </div>
+        <div className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ background: metricColor }} />
+                        <span className="text-xs font-medium text-neutral-600">{metricLabel}</span>
+                    </div>
+                    <div className="flex items-center gap-2 opacity-50">
+                        <div className="w-2 h-2 rounded-full bg-neutral-300" />
+                        <span className="text-xs font-medium text-neutral-600">前期間</span>
+                    </div>
+                </div>
+                <select 
+                    value={metric}
+                    onChange={(e) => setMetric(e.target.value as any)}
+                    className="text-xs border border-neutral-200 rounded-lg px-2 py-1.5 outline-none focus:border-neutral-900 bg-neutral-50"
+                >
+                    <option value="pv">ページビュー</option>
+                    <option value="users">ユーザー数</option>
+                    <option value="sessions">セッション</option>
                 </select>
             </div>
+            <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                    <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={metricColor} stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor={metricColor} stopOpacity={0}/>
+                    </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f5" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#aaa'}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#aaa'}} />
+                <Tooltip 
+                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.1)', fontSize: '12px'}}
+                    cursor={{ stroke: '#f5f5f5', strokeWidth: 2 }}
+                />
+                <Area type="monotone" dataKey="value" stroke={metricColor} strokeWidth={2} fillOpacity={1} fill="url(#colorMetric)" activeDot={{ r: 6, strokeWidth: 0 }} />
+                </AreaChart>
+            </ResponsiveContainer>
+            </div>
         </div>
-        <div className="h-[250px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <defs>
-                <linearGradient id="colorPv" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f5" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#aaa'}} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#aaa'}} />
-              <Tooltip 
-                contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '12px'}}
-              />
-              <Area type="monotone" dataKey="pv" stroke="#3b82f6" strokeWidth={1.5} fillOpacity={1} fill="url(#colorPv)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      </section>
 
       {/* Article Ranking */}
-      <div className="bg-white rounded-lg border border-neutral-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-neutral-50 flex items-center justify-between">
-            <h3 className="font-medium text-xs text-neutral-900">記事別パフォーマンス</h3>
-            <Button variant="ghost" size="sm" className="text-[11px] text-neutral-400 hover:text-neutral-600 h-6">すべて見る <ArrowRight size={12} className="ml-1"/></Button>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+             <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                <Lightbulb size={16} />
+                記事パフォーマンス・ランキング
+             </h3>
+             <Button variant="ghost" size="sm" className="text-xs text-neutral-500 h-7" onClick={onNavigateToPosts}>記事一覧へ <ArrowRight size={12} className="ml-1"/></Button>
         </div>
-        <table className="w-full text-left">
-            <thead className="text-[10px] text-neutral-400 font-medium bg-neutral-50/50">
-                <tr>
-                    <th className="px-5 py-2 font-medium">記事タイトル</th>
-                    <th className="px-5 py-2 font-medium text-right">PV</th>
-                    <th className="px-5 py-2 font-medium text-right">滞在時間</th>
-                    <th className="px-5 py-2 font-medium text-right">CTR</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-50 text-[11px]">
-                {[
-                    { title: "AI時代のブログ運用は「直感×分析」で勝つ", pv: 12400, time: "3:42", ctr: "4.2%" },
-                    { title: "Next.js 14の新機能を徹底解説", pv: 8500, time: "2:15", ctr: "2.8%" },
-                    { title: "SEOに強い記事構成のテンプレート配布", pv: 5400, time: "5:20", ctr: "8.5%" },
-                    { title: "Figma to Code の実践的ワークフロー", pv: 3200, time: "4:10", ctr: "3.1%" },
-                ].map((row, i) => (
-                    <tr key={i} className="hover:bg-neutral-50/50 transition-colors">
-                        <td className="px-5 py-2.5 font-medium text-neutral-700">{row.title}</td>
-                        <td className="px-5 py-2.5 text-right font-mono text-neutral-500">{row.pv.toLocaleString()}</td>
-                        <td className="px-5 py-2.5 text-right font-mono text-neutral-500">{row.time}</td>
-                        <td className="px-5 py-2.5 text-right font-mono text-neutral-500">{row.ctr}</td>
+        <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+            <table className="w-full text-left">
+                <thead className="text-[10px] text-neutral-400 font-medium bg-neutral-50 border-b border-neutral-100">
+                    <tr>
+                        <th className="px-6 py-3 font-medium">記事タイトル</th>
+                        <th className="px-6 py-3 font-medium text-right">PV</th>
+                        <th className="px-6 py-3 font-medium text-right">滞在時間</th>
+                        <th className="px-6 py-3 font-medium text-right">CTR</th>
+                        <th className="px-4 py-3 w-[50px]"></th>
                     </tr>
-                ))}
-            </tbody>
-        </table>
-      </div>
+                </thead>
+                <tbody className="divide-y divide-neutral-50 text-xs">
+                    {[
+                        { title: "AI時代のブログ運用は「直感×分析」で勝つ", pv: 12400, time: "3:42", ctr: "4.2%" },
+                        { title: "Next.js 14の新機能を徹底解説", pv: 8500, time: "2:15", ctr: "2.8%" },
+                        { title: "SEOに強い記事構成のテンプレート配布", pv: 5400, time: "5:20", ctr: "8.5%" },
+                        { title: "Figma to Code の実践的ワークフロー", pv: 3200, time: "4:10", ctr: "3.1%" },
+                        { title: "2024年のWebデザインカオスマップ公開", pv: 2800, time: "1:50", ctr: "1.2%" },
+                    ].map((row, i) => (
+                        <tr key={i} className="hover:bg-neutral-50 transition-colors group cursor-pointer">
+                            <td className="px-6 py-4 font-bold text-neutral-700 group-hover:text-neutral-900">{row.title}</td>
+                            <td className="px-6 py-4 text-right font-mono text-neutral-600">{row.pv.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-right font-mono text-neutral-600">{row.time}</td>
+                            <td className="px-6 py-4 text-right font-mono text-neutral-600">{row.ctr}</td>
+                            <td className="px-4 py-4 text-center">
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-300 hover:text-neutral-900">
+                                    <ArrowRight size={14} />
+                                </Button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <div className="p-2 border-t border-neutral-100 bg-neutral-50">
+                <Button variant="ghost" size="sm" className="w-full text-xs text-neutral-500 hover:text-neutral-900 h-8">もっと見る</Button>
+            </div>
+        </div>
+      </section>
     </div>
   );
 }

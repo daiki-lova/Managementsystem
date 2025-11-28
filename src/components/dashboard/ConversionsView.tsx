@@ -23,6 +23,7 @@ import {
     DialogTitle,
 } from "../ui/dialog";
 import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
 import {
     Select,
     SelectContent,
@@ -344,6 +345,19 @@ export function ConversionsView({ conversions = [], onConversionsChange }: Conve
                                 onChange={(e) => setFormData({...formData, period: e.target.value})}
                                 placeholder="例: 2024/12/01 - 2025/01/31" 
                             />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="context" className="text-xs font-bold text-neutral-500">コンテキスト (AI生成用)</Label>
+                            <Textarea 
+                                id="context" 
+                                value={formData.context || ''} 
+                                onChange={(e) => setFormData({...formData, context: e.target.value})}
+                                placeholder="このコンバージョンを記事内で紹介する際の文脈や訴求ポイントを入力してください..." 
+                                className="h-20 resize-none text-xs"
+                            />
+                            <p className="text-[10px] text-neutral-400">
+                                記事生成時にAIがこの情報を参照して、自然な形で商品やサービスを紹介します。
+                            </p>
                         </div>
                     </div>
                     <DialogFooter>

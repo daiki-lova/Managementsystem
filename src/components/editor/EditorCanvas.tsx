@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { AppMode, BlockData } from '../../types';
 import { HtmlBlock } from './HtmlBlock';
+import { PublishedEditWarning } from '../dashboard/PublishedEditWarning';
 import {
     Popover,
     PopoverContent,
@@ -49,6 +50,7 @@ interface EditorCanvasProps {
   setMetaTitle: (t: string) => void;
   ogImage: string | undefined;
   setOgImage: (url: string | undefined) => void;
+  isPublished?: boolean;
 }
 
 const MOCK_IMAGES = [
@@ -65,7 +67,8 @@ const AVAILABLE_TAGS = ["ヨガ", "ピラティス", "初心者向け", "健康"
 export function EditorCanvas({ 
     title, setTitle, blocks, setBlocks, mode,
     thumbnail, setThumbnail, category, setCategory, tags, setTags, slug, setSlug, description, setDescription,
-    metaTitle, setMetaTitle, ogImage, setOgImage
+    metaTitle, setMetaTitle, ogImage, setOgImage,
+    isPublished = false
 }: EditorCanvasProps) {
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
@@ -127,6 +130,11 @@ export function EditorCanvas({
     <div className="flex w-full min-h-full relative bg-[#F5F7FA]">
       {/* Main Editor Area */}
       <div className="flex-1 transition-all duration-300 ease-in-out flex flex-col items-center">
+          
+          {/* Warning Banner */}
+          <div className="w-full sticky top-0 z-30">
+              <PublishedEditWarning isPublished={isPublished} />
+          </div>
           
           <div className="w-full max-w-[850px] px-16 pb-40 bg-white min-h-[calc(100vh-8rem)] shadow-[0_0_20px_-5px_rgba(0,0,0,0.03)] border-x border-black/5">
               

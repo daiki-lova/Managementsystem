@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { 
   Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon, 
-  ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool
+  ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,
+  Send, Calendar as CalendarIcon, Ban
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -10,6 +11,9 @@ import { Article } from '../../types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Avatar, AvatarFallback } from "../ui/avatar";
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import { Calendar } from '../ui/calendar';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -23,6 +27,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../ui/dialog";
+
+import { BulkActionBar } from './BulkActionBar';
 
 export type ExtendedArticle = Article & { 
     categories: string[];
@@ -120,7 +133,7 @@ function DraggableHeader({
         <th 
             ref={ref}
             className={cn(
-                "px-4 py-3.5 relative bg-neutral-50/80 select-none whitespace-nowrap text-[11px] text-neutral-500 font-medium group border-b border-neutral-200 border-r border-neutral-100/50",
+                "px-4 py-2.5 relative bg-neutral-50/80 select-none whitespace-nowrap text-xs text-neutral-500 font-medium group border-b border-neutral-200 border-r border-neutral-100/50",
                 isDragging && "opacity-50",
                 isSticky && "sticky z-20",
                 className
@@ -211,10 +224,10 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
         { id: 'status', label: 'ステータス', width: 100, minWidth: 100 },
         { id: 'title', label: 'タイトル', width: 300, minWidth: 200 },
         { id: 'thumbnail', label: 'サムネイル', width: 80, minWidth: 80 },
-        { id: 'author', label: '執筆者', width: 120, minWidth: 100 },
         { id: 'categories', label: 'カテゴリー', width: 150, minWidth: 120 },
         { id: 'tags', label: 'タグ', width: 180, minWidth: 120 },
         { id: 'pv', label: 'PV数', width: 80, minWidth: 80 },
+        { id: 'cv', label: 'CV数', width: 80, minWidth: 80 },
         { id: 'updatedAt', label: '更新日', width: 140, minWidth: 120 },
         { id: 'publishedAt', label: '公開日', width: 140, minWidth: 120 },
         { id: 'slug', label: 'スラッグ', width: 150, minWidth: 120 },
@@ -223,6 +236,10 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [filters, setFilters] = useState<Record<string, Set<string>>>({});
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    // Schedule Dialog State
+    const [schedulingArticle, setSchedulingArticle] = useState<ExtendedArticle | null>(null);
+    const [scheduleDate, setScheduleDate] = useState<Date | undefined>(new Date());
 
     const moveColumn = useCallback((dragIndex: number, hoverIndex: number) => {
         setColumns((prevColumns) => {
@@ -312,6 +329,53 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
         setFilters(newFilters);
     };
 
+    const handlePublish = (article: ExtendedArticle) => {
+        const updatedData = data.map(d => 
+            d.id === article.id 
+                ? { ...d, status: 'published', publishedAt: format(new Date(), 'yyyy-MM-dd HH:mm') } as ExtendedArticle 
+                : d
+        );
+        onDataChange(updatedData);
+    };
+
+    const handleUnpublish = (article: ExtendedArticle) => {
+         const updatedData = data.map(d => 
+            d.id === article.id 
+                ? { ...d, status: 'draft' } as ExtendedArticle 
+                : d
+        );
+        onDataChange(updatedData);
+    };
+
+    const handleScheduleConfirm = () => {
+        if (!schedulingArticle || !scheduleDate) return;
+        
+        const updatedData = data.map(d => 
+            d.id === schedulingArticle.id 
+                ? { ...d, status: 'scheduled', publishedAt: format(scheduleDate, 'yyyy-MM-dd HH:mm') } as ExtendedArticle 
+                : d
+        );
+        onDataChange(updatedData);
+        setSchedulingArticle(null);
+    };
+
+    const handleClearSelection = () => {
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkDelete = () => {
+        const newIds = new Set(selectedIds);
+        onDataChange(data.filter(d => !newIds.has(d.id)));
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkPublish = () => {
+        const newIds = new Set(selectedIds);
+        const updated = data.map(d => newIds.has(d.id) ? { ...d, status: 'published', publishedAt: format(new Date(), 'yyyy-MM-dd HH:mm') } as ExtendedArticle : d);
+        onDataChange(updated);
+        setSelectedIds(new Set());
+    };
+
     return (
         <DndProvider backend={HTML5Backend}>
             <div className="w-full h-full overflow-auto relative">
@@ -394,19 +458,43 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
                                                             <MoreVertical size={14} />
                                                         </button>
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="start" className="w-32">
+                                                    <DropdownMenuContent align="start" className="w-48">
                                                         <DropdownMenuItem onClick={() => onPreview(article)}>
                                                             <Eye size={14} className="mr-2" /> プレビュー
-                                                        </DropdownMenuItem>
-                                                         <DropdownMenuItem onClick={() => {
-                                                             const newArticle = { ...article, id: Math.random().toString(36).substr(2, 9), title: `${article.title} (Copy)`, status: 'draft' };
-                                                             onDataChange([...data, newArticle as ExtendedArticle]);
-                                                         }}>
-                                                            <Copy size={14} className="mr-2" /> 複製
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => onEdit(article.id)}>
                                                             <PenTool size={14} className="mr-2" /> 編集
                                                         </DropdownMenuItem>
+                                                         <DropdownMenuItem onClick={() => {
+                                                              const newArticle = { ...article, id: Math.random().toString(36).substr(2, 9), title: `${article.title} (Copy)`, status: 'draft' };
+                                                              onDataChange([...data, newArticle as ExtendedArticle]);
+                                                          }}>
+                                                             <Copy size={14} className="mr-2" /> 複製
+                                                        </DropdownMenuItem>
+                                                        
+                                                        <DropdownMenuSeparator />
+                                                        
+                                                        {(article.status === 'draft' || article.status === 'review') && (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => handlePublish(article)} className="text-blue-600 focus:text-blue-600">
+                                                                    <Send size={14} className="mr-2" /> 公開する
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => {
+                                                                    setSchedulingArticle(article);
+                                                                    setScheduleDate(new Date());
+                                                                }}>
+                                                                    <CalendarIcon size={14} className="mr-2" /> 予約公開
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                        
+                                                        {article.status === 'published' && (
+                                                            <DropdownMenuItem onClick={() => handleUnpublish(article)} className="text-orange-600 focus:text-orange-600">
+                                                                <Ban size={14} className="mr-2" /> 非公開にする
+                                                            </DropdownMenuItem>
+                                                        )}
+
+                                                        <DropdownMenuSeparator />
                                                         <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => onDataChange(data.filter(d => d.id !== article.id))}>
                                                             <Trash2 size={14} className="mr-2" /> 削除
                                                         </DropdownMenuItem>
@@ -415,26 +503,62 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
                                             )}
 
                                             {column.id === 'status' && (
-                                                <div className="flex items-center gap-2">
-                                                    <div className={cn(
-                                                        "w-2 h-2 rounded-full",
-                                                        article.status === 'published' ? "bg-emerald-500" :
-                                                        article.status === 'scheduled' ? "bg-orange-400" :
-                                                        article.status === 'draft' ? "bg-neutral-300" :
-                                                        "bg-blue-500" // review
-                                                    )} />
-                                                    <span className={cn(
-                                                        "text-[11px] font-medium",
-                                                        article.status === 'published' ? "text-emerald-700" :
-                                                        article.status === 'scheduled' ? "text-orange-700" :
-                                                        article.status === 'draft' ? "text-neutral-500" :
-                                                        "text-blue-700"
-                                                    )}>
-                                                        {article.status === 'published' ? '公開中' :
-                                                         article.status === 'scheduled' ? '公開予約' :
-                                                         article.status === 'draft' ? '下書き' : 'レビュー中'}
-                                                    </span>
-                                                </div>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button className="flex items-center gap-2 hover:bg-neutral-100 px-2 py-1.5 -ml-2 rounded transition-colors outline-none group/status w-full text-left">
+                                                            <div className={cn(
+                                                                "w-2 h-2 rounded-full shrink-0",
+                                                                article.status === 'published' ? "bg-emerald-500" :
+                                                                article.status === 'scheduled' ? "bg-orange-400" :
+                                                                article.status === 'draft' ? "bg-neutral-300" :
+                                                                "bg-blue-500" // review
+                                                            )} />
+                                                            <span className={cn(
+                                                                "text-[11px] font-medium flex-1 whitespace-nowrap",
+                                                                article.status === 'published' ? "text-emerald-700" :
+                                                                article.status === 'scheduled' ? "text-orange-700" :
+                                                                article.status === 'draft' ? "text-neutral-500" :
+                                                                "text-blue-700"
+                                                            )}>
+                                                                {article.status === 'published' ? '公開中' :
+                                                                 article.status === 'scheduled' ? '公開予約' :
+                                                                 article.status === 'draft' ? '下書き' : 'レビュー中'}
+                                                            </span>
+                                                            <ChevronDown size={12} className="text-neutral-400 opacity-0 group-hover/status:opacity-100 transition-opacity" />
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="start" className="w-40">
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const updated = data.map(d => d.id === article.id ? { ...d, status: 'draft' } as ExtendedArticle : d);
+                                                            onDataChange(updated);
+                                                        }}>
+                                                            <div className="w-2 h-2 rounded-full bg-neutral-300 mr-2" />
+                                                            下書き
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const updated = data.map(d => d.id === article.id ? { ...d, status: 'review' } as ExtendedArticle : d);
+                                                            onDataChange(updated);
+                                                        }}>
+                                                            <div className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                                                            レビュー中
+                                                        </DropdownMenuItem>
+                                                        
+                                                        <DropdownMenuItem onClick={() => {
+                                                            const updated = data.map(d => d.id === article.id ? { ...d, status: 'published', publishedAt: format(new Date(), 'yyyy-MM-dd HH:mm') } as ExtendedArticle : d);
+                                                            onDataChange(updated);
+                                                        }}>
+                                                            <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
+                                                            公開済みにする
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            setSchedulingArticle(article);
+                                                            setScheduleDate(new Date());
+                                                        }}>
+                                                            <div className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
+                                                            予約公開...
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             )}
 
                                             {column.id === 'title' && (
@@ -495,6 +619,11 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
                                                 <span className="text-[11px] text-neutral-500 font-mono">{article.pv.toLocaleString()}</span>
                                             )}
 
+                                            {column.id === 'cv' && (
+                                                // Mocking CV count based on PV for now, since it's not in the type yet
+                                                <span className="text-[11px] text-neutral-500 font-mono">{Math.floor(article.pv * 0.02).toLocaleString()}</span>
+                                            )}
+
                                             {(column.id === 'updatedAt' || column.id === 'publishedAt') && (
                                                 <span className="text-[11px] text-neutral-500 font-mono">
                                                     {/* @ts-ignore */}
@@ -514,7 +643,36 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
                         ))}
                     </tbody>
                 </table>
+
+                <BulkActionBar
+                    selectedCount={selectedIds.size}
+                    onClearSelection={handleClearSelection}
+                    onPublish={handleBulkPublish}
+                    onDelete={handleBulkDelete}
+                />
             </div>
+
+             {/* Schedule Dialog */}
+            <Dialog open={!!schedulingArticle} onOpenChange={(open) => !open && setSchedulingArticle(null)}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>公開日時を設定</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 flex justify-center">
+                        <Calendar
+                            mode="single"
+                            selected={scheduleDate}
+                            onSelect={setScheduleDate}
+                            className="rounded-md border"
+                            locale={ja}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSchedulingArticle(null)}>キャンセル</Button>
+                        <Button onClick={handleScheduleConfirm}>設定する</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </DndProvider>
     );
 }
@@ -527,65 +685,50 @@ export function PostsView({
     onPreview,
     onSwitchToStrategy 
 }: PostsViewProps) {
-    const [searchQuery, setSearchQuery] = useState('');
-    
-    const filteredData = data.filter(post => 
-        post.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        (post.slug && post.slug.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full bg-white">
+            {/* Header - Consistent with CategoriesView */}
             <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-bold tracking-tight text-neutral-900">記事一覧</h1>
-                    <p className="text-sm text-neutral-500 font-medium">記事コンテンツの管理・編集</p>
+                    <p className="text-sm text-neutral-500 font-medium">公開済みの記事と下書きを管理します。</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={18} />
                         <Input 
+                            placeholder="記事を検索..." 
                             className="w-[300px] pl-11 h-12 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded-full text-sm font-medium transition-all"
-                            placeholder="記事を検索..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button className="h-12 !px-8 rounded-full bg-neutral-900 text-white font-bold hover:bg-neutral-800 shadow-sm">
+                            <Button className="h-12 !px-6 rounded-full bg-neutral-900 text-white font-bold hover:bg-neutral-800 shadow-sm gap-2">
                                 新規作成
+                                <ChevronDown size={16} className="text-neutral-400" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuLabel>作成方法を選択</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={onSwitchToStrategy} className="cursor-pointer">
-                                <Sparkles size={14} className="mr-2 text-indigo-500" />
-                                <div className="flex flex-col">
-                                    <span className="font-medium">AIで記事を作成</span>
-                                    <span className="text-[10px] text-neutral-500">AI記事企画から提案</span>
-                                </div>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={onSwitchToStrategy} className="cursor-pointer py-2.5">
+                                <Sparkles size={16} className="mr-2 text-purple-500" />
+                                <span>AIで作成</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onNavigateToEditor()} className="cursor-pointer">
-                                <PenTool size={14} className="mr-2" />
-                                    <div className="flex flex-col">
-                                    <span className="font-medium">手動で作成</span>
-                                    <span className="text-[10px] text-neutral-500">エディタを開く</span>
-                                </div>
+                            <DropdownMenuItem onClick={() => onNavigateToEditor()} className="cursor-pointer py-2.5">
+                                <PenTool size={16} className="mr-2 text-neutral-500" />
+                                <span>手動で作成</span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
             </header>
-            <div className="flex-1 overflow-hidden relative">
+            
+            <div className="flex-1 overflow-hidden flex flex-col relative bg-white">
                 <ArticlesTable 
-                    data={filteredData}
-                    onDataChange={onDataChange}
-                    onEdit={(id) => onNavigateToEditor(id)} 
-                    userRole={userRole} 
-                    onPreview={onPreview} 
+                    data={data} 
+                    onDataChange={onDataChange} 
+                    onEdit={onNavigateToEditor} 
+                    userRole={userRole}
+                    onPreview={onPreview}
                 />
             </div>
         </div>
