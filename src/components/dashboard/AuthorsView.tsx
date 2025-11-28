@@ -20,98 +20,19 @@ import {
     DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from '../ui/popover';
 import { cn } from '../../lib/utils';
+import type { Profile } from '../../types';
 
-interface Profile {
-    id: string;
-    name: string;
-    slug: string;        // URL用スラグ
-    role: string;        // 肩書き
-    qualifications: string; // 資格
-    categories: string[]; // 得意カテゴリー
-    tags: string[];      // タグ
-    instagram?: string;  // Instagram URL
-    facebook?: string;   // Facebook URL
-    avatar?: string;
-    bio?: string;
+interface AuthorsViewProps {
+    profiles?: Profile[];
+    onProfilesChange?: (profiles: Profile[]) => void;
 }
 
-const MOCK_PROFILES_DATA: Profile[] = [
-    { 
-        id: 'mika', 
-        name: 'Mika Sensei', 
-        slug: 'mika-sensei',
-        role: 'ヨガインストラクター', 
-        qualifications: 'RYT200, マタニティヨガ認定',
-        categories: ['ヨガ', 'ストレッチ', '瞑想'],
-        tags: ['初心者歓迎', '産後ケア', '骨盤矯正'],
-        instagram: 'https://instagram.com/mika_yoga',
-        facebook: 'https://facebook.com/mikayoga',
-        avatar: 'https://images.unsplash.com/photo-1658279445014-dcc466ac1192?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
-        bio: '初心者から上級者まで、心と体に寄り添う指導を心がけています。'
-    },
-    { 
-        id: 'sarah', 
-        name: 'Sarah Smith', 
-        slug: 'sarah-smith',
-        role: 'シニアエディター', 
-        qualifications: '管理栄養士, 健康運動指導士',
-        categories: ['食事', '栄養', 'ダイエット'],
-        tags: ['低糖質', 'タンパク質', '海外トレンド'],
-        avatar: 'https://images.unsplash.com/photo-1581065178026-390bc4e78dad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
-        bio: 'エビデンスに基づいた健康情報を分かりやすく発信します。' 
-    },
-    {
-        id: 'kenji',
-        name: 'Kenji Yamamoto',
-        slug: 'kenji-yamamoto',
-        role: 'ピラティス講師',
-        qualifications: 'Pilates Method Alliance, 理学療法士',
-        categories: ['ピラティス', 'リハビリ'],
-        tags: ['体幹トレーニング', '腰痛改善', '姿勢改善'],
-        avatar: 'https://images.unsplash.com/photo-1738566061505-556830f8b8f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
-        bio: '理学療法士の視点から、安全で効果的なピラティスを指導します。'
-    },
-    {
-        id: 'akiko',
-        name: 'Akiko Tanaka',
-        slug: 'akiko-tanaka',
-        role: 'フードコーディネーター',
-        qualifications: '調理師, 食生活アドバイザー',
-        categories: ['レシピ', '食事'],
-        tags: ['ヴィーガン', 'グルテンフリー', 'オーガニック'],
-        avatar: 'https://images.unsplash.com/photo-1517778968789-3eea19b05c18?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
-        bio: '美味しくて体に優しいヘルシーレシピを提案しています。'
-    },
-    {
-        id: 'yuri',
-        name: 'Yuri Sato',
-        slug: 'yuri-sato',
-        role: 'マインドフルネスコーチ',
-        qualifications: 'MBSR修了, 臨床心理士',
-        categories: ['瞑想', 'メンタルケア'],
-        tags: ['ストレス解消', '睡眠改善', 'マインドフルネス'],
-        avatar: 'https://images.unsplash.com/photo-1698230557068-96c3658c2215?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
-        bio: '心のバランスを整えるための瞑想ガイドを行っています。'
-    },
-    { 
-        id: 'admin', 
-        name: 'Admin', 
-        slug: 'admin',
-        role: '管理者',
-        qualifications: '',
-        categories: ['お知らせ', 'システム'],
-        tags: ['公式', 'メンテナンス'],
-        bio: 'サイト管理者'
-    },
-];
-
-export function AuthorsView() {
-    const [profiles, setProfiles] = useState<Profile[]>(MOCK_PROFILES_DATA);
+export function AuthorsView({ profiles = [], onProfilesChange }: AuthorsViewProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -140,14 +61,14 @@ export function AuthorsView() {
 
     const handleDelete = (id: string) => {
         if (window.confirm('この監修者を削除してもよろしいですか？')) {
-            setProfiles(profiles.filter(p => p.id !== id));
+            onProfilesChange?.(profiles.filter(p => p.id !== id));
         }
     };
 
     const handleSubmit = () => {
         if (!formData.name || !formData.role || !formData.slug) return;
         if (editingProfile) {
-            setProfiles(profiles.map(p => p.id === editingProfile.id ? { ...p, ...formData } as Profile : p));
+            onProfilesChange?.(profiles.map(p => p.id === editingProfile.id ? { ...p, ...formData } as Profile : p));
         } else {
             const newProfile: Profile = {
                 id: Math.random().toString(36).substr(2, 9),
@@ -162,7 +83,7 @@ export function AuthorsView() {
                 avatar: formData.avatar,
                 bio: formData.bio
             };
-            setProfiles([...profiles, newProfile]);
+            onProfilesChange?.([...profiles, newProfile]);
         }
         setIsDialogOpen(false);
     };
@@ -372,7 +293,7 @@ export function AuthorsView() {
                                         <DropdownMenuContent align="start" className="w-32">
                                              <DropdownMenuItem onClick={() => {
                                                  const newProfile = { ...profile, id: Math.random().toString(36).substr(2, 9), name: `${profile.name} (Copy)` };
-                                                 setProfiles([...profiles, newProfile]);
+                                                 onProfilesChange?.([...profiles, newProfile]);
                                              }}>
                                                 <Copy size={14} className="mr-2" /> 複製
                                             </DropdownMenuItem>
@@ -501,103 +422,112 @@ export function AuthorsView() {
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="w-full">
-                                    <Label htmlFor="avatar" className="sr-only">アバターURL</Label>
+                                    <Label htmlFor="avatar-upload" className="block text-[10px] text-center text-blue-600 cursor-pointer hover:underline mb-1">
+                                        画像を変更
+                                    </Label>
                                     <Input 
-                                        id="avatar" 
-                                        placeholder="画像URL" 
-                                        className="h-7 text-[10px] font-mono text-center px-1"
-                                        value={formData.avatar || ''}
-                                        onChange={e => setFormData({...formData, avatar: e.target.value})}
+                                        id="avatar-upload" 
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => {
+                                                    setFormData({ ...formData, avatar: reader.result as string });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>
-                            
-                            <div className="flex-1 grid gap-4">
+                            <div className="flex-1 space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="name">名前 <span className="text-red-500">*</span></Label>
-                                        <Input 
-                                            id="name" 
-                                            placeholder="例: 山田 花子" 
-                                            value={formData.name || ''}
-                                            onChange={e => setFormData({...formData, name: e.target.value})}
-                                        />
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="name" className="text-xs">名前 <span className="text-red-500">*</span></Label>
+                                        <Input id="name" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="h-8 text-sm" placeholder="例: 山田 花子" />
                                     </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="role">肩書き <span className="text-red-500">*</span></Label>
-                                        <Input 
-                                            id="role" 
-                                            placeholder="例: ヨガインストラクター" 
-                                            value={formData.role || ''}
-                                            onChange={e => setFormData({...formData, role: e.target.value})}
-                                        />
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="slug" className="text-xs">スラグ (ID) <span className="text-red-500">*</span></Label>
+                                        <Input id="slug" value={formData.slug || ''} onChange={e => setFormData({...formData, slug: e.target.value})} className="h-8 text-sm font-mono" placeholder="例: hanako-yamada" />
                                     </div>
                                 </div>
-                                
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="slug">スラグ (URL) <span className="text-red-500">*</span></Label>
-                                        <Input 
-                                            id="slug" 
-                                            placeholder="例: hanako-yamada" 
-                                            className="font-mono"
-                                            value={formData.slug || ''}
-                                            onChange={e => setFormData({...formData, slug: e.target.value})}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="qualifications">保有資格</Label>
-                                        <Input 
-                                            id="qualifications" 
-                                            placeholder="例: RYT200, 理学療法士" 
-                                            value={formData.qualifications || ''}
-                                            onChange={e => setFormData({...formData, qualifications: e.target.value})}
-                                        />
-                                    </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="role" className="text-xs">肩書き <span className="text-red-500">*</span></Label>
+                                    <Input id="role" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="h-8 text-sm" placeholder="例: ヨガインストラクター" />
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="instagram">Instagram URL</Label>
-                                        <Input 
-                                            id="instagram" 
-                                            placeholder="https://instagram.com/..." 
-                                            className="font-mono text-xs"
-                                            value={formData.instagram || ''}
-                                            onChange={e => setFormData({...formData, instagram: e.target.value})}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="facebook">Facebook URL</Label>
-                                        <Input 
-                                            id="facebook" 
-                                            placeholder="https://facebook.com/..." 
-                                            className="font-mono text-xs"
-                                            value={formData.facebook || ''}
-                                            onChange={e => setFormData({...formData, facebook: e.target.value})}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <Label htmlFor="bio">自己紹介</Label>
-                                    <Textarea 
-                                        id="bio" 
-                                        placeholder="プロフィール文を入力..." 
-                                        className="h-24 resize-none"
-                                        value={formData.bio || ''}
-                                        onChange={e => setFormData({...formData, bio: e.target.value})}
-                                    />
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="qualifications" className="text-xs">保有資格 (カンマ区切り)</Label>
+                                    <Input id="qualifications" value={formData.qualifications || ''} onChange={e => setFormData({...formData, qualifications: e.target.value})} className="h-8 text-sm" placeholder="例: RYT200, 管理栄養士" />
                                 </div>
                             </div>
                         </div>
-                    </div>
 
+                        <div className="grid grid-cols-2 gap-6">
+                             <div className="space-y-1.5">
+                                <Label htmlFor="categories" className="text-xs">得意カテゴリー (カンマ区切り)</Label>
+                                <Input 
+                                    id="categories" 
+                                    value={formData.categories?.join(', ') || ''} 
+                                    onChange={e => setFormData({...formData, categories: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})} 
+                                    className="h-8 text-sm" 
+                                    placeholder="例: ヨガ, 瞑想" 
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="tags" className="text-xs">タグ (カンマ区切り)</Label>
+                                <Input 
+                                    id="tags" 
+                                    value={formData.tags?.join(', ') || ''} 
+                                    onChange={e => setFormData({...formData, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})} 
+                                    className="h-8 text-sm" 
+                                    placeholder="例: 初心者歓迎, 30代向け" 
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="systemPrompt" className="text-xs">システムプロンプト (専門性・トーンの指定)</Label>
+                            <Textarea 
+                                id="systemPrompt" 
+                                value={formData.systemPrompt || ''} 
+                                onChange={e => setFormData({...formData, systemPrompt: e.target.value})} 
+                                className="text-sm min-h-[120px] font-mono" 
+                                placeholder="例: あなたはヨガのプロフェッショナルです。初心者にも分かりやすく、かつ解剖学的な根拠に基づいた解説を行ってください..." 
+                            />
+                             <p className="text-[10px] text-neutral-500">
+                                ※ 記事生成時にAIの役割（Role）として設定されます。E-E-A-T（経験・専門性・権威性・信頼性）を高めるための指示を記述してください。
+                            </p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="bio" className="text-xs">自己紹介文</Label>
+                            <Textarea 
+                                id="bio" 
+                                value={formData.bio || ''} 
+                                onChange={e => setFormData({...formData, bio: e.target.value})} 
+                                className="text-sm min-h-[80px]" 
+                                placeholder="読者に向けた自己紹介メッセージを入力してください。" 
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                             <div className="space-y-1.5">
+                                <Label htmlFor="instagram" className="text-xs flex items-center gap-1"><Instagram size={12} /> Instagram URL</Label>
+                                <Input id="instagram" value={formData.instagram || ''} onChange={e => setFormData({...formData, instagram: e.target.value})} className="h-8 text-xs font-mono" placeholder="https://instagram.com/..." />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="facebook" className="text-xs flex items-center gap-1"><Facebook size={12} /> Facebook URL</Label>
+                                <Input id="facebook" value={formData.facebook || ''} onChange={e => setFormData({...formData, facebook: e.target.value})} className="h-8 text-xs font-mono" placeholder="https://facebook.com/..." />
+                            </div>
+                        </div>
+                    </div>
+                    
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
-                        <Button onClick={handleSubmit} disabled={!formData.name || !formData.slug || !formData.role}>
-                            {editingProfile ? '更新する' : '登録する'}
-                        </Button>
+                        <Button onClick={handleSubmit}>保存する</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

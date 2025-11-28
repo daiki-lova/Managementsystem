@@ -7,7 +7,7 @@ import {
   User, Shield, LogOut, Image as ImageIcon, Copy, Eye, X, ArrowUpDown, ArrowDownAZ, ArrowUpZA,
   MessageCircle, Newspaper, Sparkles, Maximize2, MoreVertical, Pen,
   Home, Bot, Database, Command, BrainCircuit, Target,
-  SquarePen, MousePointerClick, SquareUser
+  SquarePen, MousePointerClick, SquareUser, UserCheck
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -16,10 +16,11 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
 import { cn } from '../../lib/utils';
-import type { Article, Category, ConversionItem } from '../../types';
+import type { Article, Category, ConversionItem, Profile, KnowledgeItem } from '../../types';
 import { AnalyticsView } from './AnalyticsView';
 import { AuthorsView } from './AuthorsView';
 import { CategoriesView } from './CategoriesView';
+import { KnowledgeBankView } from './KnowledgeBankView';
 import { TagsView } from './TagsView';
 import { ArticlePreviewModal } from './ArticlePreviewModal';
 import { SettingsView } from './SettingsView';
@@ -75,6 +76,78 @@ import { Badge } from "../ui/badge";
 const AVAILABLE_CATEGORIES = ["レッスン", "コラム", "知識", "ライフスタイル", "動画", "ハウツー", "重要", "スタッフ", "ダイエット成功", "体質改善", "キャリアチェンジ"];
 const AVAILABLE_TAGS = ["ヨガ", "ピラティス", "初心者向け", "健康", "比較", "瞑想", "マインドフルネス", "メンタルヘルス", "ストレッチ", "自宅トレ", "セルフケア", "お知らせ", "営業案内", "人事", "インストラクター", "メンテナンス", "システム", "ダイエット", "30代", "初心者", "健康改善", "腰痛", "40代", "キャリア", "資格取得"];
 
+const MOCK_PROFILES_DATA: Profile[] = [
+    { 
+        id: 'mika', 
+        name: 'Mika Sensei', 
+        slug: 'mika-sensei',
+        role: 'ヨガインストラクター', 
+        qualifications: 'RYT200, マタニティヨガ認定',
+        categories: ['ヨガ', 'ストレッチ', '瞑想'],
+        tags: ['初心者歓迎', '産後ケア', '骨盤矯正'],
+        instagram: 'https://instagram.com/mika_yoga',
+        facebook: 'https://facebook.com/mikayoga',
+        avatar: 'https://images.unsplash.com/photo-1658279445014-dcc466ac1192?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: '初心者から上級者まで、心と体に寄り添う指導を心がけています。',
+        systemPrompt: 'ヨガインストラクターの視点で、解剖学的な根拠に基づきつつ、初心者にも親しみやすい語り口で執筆してください。専門用語には必ず補足を入れ、読者が実践したくなるような動機付けを行ってください。'
+    },
+    { 
+        id: 'sarah', 
+        name: 'Sarah Smith', 
+        slug: 'sarah-smith',
+        role: 'シニアエディター', 
+        qualifications: '管理栄養士, 健康運動指導士',
+        categories: ['食事', '栄養', 'ダイエット'],
+        tags: ['低糖質', 'タンパク質', '海外トレンド'],
+        avatar: 'https://images.unsplash.com/photo-1581065178026-390bc4e78dad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: 'エビデンスに基づいた健康情報を分かりやすく発信します。',
+        systemPrompt: 'ピラティスの専門家として、インナーマッスルの働きや姿勢改善効果を論理的に解説し、洗練された都会的なトーンで執筆してください。機能解剖学の観点を重視してください。' 
+    },
+    {
+        id: 'kenji',
+        name: 'Kenji Yamamoto',
+        slug: 'kenji-yamamoto',
+        role: 'ピラティス講師',
+        qualifications: 'Pilates Method Alliance, 理学療法士',
+        categories: ['ピラティス', 'リハビリ'],
+        tags: ['体幹トレーニング', '腰痛改善', '姿勢改善'],
+        avatar: 'https://images.unsplash.com/photo-1738566061505-556830f8b8f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: '理学療法士の視点から、安全で効果的なピラティスを指導します。'
+    },
+    {
+        id: 'akiko',
+        name: 'Akiko Tanaka',
+        slug: 'akiko-tanaka',
+        role: 'フードコーディネーター',
+        qualifications: '調理師, 食生活アドバイザー',
+        categories: ['レシピ', '食事'],
+        tags: ['ヴィーガン', 'グルテンフリー', 'オーガニック'],
+        avatar: 'https://images.unsplash.com/photo-1517778968789-3eea19b05c18?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: '美味しくて体に優しいヘルシーレシピを提案しています。'
+    },
+    {
+        id: 'yuri',
+        name: 'Yuri Sato',
+        slug: 'yuri-sato',
+        role: 'マインドフルネスコーチ',
+        qualifications: 'MBSR修了, 臨床心理士',
+        categories: ['瞑想', 'メンタルケア'],
+        tags: ['ストレス解消', '睡眠改善', 'マインドフルネス'],
+        avatar: 'https://images.unsplash.com/photo-1698230557068-96c3658c2215?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100',
+        bio: '心のバランスを整えるための瞑想ガイドを行っています。'
+    },
+    { 
+        id: 'admin', 
+        name: 'Admin', 
+        slug: 'admin',
+        role: '管理者',
+        qualifications: '',
+        categories: ['お知らせ', 'システム'],
+        tags: ['公式', 'メンテナンス'],
+        bio: 'サイト管理者'
+    },
+];
+
 const MOCK_CATEGORIES_DATA: Category[] = [
     { 
         id: 'c1', 
@@ -85,7 +158,6 @@ const MOCK_CATEGORIES_DATA: Category[] = [
         supervisorName: '高橋 エマ',
         supervisorRole: 'RYT200 認定講師',
         supervisorImage: 'https://images.unsplash.com/photo-1676578732408-134d55bc408d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3J0cmFpdCUyMG9mJTIwYSUyMHlvZ2ElMjBpbnN0cnVjdG9yJTIwZmVtYWxlJTIwcHJvZmVzc2lvbmFsfGVufDF8fHx8MTc2NDI0NzYwNnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-        systemPrompt: 'ヨガインストラクターの視点で、解剖学的な根拠に基づきつつ、初心者にも親しみやすい語り口で執筆してください。専門用語には必ず補足を入れ、読者が実践したくなるような動機付けを行ってください。',
         color: 'bg-blue-50 text-blue-700 border-blue-100'
     },
     { 
@@ -97,7 +169,6 @@ const MOCK_CATEGORIES_DATA: Category[] = [
         supervisorName: 'Sarah Jen',
         supervisorRole: 'BASIピラティス',
         supervisorImage: 'https://images.unsplash.com/photo-1761034278072-baa90a7d28d5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3J0cmFpdCUyMHBpbGF0ZXMlMjBpbnN0cnVjdG9yJTIwZmVtYWxlJTIwcHJvZmVzc2lvbmFsfGVufDF8fHx8MTc2NDI0NzYwNnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-        systemPrompt: 'ピラティスの専門家として、インナーマッスルの働きや姿勢改善効果を論理的に解説し、洗練された都会的なトーンで執筆してください。機能解剖学の観点を重視してください。',
         color: 'bg-rose-50 text-rose-700 border-rose-100'
     },
     { 
@@ -109,7 +180,6 @@ const MOCK_CATEGORIES_DATA: Category[] = [
         supervisorName: '鈴木 栄養士',
         supervisorRole: '管理栄養士',
         supervisorImage: 'https://images.unsplash.com/photo-1601341348280-550b5e87281b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3J0cmFpdCUyMG9mJTIwYSUyMG51dHJpdGlvbmlzdCUyMGZlbWFsZSUyMHByb2Zlc3Npb25hbHxlbnwxfHx8fDE3NjQyNDc2MDZ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-        systemPrompt: '管理栄養士として、エビデンスに基づいた栄養指導を行ってください。無理な制限ではなく、持続可能な食習慣の改善を提案する優しく寄り添うトーンでお願いします。',
         color: 'bg-green-50 text-green-700 border-green-100'
     },
     { 
@@ -121,7 +191,6 @@ const MOCK_CATEGORIES_DATA: Category[] = [
         supervisorName: 'David Moon',
         supervisorRole: '瞑想指導者',
         supervisorImage: 'https://images.unsplash.com/photo-1748288166888-f1bd5d6ef9ed?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3J0cmFpdCUyMG9mJTIwYSUyMG1hbGUlMjBjb3Vuc2Vsb3IlMjBwcm9mZXNzaW9uYWx8ZW58MXx8fHwxNzY0MjQ3NjA2fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-        systemPrompt: '心理カウンセラーの知見を交え、現代人のストレスに寄り添う落ち着いたトーンで執筆してください。科学的な効果と精神的な平穏の両面からアプローチしてください。',
         color: 'bg-purple-50 text-purple-700 border-purple-100'
     },
     { 
@@ -183,6 +252,29 @@ const MOCK_CONVERSIONS_DATA: ConversionItem[] = [
         clicks: 2100,
         cv: 210,
         period: '2024/09/01 - 2024/11/30'
+    }
+];
+
+const MOCK_KNOWLEDGE_DATA: KnowledgeItem[] = [
+    {
+        id: 'k1',
+        content: 'OREOのRYT200コースを受講して、身体が硬い私でも無理なく続けられました。特に解剖学の授業が分かりやすく、なぜこのポーズをするのかが理解できて良かったです。',
+        brand: 'OREO',
+        course: 'RYT200',
+        authorId: 'mika', 
+        authorName: 'Mika Sensei',
+        createdAt: '2024-11-25T10:00:00Z',
+        usageCount: 5,
+        source: 'spreadsheet'
+    },
+    {
+        id: 'k2',
+        content: 'シークエンスの短期集中講座は本当に短期間で詰め込むので大変でしたが、その分成長を感じられました。',
+        brand: 'SEQUENCE',
+        course: '短期集中',
+        createdAt: '2024-11-20T15:30:00Z',
+        usageCount: 2,
+        source: 'manual'
     }
 ];
 
@@ -249,7 +341,7 @@ const MOCK_ARTICLES_DATA: ExtendedArticle[] = [
 
 const MOCK_TESTIMONIALS_DATA: ExtendedArticle[] = [];
 
-export type DashboardTab = 'home' | 'posts' | 'tags' | 'categories' | 'analytics' | 'strategy' | 'prompts' | 'conversions' | 'authors' | 'settings' | 'media';
+export type DashboardTab = 'home' | 'posts' | 'tags' | 'categories' | 'analytics' | 'strategy' | 'prompts' | 'conversions' | 'authors' | 'settings' | 'media' | 'knowledge';
 
 interface DashboardProps {
   onNavigateToEditor: (articleId?: string, initialTitle?: string) => void;
@@ -277,6 +369,8 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
   // Lifted State for Master Data
   const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES_DATA);
   const [conversions, setConversions] = useState<ConversionItem[]>(MOCK_CONVERSIONS_DATA);
+  const [profiles, setProfiles] = useState<Profile[]>(MOCK_PROFILES_DATA);
+  const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>(MOCK_KNOWLEDGE_DATA);
 
   const filteredPosts = posts.filter(post => 
       post.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -395,6 +489,29 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 isActive={activeTab === 'posts'} 
                 onClick={() => setActiveTab('posts')}
                 count={MOCK_ARTICLES_DATA.length}
+            />
+            
+             <NavItem 
+                icon={<Database size={18} strokeWidth={2} />} 
+                label="情報バンク" 
+                isActive={activeTab === 'knowledge'} 
+                onClick={() => setActiveTab('knowledge')}
+                count={knowledgeItems.length}
+            />
+
+             <NavItem 
+                icon={<Sparkles size={18} strokeWidth={2} />} 
+                label="プロンプト" 
+                isActive={activeTab === 'prompts'} 
+                onClick={() => setActiveTab('prompts')}
+            />
+
+             <NavItem 
+                icon={<UserCheck size={18} strokeWidth={2} />}
+                label="監修者" 
+                isActive={activeTab === 'authors'} 
+                onClick={() => setActiveTab('authors')}
+                count={profiles.length}
             />
           </div>
 
@@ -550,6 +667,23 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 </div>
             )}
             {activeTab === 'prompts' && <div className="p-6 h-full overflow-y-auto"><PromptsView /></div>}
+            {activeTab === 'knowledge' && (
+                <div className="h-full overflow-y-auto">
+                    <KnowledgeBankView 
+                        items={knowledgeItems}
+                        onItemsChange={setKnowledgeItems}
+                        authors={profiles}
+                    />
+                </div>
+            )}
+            {activeTab === 'authors' && (
+                <div className="p-6 h-full overflow-y-auto">
+                    <AuthorsView 
+                        profiles={profiles}
+                        onProfilesChange={setProfiles}
+                    />
+                </div>
+            )}
             {activeTab === 'conversions' && (
                 <div className="p-6 h-full overflow-y-auto">
                     <ConversionsView 
@@ -568,7 +702,6 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 </div>
             )}
             {userRole === 'owner' && activeTab === 'tags' && <div className="p-6 h-full overflow-y-auto"><TagsView /></div>}
-            {userRole === 'owner' && activeTab === 'authors' && <div className="p-6 h-full overflow-y-auto"><AuthorsView /></div>}
             {userRole === 'owner' && activeTab === 'settings' && <div className="p-6 h-full overflow-y-auto"><SettingsView /></div>}
             {userRole === 'owner' && activeTab === 'analytics' && (
                 <div className="p-8 h-full overflow-y-auto">

@@ -29,6 +29,22 @@ export interface Category {
     supervisorImage?: string;
     systemPrompt?: string;
     color?: string;
+    supervisorId?: string; // Link to Profile
+}
+
+export interface Profile {
+    id: string;
+    name: string;
+    slug: string;
+    role: string;
+    qualifications: string;
+    categories: string[];
+    tags: string[];
+    instagram?: string;
+    facebook?: string;
+    avatar?: string;
+    bio?: string;
+    systemPrompt?: string; // Added systemPrompt to Profile
 }
 
 export interface ConversionItem {
@@ -43,4 +59,17 @@ export interface ConversionItem {
     cv: number;
     period?: string;
     context?: string;
+}
+
+export interface KnowledgeItem {
+    id: string;
+    content: string;
+    brand: 'OREO' | 'SEQUENCE' | 'ALL';
+    course?: string;
+    authorId?: string;
+    authorName?: string;
+    createdAt: string;
+    usageCount: number;
+    source: 'manual' | 'spreadsheet';
+    relevanceScore?: number; // For search results
 }
