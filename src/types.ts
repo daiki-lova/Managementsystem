@@ -65,6 +65,7 @@ export interface KnowledgeItem {
     id: string;
     content: string;
     brand: 'OREO' | 'SEQUENCE' | 'ALL';
+    kind?: 'STUDENT_VOICE' | 'AUTHOR_ARTICLE' | 'EXTERNAL';
     course?: string;
     authorId?: string;
     authorName?: string;

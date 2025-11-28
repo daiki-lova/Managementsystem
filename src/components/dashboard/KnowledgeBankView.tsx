@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Search, Plus, Filter, FileSpreadsheet, Type, Check, AlertCircle, MoreVertical, Trash2, Edit2, Calendar, RefreshCw, Link } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Filter, FileSpreadsheet, Type, Check, AlertCircle, MoreVertical, Trash2, Edit2, Calendar, RefreshCw, Link as LinkIcon, ChevronLeft, Globe, FileText, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
+import { toast } from 'sonner';
 import {
     Dialog,
     DialogContent,
@@ -19,13 +20,29 @@ import {
     SelectValue,
 } from "../ui/select";
 import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "../ui/table";
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from "../ui/pagination";
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Textarea } from '../ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { cn } from '../../lib/utils';
 import type { KnowledgeItem, Profile } from '../../types';
 import { format } from 'date-fns';
@@ -47,18 +64,41 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
     const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<KnowledgeItem | null>(null);
     
-    // Registration Form States
-    const [activeTab, setActiveTab] = useState('text');
-    const [textInputBrand, setTextInputBrand] = useState<'OREO' | 'SEQUENCE' | 'ALL'>('OREO');
-    const [textInputContent, setTextInputContent] = useState('');
+    // Registration Flow States
+    const [registrationStep, setRegistrationStep] = useState<'select' | 'input'>('select');
+    const [inputType, setInputType] = useState<'url' | 'text'>('text');
+    const [inputContent, setInputContent] = useState('');
+    const [selectedBrand, setSelectedBrand] = useState<'OREO' | 'SEQUENCE' | 'ALL'>('OREO');
+    const [selectedType, setSelectedType] = useState<string>('STUDENT_VOICE');
+    const [selectedCourse, setSelectedCourse] = useState<string>('UNSELECTED');
+    const [selectedAuthor, setSelectedAuthor] = useState<string>('UNSELECTED');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    // Spreadsheet Form States
-    const [sheetUrl, setSheetUrl] = useState('');
-    const [isLinked, setIsLinked] = useState(false);
+
+    // Reset states when dialog opens/closes
+    useEffect(() => {
+        if (!isRegisterDialogOpen) {
+            // Short delay to allow transition to finish
+            const timer = setTimeout(() => {
+                setRegistrationStep('select');
+                setInputType('text');
+                setInputContent('');
+                setSelectedBrand('OREO');
+                setSelectedType('STUDENT_VOICE');
+                setSelectedCourse('UNSELECTED');
+                setSelectedAuthor('UNSELECTED');
+                setIsSubmitting(false);
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isRegisterDialogOpen]);
 
     // Mock Data for Filters
     const COURSES = ['RYT200', 'RYT500', 'RPY85', 'RCYT95', 'ピラティス基礎', '短期集中'];
+    const TYPES = [
+        { id: 'STUDENT_VOICE', label: '受講生の声', description: 'インタビュー、アンケート、口コミ' },
+        { id: 'AUTHOR_ARTICLE', label: '監修者記事', description: '監修者のブログ、コラム' },
+        { id: 'EXTERNAL', label: '外部文献', description: '論文、外部記事、YouTube' }
+    ];
 
     // Filtering
     const filteredItems = items.filter(item => {
@@ -71,42 +111,53 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
         return matchesSearch && matchesBrand && matchesCourse && matchesAuthor;
     });
 
-    const handleTextSubmit = async () => {
-        if (!textInputContent.trim()) return;
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, brandFilter, courseFilter, authorFilter]);
+
+    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+    const paginatedItems = filteredItems.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const handleSubmit = async () => {
+        if (!inputContent.trim()) return;
         
         setIsSubmitting(true);
         
         // Mock processing delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        const newItemsRaw = textInputContent.split(/\n\s*\n/).filter(t => t.trim().length > 0);
+        // Split content if text type (simple line break split for mock)
+        const newItemsRaw = inputType === 'text' 
+            ? inputContent.split(/\n\s*\n/).filter(t => t.trim().length > 0)
+            : [inputContent]; // URL treated as one item for now
         
         const newKnowledgeItems: KnowledgeItem[] = newItemsRaw.map(content => ({
             id: Math.random().toString(36).substr(2, 9),
             content: content.trim(),
-            brand: textInputBrand,
-            // Randomly assign mock data for demo purposes since we don't have backend extraction
-            course: COURSES[Math.floor(Math.random() * COURSES.length)],
-            authorId: authors.length > 0 ? authors[Math.floor(Math.random() * authors.length)].id : undefined,
-            authorName: authors.length > 0 ? authors[Math.floor(Math.random() * authors.length)].name : undefined,
+            brand: selectedBrand,
+            kind: selectedType as any,
+            course: selectedCourse === 'UNSELECTED' ? undefined : selectedCourse,
+            authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
+            authorName: selectedAuthor === 'UNSELECTED' ? undefined : authors.find(a => a.id === selectedAuthor)?.name,
             createdAt: new Date().toISOString(),
             usageCount: 0,
             source: 'manual'
         }));
         
-        onItemsChange?.([...newKnowledgeItems, ...items]); // Add to top
+        onItemsChange?.([...newKnowledgeItems, ...items]);
+        
+        toast.success('情報を追加しました', {
+            description: `${newKnowledgeItems.length}件の情報をバンクに登録しました。`,
+        });
+        
         setIsSubmitting(false);
         setIsRegisterDialogOpen(false);
-        setTextInputContent('');
-    };
-
-    const handleSheetSync = () => {
-        setIsSubmitting(true);
-        setTimeout(() => {
-            setIsSubmitting(false);
-            setIsLinked(true);
-            // In a real app, this would fetch data
-        }, 1500);
     };
 
     const handleDelete = (id: string) => {
@@ -189,86 +240,234 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-6 bg-neutral-50/50">
-                {filteredItems.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-neutral-400 gap-4">
-                        <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center">
-                            <Filter size={32} className="opacity-50" />
-                        </div>
-                        <p className="text-sm font-medium">情報が見つかりません</p>
-                        <Button variant="outline" size="sm" onClick={() => {
-                            setSearchQuery('');
-                            setBrandFilter('ALL_BRANDS');
-                            setCourseFilter('ALL_COURSES');
-                            setAuthorFilter('ALL_AUTHORS');
-                        }}>
-                            フィルタを解除
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredItems.map(item => (
-                            <div 
-                                key={item.id} 
-                                className="group bg-white rounded-xl border border-neutral-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col h-[200px]"
-                                onClick={() => openDetail(item)}
-                            >
-                                <div className="p-4 flex-1 overflow-hidden relative">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 rounded font-normal border-0", getBrandColor(item.brand))}>
-                                            {item.brand === 'ALL' ? '共通' : item.brand}
-                                        </Badge>
-                                        {item.course && (
-                                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 rounded font-normal bg-neutral-100 text-neutral-600 hover:bg-neutral-200">
-                                                {item.course}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <p className="text-sm text-neutral-700 leading-relaxed line-clamp-4">
-                                        {item.content}
-                                    </p>
-                                    <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-                                </div>
-                                <div className="px-4 py-3 border-t border-neutral-100 flex items-center justify-between bg-neutral-50/30 rounded-b-xl">
-                                    <div className="flex items-center gap-2 text-[10px] text-neutral-400">
-                                        <span className="flex items-center gap-1">
-                                            <User size={10} />
-                                            {item.authorName || '-'}
-                                        </span>
-                                        <span>•</span>
-                                        <span>{format(new Date(item.createdAt), 'MM/dd', { locale: ja })}</span>
-                                    </div>
-                                    <div className="text-[10px] font-medium text-neutral-500">
-                                        {item.usageCount}回使用
-                                    </div>
-                                </div>
+            <div className="flex-1 overflow-hidden flex flex-col bg-white">
+                <div className="flex-1 overflow-auto">
+                    {filteredItems.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-neutral-400 gap-4 p-8">
+                            <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center">
+                                <Filter size={32} className="opacity-50" />
                             </div>
-                        ))}
+                            <p className="text-sm font-medium">情報が見つかりません</p>
+                            <Button variant="outline" size="sm" onClick={() => {
+                                setSearchQuery('');
+                                setBrandFilter('ALL_BRANDS');
+                                setCourseFilter('ALL_COURSES');
+                                setAuthorFilter('ALL_AUTHORS');
+                            }}>
+                                フィルタを解除
+                            </Button>
+                        </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-neutral-50/50 hover:bg-neutral-50/50">
+                                    <TableHead className="w-[40%] pl-6">内容</TableHead>
+                                    <TableHead className="w-[100px]">ブランド</TableHead>
+                                    <TableHead className="w-[120px]">種類</TableHead>
+                                    <TableHead className="w-[120px]">コース</TableHead>
+                                    <TableHead className="w-[150px]">監修者</TableHead>
+                                    <TableHead className="w-[100px]">登録日</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedItems.map((item) => (
+                                    <TableRow key={item.id} className="group hover:bg-neutral-50 transition-colors cursor-pointer" onClick={() => openDetail(item)}>
+                                        <TableCell className="pl-6 font-medium">
+                                            <div className="line-clamp-2 text-neutral-700 text-sm max-w-[500px]" title={item.content}>
+                                                {item.content}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 rounded font-normal border-0 whitespace-nowrap", getBrandColor(item.brand))}>
+                                                {item.brand === 'ALL' ? '共通' : item.brand}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="text-xs text-neutral-600">
+                                                {item.kind === 'STUDENT_VOICE' && '受講生の声'}
+                                                {item.kind === 'AUTHOR_ARTICLE' && '監修者記事'}
+                                                {item.kind === 'EXTERNAL' && '外部文献'}
+                                                {!item.kind && '-'}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            {item.course ? (
+                                                <Badge variant="secondary" className="text-[10px] h-5 px-1.5 rounded font-normal bg-neutral-100 text-neutral-600 hover:bg-neutral-200 whitespace-nowrap">
+                                                    {item.course}
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-xs text-neutral-400">-</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+                                                {item.authorName ? (
+                                                    <>
+                                                        <User size={12} className="text-neutral-400" />
+                                                        <span className="truncate max-w-[120px]">{item.authorName}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-neutral-400">-</span>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="text-xs text-neutral-500 tabular-nums">
+                                                {format(new Date(item.createdAt), 'yyyy/MM/dd', { locale: ja })}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openDetail(item);
+                                                }}>
+                                                    <Edit2 size={14} />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </div>
+
+                {/* Pagination */}
+                {filteredItems.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-100 bg-white flex-none">
+                        <div className="text-xs text-neutral-500">
+                            全 {filteredItems.length} 件中 {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredItems.length)} 件を表示
+                        </div>
+                        <Pagination className="justify-end w-auto mx-0">
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious 
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        className={cn("cursor-pointer", currentPage === 1 && "pointer-events-none opacity-50")}
+                                    />
+                                </PaginationItem>
+                                
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(page => {
+                                        // Show first, last, current, and neighbors
+                                        return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
+                                    })
+                                    .map((page, i, arr) => {
+                                        // Insert ellipsis logic visually by checking gaps
+                                        const prevPage = arr[i - 1];
+                                        const showEllipsis = prevPage && page - prevPage > 1;
+
+                                        return (
+                                            <React.Fragment key={page}>
+                                                {showEllipsis && (
+                                                    <PaginationItem>
+                                                        <PaginationEllipsis />
+                                                    </PaginationItem>
+                                                )}
+                                                <PaginationItem>
+                                                    <PaginationLink 
+                                                        isActive={page === currentPage}
+                                                        onClick={() => setCurrentPage(page)}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        {page}
+                                                    </PaginationLink>
+                                                </PaginationItem>
+                                            </React.Fragment>
+                                        );
+                                    })}
+
+                                <PaginationItem>
+                                    <PaginationNext 
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        className={cn("cursor-pointer", currentPage === totalPages && "pointer-events-none opacity-50")}
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
                     </div>
                 )}
             </div>
 
             {/* Register Dialog */}
             <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
-                <DialogContent className="sm:max-w-[600px]">
+                <DialogContent className="sm:max-w-[600px] transition-all duration-200">
                     <DialogHeader>
-                        <DialogTitle>情報を追加</DialogTitle>
-                        <DialogDescription>
-                            記事生成に使用する一次情報を登録します。
+                        <DialogTitle>ソースを追加</DialogTitle>
+                        <DialogDescription className="text-neutral-500">
+                            記事生成に活用する一次情報を登録します。
                         </DialogDescription>
                     </DialogHeader>
 
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 mb-4">
-                            <TabsTrigger value="text" className="gap-2"><Type size={14} /> テキスト入力</TabsTrigger>
-                            <TabsTrigger value="sheet" className="gap-2"><FileSpreadsheet size={14} /> スプレッドシート連携</TabsTrigger>
-                        </TabsList>
+                    <div className="space-y-6 py-4">
+                        {/* Source Type Selection */}
+                        <div className="flex p-1 bg-neutral-100 rounded-lg">
+                            <button
+                                onClick={() => setInputType('text')}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all",
+                                    inputType === 'text' 
+                                        ? "bg-white text-neutral-900 shadow-sm" 
+                                        : "text-neutral-500 hover:text-neutral-700"
+                                )}
+                            >
+                                <FileText size={16} />
+                                テキスト
+                            </button>
+                            <button
+                                onClick={() => setInputType('url')}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all",
+                                    inputType === 'url' 
+                                        ? "bg-white text-neutral-900 shadow-sm" 
+                                        : "text-neutral-500 hover:text-neutral-700"
+                                )}
+                            >
+                                <LinkIcon size={16} />
+                                リンク (URL)
+                            </button>
+                        </div>
 
-                        <TabsContent value="text" className="space-y-4">
-                            <div className="grid gap-2">
-                                <label className="text-xs font-medium text-neutral-700">ブランド</label>
-                                <Select value={textInputBrand} onValueChange={(v: any) => setTextInputBrand(v)}>
-                                    <SelectTrigger>
+                        {/* Content Input */}
+                        <div className="space-y-3">
+                            <label className="text-xs font-bold text-neutral-500">
+                                {inputType === 'url' ? 'URL' : 'テキスト内容'} <span className="text-red-500">*</span>
+                            </label>
+                            
+                            {inputType === 'url' ? (
+                                <div className="space-y-2">
+                                    <Input 
+                                        placeholder="https://example.com/article"
+                                        value={inputContent}
+                                        onChange={(e) => setInputContent(e.target.value)}
+                                        className="font-mono text-sm bg-neutral-50/50"
+                                        autoFocus
+                                    />
+                                    <p className="text-[10px] text-neutral-400">
+                                        ※ ウェブサイト、YouTube、オンライン文献などのURLを入力してください。
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <Textarea 
+                                        placeholder="受講生の声、フィードバック、監修者のブログ記事、参考文献などを貼り付け..." 
+                                        className="min-h-[200px] resize-none text-sm leading-relaxed bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100"
+                                        value={inputContent}
+                                        onChange={(e) => setInputContent(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Brand and Type Selection Row */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-neutral-500">ブランド <span className="text-red-500">*</span></label>
+                                <Select value={selectedBrand} onValueChange={(v: any) => setSelectedBrand(v)}>
+                                    <SelectTrigger className="w-full bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -278,90 +477,81 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="grid gap-2">
-                                <label className="text-xs font-medium text-neutral-700">
-                                    テキスト内容
-                                    <span className="ml-2 text-[10px] font-normal text-neutral-400">※複数件ある場合は空行で区切ってください</span>
-                                </label>
-                                <Textarea 
-                                    placeholder="受講生の声、ブログ記事、フィードバックなどを貼り付けてください..." 
-                                    className="min-h-[200px] resize-none text-sm leading-relaxed"
-                                    value={textInputContent}
-                                    onChange={(e) => setTextInputContent(e.target.value)}
-                                />
+                            
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-neutral-500">情報の種類 <span className="text-red-500">*</span></label>
+                                <Select value={selectedType} onValueChange={setSelectedType}>
+                                    <SelectTrigger className="w-full bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {TYPES.map(type => (
+                                            <SelectItem key={type.id} value={type.id}>
+                                                <span className="font-medium">{type.label}</span>
+                                                <span className="ml-2 text-xs text-neutral-400 hidden sm:inline">({type.description})</span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div className="bg-blue-50 text-blue-700 p-3 rounded text-xs flex gap-2 items-start">
-                                <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                                <div>
-                                    監修者やコース情報は、入力されたテキストからAIが自動的に抽出・推定します。入力は不要です。
-                                </div>
+                        </div>
+
+                        {/* Author and Course Selection Row */}
+                        <div className="grid grid-cols-2 gap-4">
+                             <div className="space-y-3">
+                                <label className="text-xs font-bold text-neutral-500">監修者</label>
+                                <Select value={selectedAuthor} onValueChange={setSelectedAuthor}>
+                                    <SelectTrigger className="w-full bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100">
+                                        <SelectValue placeholder="未設定" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="UNSELECTED">未設定</SelectItem>
+                                        {authors.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        </TabsContent>
 
-                        <TabsContent value="sheet" className="space-y-6 py-4">
-                            {!isLinked ? (
-                                <div className="space-y-4">
-                                    <div className="grid gap-2">
-                                        <label className="text-xs font-medium text-neutral-700">Google スプレッドシート URL</label>
-                                        <Input 
-                                            placeholder="https://docs.google.com/spreadsheets/d/..." 
-                                            value={sheetUrl}
-                                            onChange={(e) => setSheetUrl(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="bg-neutral-100 p-4 rounded text-xs space-y-2 text-neutral-600">
-                                        <p className="font-bold text-neutral-800">推奨フォーマット:</p>
-                                        <ul className="list-disc pl-4 space-y-1">
-                                            <li>A列: 情報本文（必須）</li>
-                                            <li>B列: ブランド（OREO / シークエンス / 共通）</li>
-                                            <li>C列: ステータス（自動更新されます）</li>
-                                        </ul>
-                                    </div>
-                                    <Button className="w-full" onClick={handleSheetSync} disabled={!sheetUrl || isSubmitting}>
-                                        {isSubmitting ? '連携中...' : '連携する'}
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    <div className="bg-green-50 border border-green-100 rounded-xl p-6 flex flex-col items-center text-center gap-2">
-                                        <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-2">
-                                            <Check size={24} strokeWidth={3} />
-                                        </div>
-                                        <h3 className="font-bold text-green-800">連携完了</h3>
-                                        <p className="text-xs text-green-700 font-medium">OREO受講生の声.xlsx</p>
-                                        <div className="text-[10px] text-neutral-400 mt-2">
-                                            最終同期: {format(new Date(), 'yyyy/MM/dd HH:mm')}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="border border-neutral-100 rounded-lg p-3 text-center">
-                                            <div className="text-xs text-neutral-500 mb-1">取り込み済み</div>
-                                            <div className="text-xl font-bold text-neutral-900">128</div>
-                                        </div>
-                                        <div className="border border-neutral-100 rounded-lg p-3 text-center">
-                                            <div className="text-xs text-neutral-500 mb-1">未取り込み</div>
-                                            <div className="text-xl font-bold text-orange-600">12</div>
-                                        </div>
-                                    </div>
+                             <div className="space-y-3">
+                                <label className="text-xs font-bold text-neutral-500">コース</label>
+                                <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+                                    <SelectTrigger className="w-full bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100">
+                                        <SelectValue placeholder="未設定" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="UNSELECTED">未設定</SelectItem>
+                                        {COURSES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
 
-                                    <div className="flex gap-3">
-                                        <Button variant="outline" className="flex-1" onClick={() => setIsLinked(false)}>連携解除</Button>
-                                        <Button className="flex-1" onClick={() => alert('同期を開始します')}>
-                                            <RefreshCw size={14} className="mr-2" /> 今すぐ同期
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </TabsContent>
-                    </Tabs>
-
-                    <DialogFooter>
-                        {activeTab === 'text' && (
-                            <Button onClick={handleTextSubmit} disabled={isSubmitting || !textInputContent.trim()}>
-                                {isSubmitting ? '処理中...' : '登録する'}
+                        <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-xs">
+                            <AlertCircle size={16} className="shrink-0" />
+                            <p>
+                                監修者やコースを設定すると、関連する記事生成時に優先的にこの情報が使用されます。
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <DialogFooter className="sm:justify-between items-center border-t border-neutral-100 pt-4 mt-2">
+                         <div className="text-xs text-neutral-400">
+                            ソースの件数: {items.length}
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="ghost" onClick={() => setIsRegisterDialogOpen(false)} disabled={isSubmitting}>
+                                キャンセル
                             </Button>
-                        )}
+                            <Button onClick={handleSubmit} disabled={isSubmitting || !inputContent.trim()} className="min-w-[100px]">
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 size={16} className="mr-2 animate-spin" />
+                                        追加中
+                                    </>
+                                ) : (
+                                    '追加'
+                                )}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -372,6 +562,9 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
                     <DialogHeader>
                         <div className="flex items-center justify-between">
                             <DialogTitle>情報詳細</DialogTitle>
+                            <DialogDescription className="sr-only">
+                                選択された情報の詳細を表示します。
+                            </DialogDescription>
                             {selectedItem && (
                                 <div className="flex items-center gap-2">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900">

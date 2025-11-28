@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, UserCheck, ChevronRight, CheckCircle2, Check, Copy, CalendarDays, Globe, Lightbulb, Loader2, Zap } from 'lucide-react';
+import { Sparkles, UserCheck, ChevronRight, CheckCircle2, Check, Copy, CalendarDays, Globe, Lightbulb, Loader2, Zap, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -13,7 +13,8 @@ import {
     SelectValue,
 } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import type { Category, ConversionItem, KnowledgeItem } from '../../types';
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import type { Category, ConversionItem, KnowledgeItem, Profile } from '../../types';
 import { GenerationProgressModal } from './GenerationProgressModal';
 
 export type GeneratedArticleData = {
@@ -21,6 +22,7 @@ export type GeneratedArticleData = {
     status: 'draft' | 'published' | 'scheduled';
     publishedAt: string;
     category: string; // Include category name for better mock data
+    author?: string;
 };
 
 export function StrategyView({ 
@@ -29,7 +31,8 @@ export function StrategyView({
     onNavigateToCategories,
     categories = [],
     conversions = [],
-    knowledgeItems = []
+    knowledgeItems = [],
+    authors = []
 }: { 
     onGenerate: (articles: GeneratedArticleData[]) => void;
     onManageConversions?: () => void;
@@ -37,10 +40,11 @@ export function StrategyView({
     categories?: Category[];
     conversions?: ConversionItem[];
     knowledgeItems?: KnowledgeItem[];
+    authors?: Profile[];
 }) {
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
     const [selectedConversionIds, setSelectedConversionIds] = useState<Set<string>>(new Set());
-    const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState<Set<string>>(new Set());
+    const [selectedAuthorId, setSelectedAuthorId] = useState<string | null>(null);
     
     // Modal State
     const [progressModalOpen, setProgressModalOpen] = useState(false);
@@ -69,17 +73,11 @@ export function StrategyView({
         setSelectedConversionIds(newSet);
     };
 
-    const toggleKnowledge = (id: string) => {
-        const newSet = new Set(selectedKnowledgeIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedKnowledgeIds(newSet);
-    };
-
     const totalTasks = selectedCategoryIds.size * selectedConversionIds.size * generateCount;
     
     const selectedCategoriesList = categories.filter(c => selectedCategoryIds.has(c.id));
     const selectedConversionsList = conversions.filter(c => selectedConversionIds.has(c.id));
+    const selectedAuthor = authors.find(a => a.id === selectedAuthorId);
 
     const handleGenerate = () => {
         if (totalTasks === 0) return;
@@ -155,7 +153,8 @@ export function StrategyView({
                         title,
                         status,
                         publishedAt,
-                        category: category?.name || '未分類'
+                        category: category?.name || '未分類',
+                        author: selectedAuthor?.name || 'AI Assistant'
                     });
                 });
 
@@ -275,71 +274,55 @@ export function StrategyView({
                             )}
                         </section>
 
-                        {/* Step 3: Knowledge Bank */}
+                        {/* Step 3: Supervisor */}
                         <section className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">3</span>
-                                    <h2 className="text-sm font-bold text-neutral-900">関連情報</h2>
+                                    <h2 className="text-sm font-bold text-neutral-900">監修者</h2>
                                 </div>
-                                <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
-                                    {selectedKnowledgeIds.size} 選択中
-                                </div>
-                            </div>
-
-                            <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-100 space-y-3">
-                                {knowledgeItems.length === 0 ? (
-                                    <div className="text-center py-8">
-                                        <p className="text-xs text-neutral-500 mb-2">情報がまだ登録されていません</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 gap-2">
-                                        {knowledgeItems.map((item) => {
-                                            const isSelected = selectedKnowledgeIds.has(item.id);
-                                            // Mock relevance score
-                                            const relevance = item.id === 'k1' ? 0.92 : 0.88;
-                                            
-                                            return (
-                                                <button
-                                                    key={item.id}
-                                                    onClick={() => genStatus !== 'processing' && toggleKnowledge(item.id)}
-                                                    disabled={genStatus === 'processing'}
-                                                    className={cn(
-                                                        "p-3 rounded-lg border text-left transition-all flex items-start gap-3 group hover:shadow-sm",
-                                                        isSelected
-                                                            ? "border-blue-200 bg-blue-50/30 ring-1 ring-blue-100" 
-                                                            : "border-neutral-200 bg-white hover:border-neutral-300"
-                                                    )}
-                                                >
-                                                    <div className={cn(
-                                                        "w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors",
-                                                        isSelected ? "bg-blue-600 border-blue-600" : "border-neutral-300 bg-white"
-                                                    )}>
-                                                        {isSelected && <Check size={10} className="text-white" />}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs text-neutral-800 line-clamp-2 mb-1.5 leading-relaxed">
-                                                            {item.content}
-                                                        </p>
-                                                        <div className="flex items-center gap-2 text-[10px] text-neutral-500">
-                                                            <span className="px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200">
-                                                                {item.brand === 'ALL' ? '共通' : item.brand}
-                                                            </span>
-                                                            {item.course && (
-                                                                <span className="px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200">
-                                                                    {item.course}
-                                                                </span>
-                                                            )}
-                                                            <span className="ml-auto font-medium text-green-600 flex items-center gap-0.5">
-                                                                <Zap size={10} /> 関連度 {relevance}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
+                                {selectedAuthorId && (
+                                     <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
+                                        選択済み
                                     </div>
                                 )}
+                            </div>
+
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                                {authors.map((author) => {
+                                    const isSelected = selectedAuthorId === author.id;
+                                    return (
+                                        <button
+                                            key={author.id}
+                                            onClick={() => genStatus !== 'processing' && setSelectedAuthorId(isSelected ? null : author.id)}
+                                            disabled={genStatus === 'processing'}
+                                            className={cn(
+                                                "p-2 rounded-lg border text-left transition-all flex items-center gap-3 group",
+                                                isSelected
+                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900" 
+                                                    : "border-neutral-200 bg-white hover:border-neutral-300"
+                                            )}
+                                        >
+                                            <Avatar className="h-8 w-8 border border-neutral-100">
+                                                <AvatarImage src={author.avatar} alt={author.name} />
+                                                <AvatarFallback className="text-[10px] bg-neutral-100 text-neutral-500">
+                                                    {author.name.substring(0, 2)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className={cn("font-bold text-xs truncate", isSelected ? "text-neutral-900" : "text-neutral-700")}>
+                                                    {author.name}
+                                                </h3>
+                                                <p className="text-[10px] text-neutral-500 truncate">{author.role}</p>
+                                            </div>
+                                            {isSelected && (
+                                                <div className="bg-neutral-900 text-white rounded-full p-0.5 shrink-0">
+                                                    <Check size={10} strokeWidth={3} />
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </section>
                     </div>

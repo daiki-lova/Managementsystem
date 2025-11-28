@@ -24,7 +24,6 @@ import { KnowledgeBankView } from './KnowledgeBankView';
 import { TagsView } from './TagsView';
 import { ArticlePreviewModal } from './ArticlePreviewModal';
 import { SettingsView } from './SettingsView';
-import { PromptsView } from './PromptsView';
 import { StrategyView, GeneratedArticleData } from './StrategyView';
 import { ConversionsView } from './ConversionsView';
 import { MediaLibraryView } from './MediaLibraryView';
@@ -341,7 +340,7 @@ const MOCK_ARTICLES_DATA: ExtendedArticle[] = [
 
 const MOCK_TESTIMONIALS_DATA: ExtendedArticle[] = [];
 
-export type DashboardTab = 'home' | 'posts' | 'tags' | 'categories' | 'analytics' | 'strategy' | 'prompts' | 'conversions' | 'authors' | 'settings' | 'media' | 'knowledge';
+export type DashboardTab = 'home' | 'posts' | 'tags' | 'categories' | 'analytics' | 'strategy' | 'conversions' | 'authors' | 'settings' | 'media' | 'knowledge';
 
 interface DashboardProps {
   onNavigateToEditor: (articleId?: string, initialTitle?: string) => void;
@@ -411,7 +410,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
   // Reset tab if current tab is not allowed for role
   useEffect(() => {
       if (userRole === 'writer') {
-          const allowedTabs = ['home', 'posts', 'strategy'];
+          const allowedTabs = ['home', 'posts', 'strategy', 'media', 'conversions', 'knowledge'];
           // @ts-ignore
           if (!allowedTabs.includes(activeTab)) {
               setActiveTab('home');
@@ -490,7 +489,11 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 onClick={() => setActiveTab('posts')}
                 count={MOCK_ARTICLES_DATA.length}
             />
-            
+          </div>
+
+          {/* Assets Management */}
+          <div className="mb-4">
+            <div className="px-4 mb-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Assets</div>
              <NavItem 
                 icon={<Database size={18} strokeWidth={2} />} 
                 label="情報バンク" 
@@ -498,37 +501,17 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 onClick={() => setActiveTab('knowledge')}
                 count={knowledgeItems.length}
             />
-
-             <NavItem 
-                icon={<Sparkles size={18} strokeWidth={2} />} 
-                label="プロンプト" 
-                isActive={activeTab === 'prompts'} 
-                onClick={() => setActiveTab('prompts')}
-            />
-
-             <NavItem 
-                icon={<UserCheck size={18} strokeWidth={2} />}
-                label="監修者" 
-                isActive={activeTab === 'authors'} 
-                onClick={() => setActiveTab('authors')}
-                count={profiles.length}
-            />
-          </div>
-
-          {/* Assets Management */}
-          <div className="mb-4">
-            <div className="px-4 mb-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Assets</div>
-            <NavItem 
-                icon={<ImageIcon size={18} strokeWidth={2} />} 
-                label="メディア" 
-                isActive={activeTab === 'media'} 
-                onClick={() => setActiveTab('media')}
-            />
              <NavItem 
                 icon={<MousePointerClick size={18} strokeWidth={2} />} 
                 label="コンバージョン" 
                 isActive={activeTab === 'conversions'} 
                 onClick={() => setActiveTab('conversions')}
+            />
+            <NavItem 
+                icon={<ImageIcon size={18} strokeWidth={2} />} 
+                label="メディア" 
+                isActive={activeTab === 'media'} 
+                onClick={() => setActiveTab('media')}
             />
           </div>
 
@@ -549,6 +532,13 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                     isActive={activeTab === 'tags'} 
                     onClick={() => setActiveTab('tags')}
                     count={24}
+                />
+                <NavItem 
+                    icon={<UserCheck size={18} strokeWidth={2} />}
+                    label="監修者" 
+                    isActive={activeTab === 'authors'} 
+                    onClick={() => setActiveTab('authors')}
+                    count={profiles.length}
                 />
 
               </div>
@@ -663,10 +653,11 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                         onNavigateToCategories={() => setActiveTab('categories')}
                         categories={categories}
                         conversions={conversions}
+                        knowledgeItems={knowledgeItems}
+                        authors={profiles}
                     />
                 </div>
             )}
-            {activeTab === 'prompts' && <div className="p-6 h-full overflow-y-auto"><PromptsView /></div>}
             {activeTab === 'knowledge' && (
                 <div className="h-full overflow-y-auto">
                     <KnowledgeBankView 
@@ -676,7 +667,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                     />
                 </div>
             )}
-            {activeTab === 'authors' && (
+            {userRole === 'owner' && activeTab === 'authors' && (
                 <div className="p-6 h-full overflow-y-auto">
                     <AuthorsView 
                         profiles={profiles}
