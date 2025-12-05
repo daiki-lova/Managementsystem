@@ -23,11 +23,11 @@ interface GenerationProgressModalProps {
 }
 
 const STEPS = [
-    { label: 'キーワード・トレンド分析', description: '検索ボリュームと競合性を分析中...' },
     { label: '構成案の生成', description: '見出し構成と論理展開を設計中...' },
     { label: '本文執筆', description: 'AIが記事の内容をライティング中...' },
     { label: '校正・推敲', description: '誤字脱字のチェックと表現の調整...' },
-    { label: 'SEO最適化', description: 'メタデータの生成とキーワード調整...' },
+    { label: 'SEO・LLMO最適化', description: '検索エンジンおよびAI検索への最適化...' },
+    { label: 'メタデータ生成', description: 'タグ設定とキーワード調整...' },
     { label: '公開準備完了', description: '記事データの最終保存処理...' },
 ];
 

@@ -147,7 +147,8 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
             authorName: selectedAuthor === 'UNSELECTED' ? undefined : authors.find(a => a.id === selectedAuthor)?.name,
             createdAt: new Date().toISOString(),
             usageCount: 0,
-            source: 'manual'
+            source: 'manual',
+            sourceType: inputType
         }));
         
         onItemsChange?.([...newKnowledgeItems, ...items]);
@@ -274,9 +275,36 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
                                 {paginatedItems.map((item) => (
                                     <TableRow key={item.id} className="group hover:bg-neutral-50 transition-colors cursor-pointer" onClick={() => openDetail(item)}>
                                         <TableCell className="pl-6 font-medium">
-                                            <div className="line-clamp-2 text-neutral-700 text-sm max-w-[500px]" title={item.content}>
-                                                {item.content}
-                                            </div>
+                                            {(item.sourceType === 'url' || (!item.sourceType && item.content.startsWith('http'))) ? (
+                                                <div className="flex items-center gap-3 max-w-[500px]">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 text-blue-600 border border-blue-100">
+                                                        <Globe size={14} />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <a 
+                                                            href={item.content} 
+                                                            target="_blank" 
+                                                            rel="noreferrer"
+                                                            className="text-sm text-blue-600 hover:underline hover:text-blue-700 truncate block font-bold"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            {item.content}
+                                                        </a>
+                                                        <p className="text-[10px] text-neutral-400 mt-0.5">外部リンク</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-start gap-3 max-w-[500px]">
+                                                    <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0 text-neutral-500 border border-neutral-200 mt-0.5">
+                                                        <FileText size={14} />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1 pt-1">
+                                                        <div className="line-clamp-2 text-neutral-700 text-sm font-medium leading-relaxed" title={item.content}>
+                                                            {item.content}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 rounded font-normal border-0 whitespace-nowrap", getBrandColor(item.brand))}>

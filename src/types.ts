@@ -72,5 +72,6 @@ export interface KnowledgeItem {
     createdAt: string;
     usageCount: number;
     source: 'manual' | 'spreadsheet';
+    sourceType?: 'url' | 'text' | 'file';
     relevanceScore?: number; // For search results
 }

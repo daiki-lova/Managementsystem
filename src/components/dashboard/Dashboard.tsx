@@ -264,7 +264,9 @@ const MOCK_KNOWLEDGE_DATA: KnowledgeItem[] = [
         authorName: 'Mika Sensei',
         createdAt: '2024-11-25T10:00:00Z',
         usageCount: 5,
-        source: 'spreadsheet'
+        source: 'spreadsheet',
+        sourceType: 'text',
+        kind: 'STUDENT_VOICE'
     },
     {
         id: 'k2',
@@ -273,7 +275,153 @@ const MOCK_KNOWLEDGE_DATA: KnowledgeItem[] = [
         course: '短期集中',
         createdAt: '2024-11-20T15:30:00Z',
         usageCount: 2,
-        source: 'manual'
+        source: 'manual',
+        sourceType: 'text',
+        kind: 'STUDENT_VOICE'
+    },
+    {
+        id: 'k3',
+        content: 'https://docs.google.com/spreadsheets/d/1BxiMvs0Xqui5gX2w2PFKyq3mgdIb1Jt/edit#gid=0',
+        brand: 'OREO',
+        course: 'RYT200',
+        kind: 'STUDENT_VOICE',
+        createdAt: '2024-11-28T09:00:00Z',
+        usageCount: 0,
+        source: 'spreadsheet',
+        sourceType: 'url'
+    },
+    {
+        id: 'k4',
+        content: 'https://www.youtube.com/watch?v=xPPLbEFbCAo',
+        brand: 'ALL',
+        kind: 'EXTERNAL',
+        createdAt: '2024-11-28T10:15:00Z',
+        usageCount: 1,
+        source: 'manual',
+        sourceType: 'url'
+    },
+    {
+        id: 'k5',
+        content: 'https://yoga-story.jp/blog/beginners-guide-2024',
+        brand: 'OREO',
+        kind: 'AUTHOR_ARTICLE',
+        authorId: 'mika',
+        authorName: 'Mika Sensei',
+        createdAt: '2024-11-27T14:20:00Z',
+        usageCount: 3,
+        source: 'manual',
+        sourceType: 'url'
+    },
+    {
+        id: 'k6',
+        content: 'ピラティスのレッスンを受けてから、長年の腰痛が改善しました。インナーマッスルの重要性を実感しています。インストラクターの説明も論理的で分かりやすかったです。',
+        brand: 'SEQUENCE',
+        course: 'ピラティス基礎',
+        kind: 'STUDENT_VOICE',
+        createdAt: '2024-11-15T08:30:00Z',
+        usageCount: 4,
+        source: 'manual',
+        sourceType: 'text'
+    },
+    {
+        id: 'k7',
+        content: 'https://ci.nii.ac.jp/naid/130007668390',
+        brand: 'ALL',
+        kind: 'EXTERNAL',
+        createdAt: '2024-11-10T11:00:00Z',
+        usageCount: 0,
+        source: 'manual',
+        sourceType: 'url'
+    },
+    {
+        id: 'k8',
+        content: 'オンライン授業の画質と音声が非常にクリアで、スタジオにいるような臨場感がありました。質問タイムも設けられており、サポート体制がしっかりしていると感じました。',
+        brand: 'OREO',
+        course: 'RYT200',
+        kind: 'STUDENT_VOICE',
+        createdAt: '2024-11-18T16:45:00Z',
+        usageCount: 1,
+        source: 'spreadsheet',
+        sourceType: 'text'
+    },
+    {
+        id: 'k9',
+        content: 'https://www.mhlw.go.jp/content/000656456.pdf',
+        brand: 'ALL',
+        kind: 'EXTERNAL',
+        createdAt: '2024-11-05T09:20:00Z',
+        usageCount: 6,
+        source: 'manual',
+        sourceType: 'url'
+    },
+    {
+        id: 'k10',
+        content: 'マタニティヨガの指導法について、安全面での配慮が非常に細かく指導されました。妊婦さんへの声掛けのバリエーションも学べ、実践的な内容でした。',
+        brand: 'OREO',
+        course: 'RPY85',
+        kind: 'STUDENT_VOICE',
+        authorId: 'mika',
+        authorName: 'Mika Sensei',
+        createdAt: '2024-10-30T13:10:00Z',
+        usageCount: 2,
+        source: 'manual',
+        sourceType: 'text'
+    },
+    {
+        id: 'k11',
+        content: 'https://instagram.com/p/Cz123456789',
+        brand: 'SEQUENCE',
+        kind: 'AUTHOR_ARTICLE',
+        authorId: 'sarah',
+        authorName: 'Sarah Smith',
+        createdAt: '2024-11-22T19:00:00Z',
+        usageCount: 0,
+        source: 'manual',
+        sourceType: 'url'
+    },
+    {
+        id: 'k12',
+        content: '卒業後のキャリアサポートについて相談に乗ってもらいました。オーディション対策や履歴書の書き方まで指導していただき、無事にスタジオ就職が決まりました。',
+        brand: 'OREO',
+        course: 'RYT200',
+        kind: 'STUDENT_VOICE',
+        createdAt: '2024-10-25T10:00:00Z',
+        usageCount: 3,
+        source: 'spreadsheet',
+        sourceType: 'text'
+    },
+    {
+        id: 'k13',
+        content: 'https://www.yoga-journal.jp/article/12345',
+        brand: 'ALL',
+        kind: 'EXTERNAL',
+        createdAt: '2024-11-12T14:30:00Z',
+        usageCount: 1,
+        source: 'manual',
+        sourceType: 'url'
+    },
+    {
+        id: 'k14',
+        content: 'キッズヨガの資格取得コースを受講。子供たちが楽しめるようなゲーム感覚のアプローチや、集中力を保つための工夫など、目から鱗の連続でした。保育士の仕事にも活かせそうです。',
+        brand: 'OREO',
+        course: 'RCYT95',
+        kind: 'STUDENT_VOICE',
+        createdAt: '2024-10-15T11:20:00Z',
+        usageCount: 0,
+        source: 'manual',
+        sourceType: 'text'
+    },
+    {
+        id: 'k15',
+        content: 'https://note.com/sequence_pilates/n/n1234567890',
+        brand: 'SEQUENCE',
+        kind: 'AUTHOR_ARTICLE',
+        authorId: 'kenji',
+        authorName: 'Kenji Yamamoto',
+        createdAt: '2024-11-01T18:00:00Z',
+        usageCount: 4,
+        source: 'manual',
+        sourceType: 'url'
     }
 ];
 
