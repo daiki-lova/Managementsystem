@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState } from 'react';
 import { 
     Search, Image as ImageIcon, MoreHorizontal, X

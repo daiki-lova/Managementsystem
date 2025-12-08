@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState } from 'react';
 import { FolderOpen, PenTool, Plus, Trash2, Search, MoreVertical, Copy, ChevronDown, ArrowUpZA, ArrowDownAZ, X, User, MessageSquare, UserCheck, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/button';

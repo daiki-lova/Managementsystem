@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+'use client'
+
+import React, { useState } from 'react';
 import { Search, Plus, Filter, FileSpreadsheet, Type, Check, AlertCircle, MoreVertical, Trash2, Edit2, Calendar, RefreshCw, Link as LinkIcon, ChevronLeft, Globe, FileText, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';

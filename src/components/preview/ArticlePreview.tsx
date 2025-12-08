@@ -1,4 +1,6 @@
-import React from 'react';
+'use client'
+
+import React, { useEffect, useState } from 'react';
 import { X, Calendar, User, Share2, MessageCircle, Heart } from 'lucide-react';
 import { BlockData } from '../../types';
 import { Dialog, DialogContent, DialogClose, DialogTitle, DialogDescription } from "../ui/dialog";

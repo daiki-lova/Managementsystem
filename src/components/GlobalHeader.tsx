@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react';
 import { motion } from 'motion/react';
 import { ChevronLeft, Pen, BarChart2, CheckCircle2, Cloud, Clock, Eye, Image as ImageIcon, Send, ChevronDown, Calendar as CalendarIcon, Ban, RefreshCw, FileText } from 'lucide-react';

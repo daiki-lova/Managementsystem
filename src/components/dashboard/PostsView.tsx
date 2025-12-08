@@ -1,4 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+'use client'
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon, 
   ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,

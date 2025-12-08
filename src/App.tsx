@@ -1,3 +1,5 @@
+'use client'
+
 import { AnalyticsOverlay } from './components/analytics/AnalyticsOverlay';
 import { Dashboard, DashboardTab } from './components/dashboard/Dashboard';
 import { GlobalHeader } from './components/GlobalHeader';
