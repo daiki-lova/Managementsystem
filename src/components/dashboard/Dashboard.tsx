@@ -29,6 +29,7 @@ import { StrategyView, GeneratedArticleData } from './StrategyView';
 import { ConversionsView } from './ConversionsView';
 import { MediaLibraryView } from './MediaLibraryView';
 import { PostsView } from './PostsView';
+import { useAuth } from '../../lib/auth-context';
 
 // UI Components
 import { Calendar } from '../ui/calendar';
@@ -84,8 +85,9 @@ interface DashboardProps {
 type UserRole = 'owner' | 'writer';
 
 export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, initialTab = 'home' }: DashboardProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab);
-  const [userRole, setUserRole] = useState<UserRole>('owner');
+  const userRole: UserRole = user?.role === 'OWNER' ? 'owner' : 'writer';
   const [previewArticle, setPreviewArticle] = useState<(Article & { category?: string, categories?: string[] }) | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -264,14 +266,17 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 <DropdownMenuTrigger asChild>
                     <button className="flex items-center gap-3 px-3 py-2 w-full bg-white shadow-sm rounded-full hover:shadow transition-all text-left outline-none group border border-neutral-100">
                         <Avatar className="h-8 w-8 border border-neutral-100">
-                            <AvatarFallback className="text-xs bg-neutral-900 text-white">AD</AvatarFallback>
+                            {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name || user.email} />}
+                            <AvatarFallback className="text-xs bg-neutral-900 text-white">
+                                {user?.name ? user.name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+                            </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col flex-1 min-w-0">
                             <span className="text-[11px] font-bold text-neutral-900 truncate">
-                                Admin User
+                                {user?.name || user?.email || 'ユーザー'}
                             </span>
                             <span className="text-[10px] text-neutral-500 flex items-center gap-1">
-                                Owner
+                                {userRole === 'owner' ? 'Owner' : 'Writer'}
                             </span>
                         </div>
                         <MoreHorizontal size={14} className="text-neutral-400" />

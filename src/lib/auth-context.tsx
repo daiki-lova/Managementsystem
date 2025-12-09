@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-
-// TODO: 本番環境では実際のAPI認証に切り替える
-const USE_MOCK_AUTH = true;
+import { authApi, tokenManager, ApiError } from './api';
 
 // User type
 export interface User {
@@ -12,15 +10,6 @@ export interface User {
   avatarUrl?: string | null;
 }
 
-// Mock user for development
-const MOCK_USER: User = {
-  id: 'mock-user-1',
-  email: 'owner@example.com',
-  role: 'OWNER',
-  name: 'オーナー',
-  avatarUrl: null,
-};
-
 // Auth context type
 interface AuthContextType {
   user: User | null;
@@ -29,6 +18,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -37,21 +27,33 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
-      if (USE_MOCK_AUTH) {
-        // Check if mock user was logged in
-        const mockLoggedIn = localStorage.getItem('mock_logged_in');
-        if (mockLoggedIn === 'true') {
-          setUser(MOCK_USER);
+      // Load tokens from localStorage
+      const { accessToken } = tokenManager.loadTokens();
+
+      if (accessToken) {
+        try {
+          // Verify token and get user info
+          const response = await authApi.me();
+          if (response.success && response.data) {
+            setUser({
+              id: response.data.id,
+              email: response.data.email,
+              role: response.data.role as 'OWNER' | 'EDITOR',
+              name: response.data.name,
+              avatarUrl: response.data.avatarUrl,
+            });
+          }
+        } catch {
+          // Token invalid or expired, clear it
+          tokenManager.clearTokens();
         }
-        setIsLoading(false);
-        return;
       }
 
-      // Real auth logic (disabled for now)
       setIsLoading(false);
     };
 
@@ -59,41 +61,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Login
-  const login = useCallback(async (_email: string, _password: string) => {
-    if (USE_MOCK_AUTH) {
-      // Mock login - always succeed
-      localStorage.setItem('mock_logged_in', 'true');
-      setUser(MOCK_USER);
-      return;
-    }
+  const login = useCallback(async (email: string, password: string) => {
+    setError(null);
 
-    // Real auth logic would go here
+    try {
+      const response = await authApi.login(email, password);
+
+      if (response.success && response.data) {
+        // Store tokens
+        tokenManager.setTokens(
+          response.data.session.accessToken,
+          response.data.session.refreshToken
+        );
+
+        // Set user
+        setUser({
+          id: response.data.user.id,
+          email: response.data.user.email,
+          role: response.data.user.role as 'OWNER' | 'EDITOR',
+          name: response.data.user.name,
+        });
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('ログインに失敗しました');
+      }
+      throw err;
+    }
   }, []);
 
   // Logout
   const logout = useCallback(async () => {
-    if (USE_MOCK_AUTH) {
-      localStorage.removeItem('mock_logged_in');
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore logout errors
+    } finally {
+      tokenManager.clearTokens();
       setUser(null);
-      return;
     }
-
-    // Real auth logic would go here
-    setUser(null);
   }, []);
 
   // Refresh user data
   const refreshUser = useCallback(async () => {
-    if (USE_MOCK_AUTH) {
-      // Mock refresh - just keep the current user
-      const mockLoggedIn = localStorage.getItem('mock_logged_in');
-      if (mockLoggedIn === 'true') {
-        setUser(MOCK_USER);
-      }
+    const { accessToken } = tokenManager.loadTokens();
+
+    if (!accessToken) {
+      setUser(null);
       return;
     }
 
-    // Real auth logic would go here
+    try {
+      const response = await authApi.me();
+      if (response.success && response.data) {
+        setUser({
+          id: response.data.id,
+          email: response.data.email,
+          role: response.data.role as 'OWNER' | 'EDITOR',
+          name: response.data.name,
+          avatarUrl: response.data.avatarUrl,
+        });
+      }
+    } catch {
+      tokenManager.clearTokens();
+      setUser(null);
+    }
   }, []);
 
   const value: AuthContextType = {
@@ -103,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     refreshUser,
+    error,
   };
 
   return (
