@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, Filter, FileSpreadsheet, Type, Check, AlertCircle, MoreVertical, Trash2, Edit2, Calendar, RefreshCw, Link as LinkIcon, ChevronLeft, Globe, FileText, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -49,6 +49,7 @@ import { cn } from '../../lib/utils';
 import type { KnowledgeItem, Profile } from '../../types';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { useKnowledgeBank, useCreateKnowledgeEntry, useDeleteKnowledgeEntry, useAuthors } from '../../lib/hooks';
 
 interface KnowledgeBankViewProps {
     items?: KnowledgeItem[];
@@ -56,7 +57,40 @@ interface KnowledgeBankViewProps {
     authors?: Profile[];
 }
 
-export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: KnowledgeBankViewProps) {
+export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange, authors: _authors }: KnowledgeBankViewProps) {
+    // Use API hooks instead of props
+    const { data: knowledgeData, isLoading, error } = useKnowledgeBank();
+    const { data: authorsData } = useAuthors();
+    const createKnowledgeEntry = useCreateKnowledgeEntry();
+    const deleteKnowledgeEntry = useDeleteKnowledgeEntry();
+
+    // Map API data to KnowledgeItem format
+    const items: KnowledgeItem[] = (knowledgeData?.data || []).map((item: any) => ({
+        id: item.id,
+        content: item.content,
+        brand: item.brand?.slug || 'ALL',
+        course: item.course,
+        kind: item.kind,
+        authorId: item.authorId,
+        authorName: item.author?.name,
+        createdAt: item.createdAt,
+        usageCount: item.usageCount || 0,
+        source: item.source || 'manual',
+        sourceType: item.sourceType || 'text',
+    }));
+
+    // Map authors
+    const authors: Profile[] = (authorsData?.data || []).map((author: any) => ({
+        id: author.id,
+        name: author.name,
+        slug: author.slug,
+        role: author.title || '',
+        qualifications: author.qualifications || '',
+        categories: author.categories || [],
+        tags: author.tags || [],
+        avatar: author.avatarUrl,
+        bio: author.bio,
+    }));
     const [searchQuery, setSearchQuery] = useState('');
     const [brandFilter, setBrandFilter] = useState<string>('ALL_BRANDS');
     const [courseFilter, setCourseFilter] = useState<string>('ALL_COURSES');
@@ -128,44 +162,37 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
 
     const handleSubmit = async () => {
         if (!inputContent.trim()) return;
-        
+
         setIsSubmitting(true);
-        
-        // Mock processing delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Split content if text type (simple line break split for mock)
-        const newItemsRaw = inputType === 'text' 
+
+        // Split content if text type (simple line break split)
+        const newItemsRaw = inputType === 'text'
             ? inputContent.split(/\n\s*\n/).filter(t => t.trim().length > 0)
-            : [inputContent]; // URL treated as one item for now
-        
-        const newKnowledgeItems: KnowledgeItem[] = newItemsRaw.map(content => ({
-            id: Math.random().toString(36).substr(2, 9),
-            content: content.trim(),
-            brand: selectedBrand,
-            kind: selectedType as any,
-            course: selectedCourse === 'UNSELECTED' ? undefined : selectedCourse,
-            authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
-            authorName: selectedAuthor === 'UNSELECTED' ? undefined : authors.find(a => a.id === selectedAuthor)?.name,
-            createdAt: new Date().toISOString(),
-            usageCount: 0,
-            source: 'manual',
-            sourceType: inputType
-        }));
-        
-        onItemsChange?.([...newKnowledgeItems, ...items]);
-        
+            : [inputContent];
+
+        // Create entries one by one
+        for (const content of newItemsRaw) {
+            await createKnowledgeEntry.mutateAsync({
+                content: content.trim(),
+                kind: selectedType,
+                sourceType: inputType,
+                brandId: selectedBrand === 'ALL' ? undefined : selectedBrand,
+                course: selectedCourse === 'UNSELECTED' ? undefined : selectedCourse,
+                authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
+            });
+        }
+
         toast.success('情報を追加しました', {
-            description: `${newKnowledgeItems.length}件の情報をバンクに登録しました。`,
+            description: `${newItemsRaw.length}件の情報をバンクに登録しました。`,
         });
-        
+
         setIsSubmitting(false);
         setIsRegisterDialogOpen(false);
     };
 
     const handleDelete = (id: string) => {
         if (window.confirm('この情報を削除してもよろしいですか？')) {
-            onItemsChange?.(items.filter(i => i.id !== id));
+            deleteKnowledgeEntry.mutate(id);
             setIsDetailDialogOpen(false);
         }
     };
@@ -182,6 +209,26 @@ export function KnowledgeBankView({ items = [], onItemsChange, authors = [] }: K
             default: return 'bg-neutral-100 text-neutral-700 border-neutral-200';
         }
     };
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                <p className="mt-2 text-sm text-neutral-500">読み込み中...</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <p className="text-sm text-red-500">データの読み込みに失敗しました</p>
+                <p className="mt-1 text-xs text-neutral-400">{(error as Error).message}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full bg-white">

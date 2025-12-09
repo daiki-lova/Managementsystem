@@ -1,12 +1,11 @@
 'use client'
 
 import React, { useState } from 'react';
-import { FolderOpen, PenTool, Plus, Trash2, Search, MoreVertical, Copy, ChevronDown, ArrowUpZA, ArrowDownAZ, X, User, MessageSquare, UserCheck, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { FolderOpen, PenTool, Plus, Trash2, Search, MoreVertical, Copy, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { Badge } from '../ui/badge';
 import {
     Dialog,
     DialogContent,
@@ -28,84 +27,106 @@ import {
 } from '../ui/popover';
 import { BulkActionBar } from './BulkActionBar';
 import { cn } from '../../lib/utils';
-import type { Category } from '../../types';
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/lib/hooks';
 
-interface CategoriesViewProps {
-    categories?: Category[];
-    onCategoriesChange?: (categories: Category[]) => void;
+interface CategoryFormData {
+    name: string;
+    slug: string;
+    description: string;
+    color?: string;
+    authorId?: string | null;
 }
 
-export function CategoriesView({ categories = [], onCategoriesChange }: CategoriesViewProps) {
+export function CategoriesView() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeFilters, setActiveFilters] = useState<Record<string, Set<string>>>({});
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
     // Form States
-    const [formData, setFormData] = useState<Partial<Category>>({});
+    const [formData, setFormData] = useState<CategoryFormData>({
+        name: '',
+        slug: '',
+        description: '',
+        color: 'bg-neutral-100 text-neutral-700',
+    });
+
+    // API Hooks
+    const { data: categoriesData, isLoading, error } = useCategories();
+    const createCategory = useCreateCategory();
+    const updateCategory = useUpdateCategory();
+    const deleteCategory = useDeleteCategory();
+
+    const categories = categoriesData?.data || [];
 
     const handleOpenCreate = () => {
-        setEditingCategory(null);
+        setEditingCategoryId(null);
         setFormData({ name: '', slug: '', description: '', color: 'bg-neutral-100 text-neutral-700' });
         setIsDialogOpen(true);
     };
 
-    const handleOpenEdit = (category: Category) => {
-        setEditingCategory(category);
-        setFormData({ ...category });
+    const handleOpenEdit = (category: typeof categories[0]) => {
+        setEditingCategoryId(category.id);
+        setFormData({
+            name: category.name,
+            slug: category.slug,
+            description: category.description || '',
+            color: category.color || 'bg-neutral-100 text-neutral-700',
+            authorId: category.authorId,
+        });
         setIsDialogOpen(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (window.confirm('このカテゴリーを削除してもよろしいですか？')) {
-            onCategoriesChange?.(categories.filter(c => c.id !== id));
+            await deleteCategory.mutateAsync(id);
         }
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!formData.name || !formData.slug) return;
 
-        if (editingCategory) {
-            // Update
-            onCategoriesChange?.(categories.map(c => c.id === editingCategory.id ? { ...c, ...formData } as Category : c));
+        if (editingCategoryId) {
+            await updateCategory.mutateAsync({
+                id: editingCategoryId,
+                data: {
+                    name: formData.name,
+                    slug: formData.slug,
+                    description: formData.description || undefined,
+                    color: formData.color,
+                    authorId: formData.authorId,
+                },
+            });
         } else {
-            // Create
-            const newCategory: Category = {
-                id: Math.random().toString(36).substr(2, 9),
-                name: formData.name!,
-                slug: formData.slug!,
-                description: formData.description,
-                count: 0,
-                // System Prompt is NOT managed in Category anymore, it comes from Author
-                // But for backward compatibility we might keep it undefined or remove it from type eventually
-                // For now, we just don't set it here
-                color: formData.color
-            };
-            onCategoriesChange?.([...categories, newCategory]);
+            await createCategory.mutateAsync({
+                name: formData.name,
+                slug: formData.slug,
+                description: formData.description || undefined,
+                color: formData.color,
+            });
         }
         setIsDialogOpen(false);
     };
 
     const filteredCategories = categories.filter(category => {
-        const matchesSearch = category.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        const matchesSearch = category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               category.slug.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
         return Object.entries(activeFilters).every(([key, filterSet]) => {
             if (filterSet.size === 0) return true;
-            // @ts-ignore
-            const val = category[key];
+            const val = (category as Record<string, unknown>)[key];
             return filterSet.has(String(val));
         });
     }).sort((a, b) => {
         if (!sortConfig) return 0;
-        // @ts-ignore
-        const aVal = a[sortConfig.key];
-        // @ts-ignore
-        const bVal = b[sortConfig.key];
+        const aVal = (a as Record<string, unknown>)[sortConfig.key];
+        const bVal = (b as Record<string, unknown>)[sortConfig.key];
+        if (aVal === undefined || aVal === null) return 1;
+        if (bVal === undefined || bVal === null) return -1;
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -138,17 +159,15 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
         setSelectedIds(new Set());
     };
 
-    const handleBulkDelete = () => {
-        // In a real app, you would delete multiple items here
-        const newCategories = categories.filter(c => !selectedIds.has(c.id));
-        onCategoriesChange?.(newCategories);
+    const handleBulkDelete = async () => {
+        if (!window.confirm(`${selectedIds.size}件のカテゴリーを削除してもよろしいですか？`)) return;
+        for (const id of selectedIds) {
+            await deleteCategory.mutateAsync(id);
+        }
         setSelectedIds(new Set());
     };
 
     const handleBulkPublish = () => {
-        // Categories don't usually have a "publish" state like articles, 
-        // but we'll keep the interface consistent or maybe just show a toast
-        console.log("Bulk action for categories");
         setSelectedIds(new Set());
     };
 
@@ -157,7 +176,7 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
         const isSortable = true;
 
         return (
-            <th 
+            <th
                 className="px-4 py-2.5 relative bg-neutral-50/80 select-none whitespace-nowrap text-xs text-neutral-500 font-medium group border-b border-neutral-200 border-r border-neutral-100/50"
                 style={{ width }}
             >
@@ -178,7 +197,7 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                         <PopoverContent className="w-56 p-2" align="start">
                              <div className="space-y-2">
                                 <div className="text-xs font-medium text-neutral-500 px-2 py-1">{label}</div>
-                                
+
                                 {isSortable && (
                                     <div className="space-y-1 border-b border-neutral-100 pb-2 mb-2">
                                         <button onClick={() => handleSort(key, 'asc')} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-neutral-100">
@@ -195,8 +214,8 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                                         {filterOptions.map((opt) => (
                                             <div key={opt} className="flex items-center justify-between px-2 py-1.5 hover:bg-neutral-50 rounded">
                                                 <div className="flex items-center gap-2 overflow-hidden">
-                                                    <input 
-                                                        type="checkbox" 
+                                                    <input
+                                                        type="checkbox"
                                                         checked={activeFilters[key]?.has(opt) || false}
                                                         onChange={(e) => toggleFilter(key, opt, e.target.checked)}
                                                         className="rounded border-neutral-300 text-blue-600"
@@ -215,6 +234,22 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
         );
     };
 
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <p className="text-red-500">データの読み込みに失敗しました</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header Area */}
@@ -226,7 +261,7 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                 <div className="flex items-center gap-3">
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={18} />
-                        <Input 
+                        <Input
                             className="w-[300px] pl-11 h-12 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded-full text-sm font-medium transition-all"
                             placeholder="カテゴリーを検索..."
                             value={searchQuery}
@@ -253,7 +288,12 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                 </div>
                 <div className="flex items-center gap-2">
                     {selectedIds.size > 0 && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200"
+                            onClick={handleBulkDelete}
+                        >
                             <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
                         </Button>
                     )}
@@ -266,11 +306,10 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                     <thead className="sticky top-0 z-20">
                         <tr>
                              <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-0 z-20">
-                                {/* Actions Column Header */}
                             </th>
                             <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-[40px] z-20">
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={filteredCategories.length > 0 && selectedIds.size === filteredCategories.length}
                                     onChange={(e) => toggleSelectAll(e.target.checked)}
                                     className="rounded border-neutral-300 scale-90 cursor-pointer"
@@ -278,13 +317,14 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                             </th>
                             {renderHeaderCell("カテゴリー名", "name", 220)}
                             {renderHeaderCell("スラッグ", "slug", 150)}
-                            {renderHeaderCell("記事数", "count", 80)}
+                            {renderHeaderCell("記事数", "_count", 80)}
+                            {renderHeaderCell("監修者", "author", 150)}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
                         {filteredCategories.map(category => (
-                            <tr 
-                                key={category.id} 
+                            <tr
+                                key={category.id}
                                 className={cn(
                                     "group hover:bg-neutral-50/80 transition-colors",
                                     selectedIds.has(category.id) && "bg-blue-50/50 hover:bg-blue-50/60"
@@ -298,12 +338,6 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-32">
-                                             <DropdownMenuItem onClick={() => {
-                                                 const newCategory = { ...category, id: Math.random().toString(36).substr(2, 9), name: `${category.name} (Copy)` };
-                                                 onCategoriesChange?.([...categories, newCategory]);
-                                             }}>
-                                                <Copy size={14} className="mr-2" /> 複製
-                                            </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleOpenEdit(category)}>
                                                 <PenTool size={14} className="mr-2" /> 編集
                                             </DropdownMenuItem>
@@ -314,8 +348,8 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                                     </DropdownMenu>
                                 </td>
                                 <td className="px-4 py-3.5 bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50 sticky left-[40px] text-center z-10">
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         checked={selectedIds.has(category.id)}
                                         onChange={() => toggleSelection(category.id)}
                                         className="rounded border-neutral-300 scale-90 cursor-pointer"
@@ -326,7 +360,7 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                                         <div className="w-8 h-8 rounded bg-neutral-100 flex items-center justify-center text-neutral-400">
                                             <FolderOpen size={16} />
                                         </div>
-                                        <span 
+                                        <span
                                             className="font-medium text-neutral-900 text-sm leading-normal cursor-pointer hover:text-blue-600 hover:underline decoration-blue-300 underline-offset-2 transition-all"
                                             onClick={() => handleOpenEdit(category)}
                                         >
@@ -341,7 +375,12 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
                                     <span className="text-xs font-medium text-neutral-600">
-                                        {category.count}
+                                        {category._count?.articles || 0}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
+                                    <span className="text-xs text-neutral-600">
+                                        {category.author?.name || '-'}
                                     </span>
                                 </td>
                             </tr>
@@ -349,7 +388,7 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                     </tbody>
                 </table>
 
-                <BulkActionBar 
+                <BulkActionBar
                     selectedCount={selectedIds.size}
                     onClearSelection={handleClearSelection}
                     onPublish={handleBulkPublish}
@@ -362,51 +401,58 @@ export function CategoriesView({ categories = [], onCategoriesChange }: Categori
                 <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-xl flex flex-col">
                     <div className="flex-1 min-h-0 bg-white">
                         <DialogHeader className="px-5 py-4 border-b border-neutral-50">
-                            <DialogTitle className="text-base font-bold text-neutral-900">{editingCategory ? 'カテゴリー編集' : 'カテゴリー追加'}</DialogTitle>
+                            <DialogTitle className="text-base font-bold text-neutral-900">{editingCategoryId ? 'カテゴリー編集' : 'カテゴリー追加'}</DialogTitle>
                             <DialogDescription className="sr-only">
                                 カテゴリーの基本情報を編集します。
                             </DialogDescription>
                         </DialogHeader>
 
                         <div className="p-6 space-y-6">
-                            {/* Category Info Group */}
                             <div className="space-y-4">
                                 <div className="grid gap-1.5">
                                     <Label htmlFor="name" className="text-xs">カテゴリー名 <span className="text-red-500">*</span></Label>
-                                    <Input 
-                                        id="name" 
-                                        placeholder="例: ヨガ" 
+                                    <Input
+                                        id="name"
+                                        placeholder="例: ヨガ"
                                         className="h-9 text-sm"
-                                        value={formData.name || ''}
+                                        value={formData.name}
                                         onChange={e => setFormData({...formData, name: e.target.value})}
                                     />
                                 </div>
                                 <div className="grid gap-1.5">
                                     <Label htmlFor="slug" className="text-xs">スラグ (URL) <span className="text-red-500">*</span></Label>
-                                    <Input 
-                                        id="slug" 
-                                        placeholder="例: yoga" 
+                                    <Input
+                                        id="slug"
+                                        placeholder="例: yoga"
                                         className="font-mono text-sm h-9"
-                                        value={formData.slug || ''}
+                                        value={formData.slug}
                                         onChange={e => setFormData({...formData, slug: e.target.value})}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="description" className="text-xs">カテゴリー概要</Label>
-                                    <Textarea 
-                                        id="description" 
-                                        placeholder="このカテゴリーの説明を入力してください。" 
+                                    <Textarea
+                                        id="description"
+                                        placeholder="このカテゴリーの説明を入力してください。"
                                         className="h-20 text-sm"
-                                        value={formData.description || ''}
+                                        value={formData.description}
                                         onChange={e => setFormData({...formData, description: e.target.value})}
                                     />
                                 </div>
                             </div>
                         </div>
-                        
+
                         <DialogFooter className="px-5 py-4 bg-neutral-50 border-t border-neutral-100">
                             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
-                            <Button onClick={handleSubmit}>保存する</Button>
+                            <Button
+                                onClick={handleSubmit}
+                                disabled={createCategory.isPending || updateCategory.isPending}
+                            >
+                                {(createCategory.isPending || updateCategory.isPending) && (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                )}
+                                保存する
+                            </Button>
                         </DialogFooter>
                     </div>
                 </DialogContent>

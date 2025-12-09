@@ -1,0 +1,620 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==========================================
+// ユーザー・認証
+// ==========================================
+
+enum UserRole {
+  OWNER
+  WRITER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // ハッシュ化されたパスワード
+  role      UserRole @default(WRITER)
+  name      String?
+
+  // リレーション
+  articles        Article[]
+  generationJobs  GenerationJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@map("users")
+}
+
+// ==========================================
+// 記事
+// ==========================================
+
+enum ArticleStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  DELETED
+}
+
+model Article {
+  id          String        @id @default(cuid())
+  title       String
+  blocks      Json          // ブロックデータ（Notion風エディタ）
+  slug        String        @unique
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+  deletedAt   DateTime?     // ゴミ箱移動日時（7日後自動削除）
+
+  // 楽観的ロック用バージョン
+  version     Int           @default(1)
+
+  // SEO・OGP
+  metaTitle       String?
+  metaDescription String?
+  ogpImageUrl     String?
+
+  // スラッグ変更時の301リダイレクト（後方互換用、SlugHistoryに移行）
+  previousSlug    String?
+
+  // 外部キー
+  categoryId       String
+  authorId         String
+  thumbnailId      String?
+  generationJobId  String?
+  createdById      String
+  brandId          String
+
+  // リレーション
+  category        Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  author          Author                @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  thumbnail       MediaAsset?           @relation("ArticleThumbnail", fields: [thumbnailId], references: [id], onDelete: SetNull)
+  generationJob   GenerationJob?        @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
+  createdBy       User                  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  brand           Brand                 @relation(fields: [brandId], references: [id], onDelete: Restrict)
+
+  tags            ArticleTag[]
+  conversions     ArticleConversion[]
+  images          ArticleImage[]
+  knowledgeItems  ArticleKnowledgeItem[]
+  analytics       AnalyticsData[]
+  slugHistory     SlugHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([previousSlug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([createdById])
+  @@index([generationJobId])
+  @@index([brandId])
+  @@map("articles")
+}
+
+// ==========================================
+// ブランド
+// ==========================================
+
+model Brand {
+  id          String @id @default(cuid())
+  name        String
+  slug        String @unique
+  description String?
+  logoUrl     String?
+  isDefault   Boolean @default(false)
+
+  // リレーション
+  articles       Article[]
+  knowledgeItems KnowledgeItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@map("brands")
+}
+
+// ==========================================
+// カテゴリ
+// ==========================================
+
+model Category {
+  id          String @id @default(cuid())
+  name        String
+  slug        String @unique
+  description String?
+  color       String? // HEXカラーコード
+
+  // 統計
+  articlesCount Int @default(0)
+
+  // リレーション
+  articles       Article[]
+  generationJobs GenerationJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@map("categories")
+}
+
+// ==========================================
+// タグ
+// ==========================================
+
+model Tag {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  // 統計
+  articlesCount Int @default(0)
+
+  // リレーション
+  articles    ArticleTag[]
+  mediaAssets MediaAssetTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@map("tags")
+}
+
+model ArticleTag {
+  articleId String
+  tagId     String
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([articleId, tagId])
+  @@index([articleId])
+  @@index([tagId])
+  @@map("article_tags")
+}
+
+// ==========================================
+// 監修者
+// ==========================================
+
+model Author {
+  id             String  @id @default(cuid())
+  name           String
+  role           String  // 肩書き
+  qualifications Json    // 資格リスト（配列）
+  bio            String  @db.Text
+  imageUrl       String?
+  socialLinks    Json?   // { twitter, instagram, etc }
+
+  // AI生成用
+  systemPrompt String @db.Text // オーナーのみ編集可
+
+  // リレーション
+  articles       Article[]
+  knowledgeItems KnowledgeItem[]
+  generationJobs GenerationJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("authors")
+}
+
+// ==========================================
+// コンバージョン（CTA）
+// ==========================================
+
+enum ConversionType {
+  BANNER
+  TEXT
+  INLINE
+}
+
+enum ConversionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Conversion {
+  id           String            @id @default(cuid())
+  name         String
+  type         ConversionType
+  status       ConversionStatus  @default(ACTIVE)
+  url          String
+  thumbnailUrl String?
+
+  // AI生成用
+  context String @db.Text // 訴求コンテキスト
+
+  // 期間限定設定
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  // リレーション
+  articles       ArticleConversion[]
+  generationJobs GenerationJobConversion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("conversions")
+}
+
+model ArticleConversion {
+  id           String @id @default(cuid())
+  articleId    String
+  conversionId String
+
+  position   Int @default(0) // 記事内での位置
+  clickCount Int @default(0) // クリック計測
+
+  article    Article    @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  conversion Conversion @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([articleId])
+  @@index([conversionId])
+  @@map("article_conversions")
+}
+
+// ==========================================
+// メディア（画像）
+// ==========================================
+
+enum MediaSource {
+  UPLOAD
+  AI_GENERATED
+}
+
+model MediaAsset {
+  id            String      @id @default(cuid())
+  url           String
+  fileName      String
+  altText       String?
+  source        MediaSource @default(UPLOAD)
+
+  // 表示制御
+  showInLibrary Boolean @default(true)  // ライブラリ一覧に表示するか
+  isDeleted     Boolean @default(false) // 論理削除フラグ
+
+  // メタデータ
+  width    Int?
+  height   Int?
+  fileSize Int? // bytes
+
+  // リレーション
+  thumbnailArticles Article[]      @relation("ArticleThumbnail")
+  articleImages     ArticleImage[]
+  tags              MediaAssetTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([source])
+  @@index([showInLibrary, isDeleted])
+  @@map("media_assets")
+}
+
+model MediaAssetTag {
+  mediaAssetId String
+  tagId        String
+
+  mediaAsset MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  tag        Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([mediaAssetId, tagId])
+  @@index([mediaAssetId])
+  @@index([tagId])
+  @@map("media_asset_tags")
+}
+
+enum ArticleImageType {
+  INSERTED_1
+  INSERTED_2
+}
+
+model ArticleImage {
+  id           String           @id @default(cuid())
+  articleId    String
+  mediaAssetId String
+  type         ArticleImageType // 差し込み1 or 2
+  position     Int              @default(0) // 記事内での位置
+
+  article    Article    @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([articleId])
+  @@index([mediaAssetId])
+  @@map("article_images")
+}
+
+// ==========================================
+// 情報バンク
+// ==========================================
+
+model KnowledgeItem {
+  id       String  @id @default(cuid())
+  title    String
+  type     String  // お客様の声、体験談、事例、講座情報など
+  brandId  String?
+  course   String?
+  authorId String?
+
+  content  String   @db.Text // 本文（URLから取得した場合もここに保存）
+  sourceUrl String? // 元URL
+  sourceScrapedAt DateTime? // 最終取得日時
+
+  // 統計
+  usageCount Int @default(0) // 記事生成で参照された回数
+
+  // リレーション
+  author         Author?                     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  brand          Brand?                      @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  articles       ArticleKnowledgeItem[]
+  generationJobs GenerationJobKnowledgeItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([brandId])
+  @@index([course])
+  @@index([authorId])
+  @@map("knowledge_items")
+}
+
+model ArticleKnowledgeItem {
+  articleId       String
+  knowledgeItemId String
+
+  article       Article       @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  knowledgeItem KnowledgeItem @relation(fields: [knowledgeItemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([articleId, knowledgeItemId])
+  @@index([articleId])
+  @@index([knowledgeItemId])
+  @@map("article_knowledge_items")
+}
+
+// ==========================================
+// 生成ジョブ
+// ==========================================
+
+enum GenerationJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PublishStrategy {
+  DRAFT
+  PUBLISH_NOW
+  SCHEDULED
+}
+
+model GenerationJob {
+  id           String               @id @default(cuid())
+  keyword      String
+  searchVolume Int?
+
+  status       GenerationJobStatus  @default(PENDING)
+  progress     Int                  @default(0) // 0-100
+  errorMessage String?              @db.Text
+
+  // 生成パラメータ
+  categoryId       String
+  authorId         String
+  publishStrategy  PublishStrategy @default(DRAFT)
+  scheduledAt      DateTime?
+  totalArticles    Int             @default(1) // 1キーワード=1記事
+
+  // 実行者
+  userId String
+
+  // リレーション
+  category       Category                      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  author         Author                        @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  user           User                          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  conversions    GenerationJobConversion[]
+  knowledgeItems GenerationJobKnowledgeItem[]
+  articles       Article[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([status])
+  @@index([userId])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("generation_jobs")
+}
+
+model GenerationJobConversion {
+  generationJobId String
+  conversionId    String
+
+  generationJob GenerationJob @relation(fields: [generationJobId], references: [id], onDelete: Cascade)
+  conversion    Conversion    @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([generationJobId, conversionId])
+  @@index([generationJobId])
+  @@index([conversionId])
+  @@map("generation_job_conversions")
+}
+
+model GenerationJobKnowledgeItem {
+  generationJobId String
+  knowledgeItemId String
+
+  generationJob GenerationJob @relation(fields: [generationJobId], references: [id], onDelete: Cascade)
+  knowledgeItem KnowledgeItem @relation(fields: [knowledgeItemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([generationJobId, knowledgeItemId])
+  @@index([generationJobId])
+  @@index([knowledgeItemId])
+  @@map("generation_job_knowledge_items")
+}
+
+// ==========================================
+// システム設定
+// ==========================================
+
+model SystemSettings {
+  id String @id @default("default") // シングルトン
+
+  // 外部API設定
+  gaApiKey             String?
+  gaPropertyId         String?
+  searchConsoleApiKey  String?
+  searchConsoleSiteUrl String?
+  searchVolumeApiKey   String?
+  openRouterApiKey     String?
+  aiModel              String? @default("openai/gpt-4-turbo")
+
+  // 検索ボリューム設定
+  minSearchVolume Int  @default(300)
+  maxSearchVolume Int  @default(2000)
+  volumeZones     Json? // カスタムボリュームゾーン定義
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// ==========================================
+// 分析データ
+// ==========================================
+
+model AnalyticsData {
+  id        String @id @default(cuid())
+  articleId String
+  date      DateTime @db.Date
+
+  // GA/SC データ
+  pageViews       Int   @default(0)
+  organicViews    Int   @default(0)
+  conversionClicks Int  @default(0)
+  bounceRate      Int   @default(0) // パーセンテージ
+  avgTimeOnPage   Float @default(0) // 秒
+
+  // キーワードデータ
+  keywords Json? // [{keyword: string, position: number, clicks: number}]
+
+  // リレーション
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([articleId, date])
+  @@index([articleId])
+  @@index([date])
+  @@map("analytics_data")
+}
+
+// ==========================================
+// 通知
+// ==========================================
+
+enum NotificationType {
+  GENERATION_COMPLETE
+  GENERATION_FAILED
+  ARTICLE_SCHEDULED
+  ARTICLE_PUBLISHED
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  metadata  Json?            // 追加データ（記事ID等）
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ==========================================
+// 監査ログ
+// ==========================================
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String   // AUTH_LOGIN, ARTICLE_PUBLISH, SETTINGS_UPDATE など
+  userId       String?
+  userEmail    String?
+  resourceType String?  // article, category, settings など
+  resourceId   String?
+  details      Json?    // 追加情報
+  ipAddress    String?
+  userAgent    String?  @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ==========================================
+// Slug履歴（301リダイレクト用）
+// ==========================================
+
+model SlugHistory {
+  id        String @id @default(cuid())
+  articleId String
+  oldSlug   String
+  newSlug   String
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([oldSlug]) // 古いslugは一意
+  @@index([articleId])
+  @@map("slug_history")
+}

@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, UserCheck, ChevronRight, CheckCircle2, Check, Copy, CalendarDays, Globe, Lightbulb, Loader2, Zap, User, Search, RefreshCw, X } from 'lucide-react';
+import { Sparkles, UserCheck, ChevronRight, CheckCircle2, Check, Copy, CalendarDays, Globe, Lightbulb, Loader2, Zap, User, Search, RefreshCw, X, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -18,6 +18,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import type { Category, ConversionItem, KnowledgeItem, Profile } from '../../types';
 import { GenerationProgressModal } from './GenerationProgressModal';
+import {
+    useCategories,
+    useAuthors,
+    useConversions,
+    useKnowledgeBank,
+    useCreateGenerationJob,
+    useGenerationJobs,
+} from '../../lib/hooks';
 
 export type GeneratedArticleData = {
     title: string;
@@ -43,27 +51,63 @@ const MOCK_KEYWORDS: KeywordCandidate[] = [
     { id: 'kw6', keyword: '朝ヨガ 5分', volume: 650, difficulty: 35 },
 ];
 
-export function StrategyView({ 
+export function StrategyView({
     onGenerate,
     onManageConversions,
     onNavigateToCategories,
-    categories = [],
-    conversions = [],
-    knowledgeItems = [],
-    authors = []
-}: { 
+}: {
     onGenerate: (articles: GeneratedArticleData[]) => void;
     onManageConversions?: () => void;
     onNavigateToCategories?: () => void;
-    categories?: Category[];
-    conversions?: ConversionItem[];
-    knowledgeItems?: KnowledgeItem[];
-    authors?: Profile[];
 }) {
+    // API Data fetching
+    const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
+    const { data: authorsData, isLoading: authorsLoading } = useAuthors();
+    const { data: conversionsData, isLoading: conversionsLoading } = useConversions();
+    const { data: knowledgeData } = useKnowledgeBank();
+
+    // Map API data to component format
+    const categories: Category[] = (categoriesData?.data || []).map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        parentId: cat.parentId,
+        supervisorId: cat.authorId,
+        supervisorName: cat.author?.name,
+    }));
+
+    const authors: Profile[] = (authorsData?.data || []).map((author: any) => ({
+        id: author.id,
+        name: author.name,
+        email: author.email || '',
+        role: author.title || author.role || '監修者',
+        avatar: author.imageUrl,
+    }));
+
+    const conversions: ConversionItem[] = (conversionsData?.data || []).map((cv: any) => ({
+        id: cv.id,
+        name: cv.name,
+        description: cv.description,
+        url: cv.url,
+        type: cv.type,
+    }));
+
+    const knowledgeItems: KnowledgeItem[] = (knowledgeData?.data || []).map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        source: item.sourceUrl,
+        kind: item.kind,
+    }));
+
+    // Generation job mutation
+    const createGenerationJob = useCreateGenerationJob();
+
+    // Selection state
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
     const [selectedConversionIds, setSelectedConversionIds] = useState<Set<string>>(new Set());
     const [selectedAuthorId, setSelectedAuthorId] = useState<string | null>(null);
-    
+
     // Keyword State
     const [showKeywords, setShowKeywords] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -78,11 +122,15 @@ export function StrategyView({
     const [progress, setProgress] = useState(0);
     const [genStatus, setGenStatus] = useState<'idle' | 'processing' | 'error' | 'completed'>('idle');
     const [generatedResult, setGeneratedResult] = useState<GeneratedArticleData[]>([]);
-    
+    const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
+
     // Options
     const [scheduleMode, setScheduleMode] = useState<'draft' | 'now' | 'schedule'>('draft');
     const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [postTime, setPostTime] = useState('10:00');
+
+    // Loading state
+    const isDataLoading = categoriesLoading || authorsLoading || conversionsLoading;
 
     const toggleCategory = (id: string) => {
         const newSet = new Set(selectedCategoryIds);
@@ -158,80 +206,136 @@ export function StrategyView({
         }, 1500);
     };
 
-    const handleGenerate = () => {
+    const handleGenerate = async () => {
         if (selectedKeywordsList.length === 0) return;
-        
+
         setProgressModalOpen(true);
         setGenStatus('processing');
         setCurrentStep(0);
         setProgress(0);
-        
-        // Simulate bulk generation with steps
-        let step = 0;
-        let prog = 0;
-        const interval = setInterval(() => {
-            prog += 1; // Slower
-            if (prog > 100) prog = 100;
-            
-            // Map progress to steps
-            if (prog < 15) step = 0;
-            else if (prog < 30) step = 1;
-            else if (prog < 55) step = 2;
-            else if (prog < 75) step = 3;
-            else if (prog < 90) step = 4;
-            else step = 5;
+        setActiveJobIds([]);
 
-            setCurrentStep(step);
-            setProgress(prog);
+        // Get selected category ID (first one)
+        const categoryId = Array.from(selectedCategoryIds)[0];
+        // Get selected conversion ID (first one)
+        const conversionId = Array.from(selectedConversionIds)[0];
+        // Get relevant knowledge IDs
+        const knowledgeIds = knowledgeItems.slice(0, 5).map(k => k.id);
 
-            if (prog >= 100) {
-                clearInterval(interval);
-                
-                const category = categories.find(c => selectedCategoryIds.has(c.id));
-                const generatedArticles: GeneratedArticleData[] = [];
-                
-                selectedKeywordsList.forEach(keyword => {
-                    let title = keyword.keyword;
-                    
-                    // Determine Status and PublishedAt
-                    let status: 'draft' | 'published' | 'scheduled' = 'draft';
-                    let publishedAt = '-';
+        try {
+            // Create generation jobs for each keyword
+            const jobPromises = selectedKeywordsList.map(keyword =>
+                createGenerationJob.mutateAsync({
+                    keyword: keyword.keyword,
+                    categoryId,
+                    authorId: selectedAuthorId || undefined,
+                    conversionId,
+                    knowledgeIds,
+                    generateImages: true,
+                })
+            );
 
-                    if (scheduleMode === 'schedule') {
-                        status = 'scheduled';
-                        publishedAt = `${startDate} ${postTime}`;
-                        const dateStr = new Date(startDate).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
-                        title += ` [${dateStr} ${postTime} 公開予約]`; 
-                    } else if (scheduleMode === 'now') {
-                        status = 'published';
-                        const now = new Date();
-                        publishedAt = now.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '-');
-                        const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-                        title += ` [${timeStr} 公開済み]`;
-                    } else {
-                        status = 'draft';
-                        title += ` [下書き]`;
-                    }
-                    
-                    generatedArticles.push({
-                        title,
-                        status,
-                        publishedAt,
-                        category: category?.name || '未分類',
-                        author: selectedAuthor?.name || 'AI Assistant'
+            const results = await Promise.all(jobPromises);
+            const jobIds = results.map(r => r.id);
+            setActiveJobIds(jobIds);
+
+            // Start polling for job status
+            pollJobStatus(jobIds);
+        } catch (error) {
+            console.error('Failed to create generation jobs:', error);
+            setGenStatus('error');
+        }
+    };
+
+    // Poll job status
+    const pollJobStatus = (jobIds: string[]) => {
+        let completedCount = 0;
+        const totalJobs = jobIds.length;
+
+        const checkStatus = async () => {
+            try {
+                // In a real implementation, we would fetch job status from API
+                // For now, simulate progress with timeout
+                completedCount++;
+                const progressPercent = Math.min(100, Math.floor((completedCount / totalJobs) * 100));
+
+                // Map progress to steps
+                let step = 0;
+                if (progressPercent < 15) step = 0;
+                else if (progressPercent < 30) step = 1;
+                else if (progressPercent < 55) step = 2;
+                else if (progressPercent < 75) step = 3;
+                else if (progressPercent < 90) step = 4;
+                else step = 5;
+
+                setCurrentStep(step);
+                setProgress(progressPercent);
+
+                if (progressPercent >= 100) {
+                    // All jobs completed
+                    const category = categories.find(c => selectedCategoryIds.has(c.id));
+                    const generatedArticles: GeneratedArticleData[] = selectedKeywordsList.map(keyword => {
+                        let title = keyword.keyword;
+                        let status: 'draft' | 'published' | 'scheduled' = 'draft';
+                        let publishedAt = '-';
+
+                        if (scheduleMode === 'schedule') {
+                            status = 'scheduled';
+                            publishedAt = `${startDate} ${postTime}`;
+                        } else if (scheduleMode === 'now') {
+                            status = 'published';
+                            publishedAt = new Date().toISOString();
+                        }
+
+                        return {
+                            title,
+                            status,
+                            publishedAt,
+                            category: category?.name || '未分類',
+                            author: selectedAuthor?.name || 'AI Assistant'
+                        };
                     });
-                });
 
-                setGeneratedResult(generatedArticles);
-                setGenStatus('completed');
+                    setGeneratedResult(generatedArticles);
+                    setGenStatus('completed');
+                } else {
+                    // Continue polling
+                    setTimeout(checkStatus, 2000);
+                }
+            } catch (error) {
+                console.error('Error checking job status:', error);
+                setGenStatus('error');
             }
-        }, 50); 
+        };
+
+        // Start initial check after delay
+        setTimeout(checkStatus, 2000);
     };
 
     const handleComplete = () => {
         onGenerate(generatedResult);
         setProgressModalOpen(false);
     };
+
+    // Loading state
+    if (isDataLoading) {
+        return (
+            <div className="flex flex-col h-full bg-white p-6">
+                <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
+                    <div className="flex flex-col gap-1">
+                        <h1 className="text-xl font-bold tracking-tight text-neutral-900">AI記事企画</h1>
+                        <p className="text-sm text-neutral-500 font-medium">カテゴリーとコンバージョンを選択して記事構成を一括生成</p>
+                    </div>
+                </header>
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+                        <p className="text-sm text-neutral-500">データを読み込み中...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full bg-white p-6">

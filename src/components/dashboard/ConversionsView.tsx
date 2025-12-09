@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState } from 'react';
-import { 
-    Search, Image as ImageIcon, MoreHorizontal, X
+import {
+    Search, Image as ImageIcon, MoreHorizontal, X, Loader2
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -34,13 +34,34 @@ import {
     SelectValue,
 } from "../ui/select";
 import type { ConversionItem } from '../../types';
+import { useConversions, useCreateConversion, useUpdateConversion, useDeleteConversion } from '../../lib/hooks';
 
 interface ConversionsViewProps {
     conversions?: ConversionItem[];
     onConversionsChange?: (conversions: ConversionItem[]) => void;
 }
 
-export function ConversionsView({ conversions = [], onConversionsChange }: ConversionsViewProps) {
+export function ConversionsView({ conversions: _conversions, onConversionsChange: _onConversionsChange }: ConversionsViewProps) {
+    // Use API hooks instead of props
+    const { data: conversionsData, isLoading, error } = useConversions();
+    const createConversion = useCreateConversion();
+    const updateConversion = useUpdateConversion();
+    const deleteConversion = useDeleteConversion();
+
+    // Map API data to ConversionItem format
+    const conversions: ConversionItem[] = (conversionsData?.data || []).map((cv: any) => ({
+        id: cv.id,
+        name: cv.name,
+        type: cv.type,
+        url: cv.url,
+        thumbnail: cv.thumbnailUrl,
+        status: cv.status,
+        ctr: cv.ctr || '-',
+        clicks: cv.clicks || 0,
+        cv: cv.conversions || 0,
+        period: cv.period,
+        context: cv.context,
+    }));
     const [searchQuery, setSearchQuery] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<ConversionItem | null>(null);
@@ -69,46 +90,62 @@ export function ConversionsView({ conversions = [], onConversionsChange }: Conve
     };
 
     const handleDuplicate = (item: ConversionItem) => {
-        const newItem: ConversionItem = {
-            ...item,
-            id: `cv-${Date.now()}`,
+        createConversion.mutate({
             name: `${item.name} (コピー)`,
-            clicks: 0,
-            cv: 0,
-            ctr: '-'
-        };
-        onConversionsChange?.([newItem, ...conversions]);
+            type: item.type,
+            url: item.url,
+            thumbnailUrl: item.thumbnail,
+            status: 'scheduled',
+            period: item.period,
+            context: item.context,
+        });
     };
 
     const handleDelete = (id: string) => {
-        onConversionsChange?.(conversions.filter(c => c.id !== id));
+        deleteConversion.mutate(id);
     };
 
     const handleSave = () => {
+        const conversionData = {
+            name: formData.name || '新規キャンペーン',
+            type: formData.type || 'campaign',
+            url: formData.url || '',
+            thumbnailUrl: formData.thumbnail,
+            status: formData.status || 'scheduled',
+            period: formData.period || '',
+            context: formData.context,
+        };
+
         if (editingItem) {
-            // Update
-            onConversionsChange?.(conversions.map(c => 
-                c.id === editingItem.id ? { ...c, ...formData } as ConversionItem : c
-            ));
+            updateConversion.mutate({ id: editingItem.id, data: conversionData }, {
+                onSuccess: () => setIsDialogOpen(false),
+            });
         } else {
-            // Create
-            const newItem: ConversionItem = {
-                id: `cv-${Date.now()}`,
-                name: formData.name || '新規キャンペーン',
-                type: formData.type || 'campaign',
-                url: formData.url || '',
-                status: formData.status || 'scheduled',
-                ctr: '-',
-                clicks: 0,
-                cv: 0,
-                period: formData.period || '',
-                thumbnail: formData.thumbnail,
-                ...formData
-            } as ConversionItem;
-            onConversionsChange?.([newItem, ...conversions]);
+            createConversion.mutate(conversionData, {
+                onSuccess: () => setIsDialogOpen(false),
+            });
         }
-        setIsDialogOpen(false);
     };
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                <p className="mt-2 text-sm text-neutral-500">読み込み中...</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <p className="text-sm text-red-500">データの読み込みに失敗しました</p>
+                <p className="mt-1 text-xs text-neutral-400">{(error as Error).message}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full bg-white text-neutral-900 font-sans">

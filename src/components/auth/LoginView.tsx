@@ -2,29 +2,17 @@
 
 import React, { useState } from 'react';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Shield, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
-interface LoginViewProps {
-    onLogin: () => void;
-}
-
-export function LoginView({ onLogin }: LoginViewProps) {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+export function LoginView() {
+    const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleLogin = async () => {
         setIsLoading(true);
-        setError('');
-
-        // Simulate API call
-        setTimeout(() => {
-            // Demo mode: Any input (or empty) is accepted
-            onLogin();
-        }, 800);
+        await login('', '');
+        setIsLoading(false);
     };
 
     return (
@@ -33,40 +21,13 @@ export function LoginView({ onLogin }: LoginViewProps) {
                 <div className="text-center space-y-2">
                     <h1 className="text-xl font-bold tracking-tight">管理画面ログイン</h1>
                     <p className="text-xs text-neutral-500">
-                        デモモード: 入力不要でログインできます
+                        開発モード
                     </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-[360px] mx-auto">
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Input
-                                type="email"
-                                placeholder="メールアドレス"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="h-12 bg-neutral-50 border-neutral-200 focus:bg-white transition-all text-sm"
-                                autoFocus
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Input
-                                type="password"
-                                placeholder="パスワード"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="h-12 bg-neutral-50 border-neutral-200 focus:bg-white transition-all text-sm"
-                            />
-                        </div>
-                        {error && (
-                            <p className="text-xs font-bold text-red-600 pl-1 animate-in slide-in-from-left-2">
-                                {error}
-                            </p>
-                        )}
-                    </div>
-
-                    <Button 
-                        type="submit" 
+                <div className="w-full max-w-[360px] mx-auto">
+                    <Button
+                        onClick={handleLogin}
                         disabled={isLoading}
                         className="w-full h-12 bg-neutral-900 hover:bg-neutral-800 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 text-sm"
                     >
@@ -79,11 +40,11 @@ export function LoginView({ onLogin }: LoginViewProps) {
                             </span>
                         )}
                     </Button>
-                </form>
+                </div>
 
                 <div className="text-center">
                     <p className="text-[10px] text-neutral-400">
-                        Authorized Personnel Only
+                        Development Mode
                     </p>
                 </div>
             </div>

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+
+# Build outputs
+build/
+dist/
+.next/
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test outputs
+test-results/
+playwright-report/
+
+# Serena (IDE plugin)
+.serena/
+
+# MCP config (may contain tokens)
+.mcp.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

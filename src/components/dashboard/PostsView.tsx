@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon, 
+import React, { useState, useCallback, useRef } from 'react';
+import {
+  Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon,
   ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,
-  Send, Calendar as CalendarIcon, Ban
+  Send, Calendar as CalendarIcon, Ban, Loader2
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -38,18 +38,27 @@ import {
 } from "../ui/dialog";
 
 import { BulkActionBar } from './BulkActionBar';
+import {
+  useArticles,
+  useDeleteArticle,
+  usePublishArticle,
+  useScheduleArticle,
+  useUpdateArticle,
+  useCreateArticle,
+} from '../../lib/hooks';
 
-export type ExtendedArticle = Article & { 
+export type ExtendedArticle = Article & {
     categories: string[];
     thumbnail?: string;
     slug?: string;
     publishedAt?: string;
     authorName?: string;
+    version?: number;
 };
 
 interface PostsViewProps {
-    data: ExtendedArticle[];
-    onDataChange: (data: ExtendedArticle[]) => void;
+    data?: ExtendedArticle[];
+    onDataChange?: (data: ExtendedArticle[]) => void;
     onNavigateToEditor: (id?: string, title?: string) => void;
     userRole: 'owner' | 'writer';
     onPreview: (article: any) => void;
@@ -219,7 +228,19 @@ function DraggableHeader({
     );
 }
 
-function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit<PostsViewProps, 'onNavigateToEditor' | 'onSwitchToStrategy'> & { onEdit: (id?: string) => void }) {
+interface ArticlesTableProps {
+    data: ExtendedArticle[];
+    onEdit: (id?: string) => void;
+    userRole: 'owner' | 'writer';
+    onPreview: (article: any) => void;
+    onPublish: (id: string, version: number) => void;
+    onSchedule: (id: string, scheduledAt: string, version: number) => void;
+    onDelete: (id: string) => void;
+    onUpdateStatus: (id: string, status: string, version: number) => void;
+    onDuplicate: (article: ExtendedArticle) => void;
+}
+
+function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onUpdateStatus, onDuplicate }: ArticlesTableProps) {
     const [columns, setColumns] = useState<ColumnConfig[]>([
         { id: 'actions', label: '', width: 40, minWidth: 40 },
         { id: 'select', label: '', width: 40, minWidth: 40 },
@@ -331,33 +352,17 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
         setFilters(newFilters);
     };
 
-    const handlePublish = (article: ExtendedArticle) => {
-        const updatedData = data.map(d => 
-            d.id === article.id 
-                ? { ...d, status: 'published', publishedAt: format(new Date(), 'yyyy-MM-dd HH:mm') } as ExtendedArticle 
-                : d
-        );
-        onDataChange(updatedData);
+    const handlePublishArticle = (article: ExtendedArticle) => {
+        onPublish(article.id, article.version || 1);
     };
 
     const handleUnpublish = (article: ExtendedArticle) => {
-         const updatedData = data.map(d => 
-            d.id === article.id 
-                ? { ...d, status: 'draft' } as ExtendedArticle 
-                : d
-        );
-        onDataChange(updatedData);
+        onUpdateStatus(article.id, 'DRAFT', article.version || 1);
     };
 
     const handleScheduleConfirm = () => {
         if (!schedulingArticle || !scheduleDate) return;
-        
-        const updatedData = data.map(d => 
-            d.id === schedulingArticle.id 
-                ? { ...d, status: 'scheduled', publishedAt: format(scheduleDate, 'yyyy-MM-dd HH:mm') } as ExtendedArticle 
-                : d
-        );
-        onDataChange(updatedData);
+        onSchedule(schedulingArticle.id, scheduleDate.toISOString(), schedulingArticle.version || 1);
         setSchedulingArticle(null);
     };
 
@@ -366,15 +371,17 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
     };
 
     const handleBulkDelete = () => {
-        const newIds = new Set(selectedIds);
-        onDataChange(data.filter(d => !newIds.has(d.id)));
+        selectedIds.forEach(id => onDelete(id));
         setSelectedIds(new Set());
     };
 
     const handleBulkPublish = () => {
-        const newIds = new Set(selectedIds);
-        const updated = data.map(d => newIds.has(d.id) ? { ...d, status: 'published', publishedAt: format(new Date(), 'yyyy-MM-dd HH:mm') } as ExtendedArticle : d);
-        onDataChange(updated);
+        selectedIds.forEach(id => {
+            const article = data.find(d => d.id === id);
+            if (article) {
+                onPublish(article.id, article.version || 1);
+            }
+        });
         setSelectedIds(new Set());
     };
 
@@ -467,18 +474,15 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
                                                         <DropdownMenuItem onClick={() => onEdit(article.id)}>
                                                             <PenTool size={14} className="mr-2" /> 編集
                                                         </DropdownMenuItem>
-                                                         <DropdownMenuItem onClick={() => {
-                                                              const newArticle = { ...article, id: Math.random().toString(36).substr(2, 9), title: `${article.title} (Copy)`, status: 'draft' };
-                                                              onDataChange([...data, newArticle as ExtendedArticle]);
-                                                          }}>
+                                                         <DropdownMenuItem onClick={() => onDuplicate(article)}>
                                                              <Copy size={14} className="mr-2" /> 複製
                                                         </DropdownMenuItem>
-                                                        
+
                                                         <DropdownMenuSeparator />
-                                                        
-                                                        {(article.status === 'draft' || article.status === 'review') && (
+
+                                                        {(article.status === 'draft' || article.status === 'review' || article.status === 'DRAFT' || article.status === 'REVIEW') && (
                                                             <>
-                                                                <DropdownMenuItem onClick={() => handlePublish(article)} className="text-blue-600 focus:text-blue-600">
+                                                                <DropdownMenuItem onClick={() => handlePublishArticle(article)} className="text-blue-600 focus:text-blue-600">
                                                                     <Send size={14} className="mr-2" /> 公開する
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => {
@@ -489,15 +493,15 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
                                                                 </DropdownMenuItem>
                                                             </>
                                                         )}
-                                                        
-                                                        {article.status === 'published' && (
+
+                                                        {(article.status === 'published' || article.status === 'PUBLISHED') && (
                                                             <DropdownMenuItem onClick={() => handleUnpublish(article)} className="text-orange-600 focus:text-orange-600">
                                                                 <Ban size={14} className="mr-2" /> 非公開にする
                                                             </DropdownMenuItem>
                                                         )}
 
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => onDataChange(data.filter(d => d.id !== article.id))}>
+                                                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => onDelete(article.id)}>
                                                             <Trash2 size={14} className="mr-2" /> 削除
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
@@ -530,25 +534,16 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
                                                         </button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="start" className="w-40">
-                                                        <DropdownMenuItem onClick={() => {
-                                                            const updated = data.map(d => d.id === article.id ? { ...d, status: 'draft' } as ExtendedArticle : d);
-                                                            onDataChange(updated);
-                                                        }}>
+                                                        <DropdownMenuItem onClick={() => onUpdateStatus(article.id, 'DRAFT', article.version || 1)}>
                                                             <div className="w-2 h-2 rounded-full bg-neutral-300 mr-2" />
                                                             下書き
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => {
-                                                            const updated = data.map(d => d.id === article.id ? { ...d, status: 'review' } as ExtendedArticle : d);
-                                                            onDataChange(updated);
-                                                        }}>
+                                                        <DropdownMenuItem onClick={() => onUpdateStatus(article.id, 'REVIEW', article.version || 1)}>
                                                             <div className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
                                                             レビュー中
                                                         </DropdownMenuItem>
-                                                        
-                                                        <DropdownMenuItem onClick={() => {
-                                                            const updated = data.map(d => d.id === article.id ? { ...d, status: 'published', publishedAt: format(new Date(), 'yyyy-MM-dd HH:mm') } as ExtendedArticle : d);
-                                                            onDataChange(updated);
-                                                        }}>
+
+                                                        <DropdownMenuItem onClick={() => handlePublishArticle(article)}>
                                                             <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
                                                             公開済みにする
                                                         </DropdownMenuItem>
@@ -679,14 +674,92 @@ function ArticlesTable({ data, onDataChange, onEdit, userRole, onPreview }: Omit
     );
 }
 
-export function PostsView({ 
-    data, 
-    onDataChange, 
-    onNavigateToEditor, 
-    userRole, 
+export function PostsView({
+    data: _data,
+    onDataChange: _onDataChange,
+    onNavigateToEditor,
+    userRole,
     onPreview,
-    onSwitchToStrategy 
+    onSwitchToStrategy
 }: PostsViewProps) {
+    // Use API hooks
+    const { data: articlesData, isLoading, error } = useArticles();
+    const deleteArticle = useDeleteArticle();
+    const publishArticle = usePublishArticle();
+    const scheduleArticle = useScheduleArticle();
+    const updateArticle = useUpdateArticle();
+    const createArticle = useCreateArticle();
+
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Map API data to ExtendedArticle format
+    const articles: ExtendedArticle[] = (articlesData?.data || []).map((article: any) => ({
+        id: article.id,
+        title: article.title,
+        status: article.status?.toLowerCase() || 'draft',
+        pv: article.viewCount || 0,
+        updatedAt: article.updatedAt ? format(new Date(article.updatedAt), 'yyyy-MM-dd HH:mm') : '-',
+        tags: article.tags || [],
+        categories: article.category ? [article.category.name] : [],
+        thumbnail: article.featuredImageUrl,
+        slug: article.slug,
+        publishedAt: article.publishedAt ? format(new Date(article.publishedAt), 'yyyy-MM-dd HH:mm') : undefined,
+        authorName: article.author?.name,
+        version: article.version || 1,
+    }));
+
+    // Filter by search
+    const filteredArticles = articles.filter(article =>
+        searchQuery === '' || article.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Handlers
+    const handlePublish = (id: string, version: number) => {
+        publishArticle.mutate({ id, version });
+    };
+
+    const handleSchedule = (id: string, scheduledAt: string, version: number) => {
+        scheduleArticle.mutate({ id, scheduledAt, version });
+    };
+
+    const handleDelete = (id: string) => {
+        if (window.confirm('この記事を削除してもよろしいですか？')) {
+            deleteArticle.mutate(id);
+        }
+    };
+
+    const handleUpdateStatus = (id: string, status: string, version: number) => {
+        updateArticle.mutate({ id, data: { status, version } });
+    };
+
+    const handleDuplicate = (article: ExtendedArticle) => {
+        createArticle.mutate({
+            title: `${article.title} (コピー)`,
+            slug: `${article.slug}-copy`,
+            status: 'DRAFT',
+        });
+    };
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                <p className="mt-2 text-sm text-neutral-500">読み込み中...</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <p className="text-sm text-red-500">データの読み込みに失敗しました</p>
+                <p className="mt-1 text-xs text-neutral-400">{(error as Error).message}</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header - Consistent with CategoriesView */}
@@ -698,8 +771,10 @@ export function PostsView({
                 <div className="flex items-center gap-3">
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={18} />
-                        <Input 
-                            placeholder="記事を検索..." 
+                        <Input
+                            placeholder="記事を検索..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-[300px] pl-11 h-12 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded-full text-sm font-medium transition-all"
                         />
                     </div>
@@ -723,14 +798,18 @@ export function PostsView({
                     </DropdownMenu>
                 </div>
             </header>
-            
+
             <div className="flex-1 overflow-hidden flex flex-col relative bg-white">
-                <ArticlesTable 
-                    data={data} 
-                    onDataChange={onDataChange} 
-                    onEdit={onNavigateToEditor} 
+                <ArticlesTable
+                    data={filteredArticles}
+                    onEdit={onNavigateToEditor}
                     userRole={userRole}
                     onPreview={onPreview}
+                    onPublish={handlePublish}
+                    onSchedule={handleSchedule}
+                    onDelete={handleDelete}
+                    onUpdateStatus={handleUpdateStatus}
+                    onDuplicate={handleDuplicate}
                 />
             </div>
         </div>

@@ -1,9 +1,9 @@
-import React from 'react';
-import { 
-    Globe, BarChart3, Check, Cpu, Zap, 
+import React, { useState, useEffect } from 'react';
+import {
+    Globe, BarChart3, Check, Cpu, Zap,
     Shield, Settings, Link2, AlertCircle,
     Image as ImageIcon, FileText, Search, Key,
-    Sparkles, MessageSquare
+    Sparkles, MessageSquare, Loader2
 } from 'lucide-react';
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
@@ -15,8 +15,68 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../ui/select";
 import { cn } from '../../lib/utils';
+import { useSettings, useUpdateSettings } from '../../lib/hooks';
 
 export function SettingsView() {
+    // Use API hooks
+    const { data: settings, isLoading, error } = useSettings();
+    const updateSettings = useUpdateSettings();
+
+    // Local state for form
+    const [formData, setFormData] = useState({
+        openRouterApiKey: '',
+        gaPropertyId: '',
+        gscSiteUrl: '',
+        imageModel: 'pro',
+        articleModel: 'pro',
+        analysisModel: 'banana',
+        keywordPrompt: '',
+        structurePrompt: '',
+        proofreadingPrompt: '',
+        seoPrompt: '',
+    });
+
+    // Initialize form with API data
+    useEffect(() => {
+        if (settings) {
+            setFormData({
+                openRouterApiKey: settings.openRouterApiKey || '',
+                gaPropertyId: settings.gaPropertyId || '',
+                gscSiteUrl: settings.gscSiteUrl || '',
+                imageModel: settings.imageModel || 'pro',
+                articleModel: settings.articleModel || 'pro',
+                analysisModel: settings.analysisModel || 'banana',
+                keywordPrompt: settings.keywordPrompt || '',
+                structurePrompt: settings.structurePrompt || '',
+                proofreadingPrompt: settings.proofreadingPrompt || '',
+                seoPrompt: settings.seoPrompt || '',
+            });
+        }
+    }, [settings]);
+
+    const handleSave = () => {
+        updateSettings.mutate(formData);
+    };
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                <p className="mt-2 text-sm text-neutral-500">読み込み中...</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <p className="text-sm text-red-500">データの読み込みに失敗しました</p>
+                <p className="mt-1 text-xs text-neutral-400">{(error as Error).message}</p>
+            </div>
+        );
+    }
     return (
         <div className="flex flex-col h-full bg-white text-neutral-900 font-sans animate-in fade-in duration-500">
             {/* Header */}
@@ -29,8 +89,19 @@ export function SettingsView() {
                     <Button variant="ghost" className="h-10 px-4 rounded-full font-bold text-xs text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900">
                         初期設定に戻す
                     </Button>
-                    <Button className="bg-neutral-900 text-white hover:bg-neutral-800 h-11 px-8 rounded-full font-bold text-sm shadow-lg shadow-neutral-900/10 transition-all hover:shadow-xl hover:scale-[1.02]">
-                        変更を保存
+                    <Button
+                        onClick={handleSave}
+                        disabled={updateSettings.isPending}
+                        className="bg-neutral-900 text-white hover:bg-neutral-800 h-11 px-8 rounded-full font-bold text-sm shadow-lg shadow-neutral-900/10 transition-all hover:shadow-xl hover:scale-[1.02]"
+                    >
+                        {updateSettings.isPending ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                保存中...
+                            </>
+                        ) : (
+                            '変更を保存'
+                        )}
                     </Button>
                 </div>
             </header>

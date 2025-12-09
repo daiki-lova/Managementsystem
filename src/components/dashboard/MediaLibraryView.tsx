@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { 
-    Image as ImageIcon, Search, 
-    Loader2, X, FolderOpen, Star, Trash2, 
+import {
+    Image as ImageIcon, Search,
+    Loader2, X, FolderOpen, Star, Trash2,
     MoreHorizontal, HardDrive, Plus, Filter,
-    Download, ExternalLink, MoveRight, Pencil
+    Download, ExternalLink, MoveRight, Pencil, Sparkles
 } from 'lucide-react';
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { Button } from '../ui/button';
@@ -26,20 +26,20 @@ import {
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 import { ScrollArea } from '../ui/scroll-area';
+import { useMedia, useUploadMedia, useDeleteMedia } from '../../lib/hooks';
 
-// Mock Data
-const INITIAL_MEDIA = [
-    { id: 'm1', url: 'https://images.unsplash.com/photo-1581065178026-390bc4e78dad?auto=format&fit=crop&w=800&q=80', name: 'yoga-class-morning.jpg', type: 'image/jpeg', size: '1.2MB', uploadedAt: '2024-11-25', dimensions: '1920x1080', source: 'upload', folder: 'class' },
-    { id: 'm2', url: 'https://images.unsplash.com/photo-1544367563-12123d8975bd?auto=format&fit=crop&w=600&q=80', name: 'meditation-pose.jpg', type: 'image/jpeg', size: '2.4MB', uploadedAt: '2024-11-24', dimensions: '2400x1600', source: 'upload', folder: 'lifestyle' },
-    { id: 'm3', url: 'https://images.unsplash.com/photo-1510894347713-fc3ed6fdf539?auto=format&fit=crop&w=800&q=80', name: 'healthy-smoothie.jpg', type: 'image/jpeg', size: '3.1MB', uploadedAt: '2024-11-23', dimensions: '1800x1200', source: 'upload', folder: 'food' },
-    { id: 'm4', url: 'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b?auto=format&fit=crop&w=500&q=80', name: 'pilates-reformer.jpg', type: 'image/jpeg', size: '1.8MB', uploadedAt: '2024-11-20', dimensions: '2000x1333', source: 'nanobanana', folder: 'class' },
-    { id: 'm5', url: 'https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?auto=format&fit=crop&w=900&q=80', name: 'yoga-studio-interior.jpg', type: 'image/jpeg', size: '4.2MB', uploadedAt: '2024-11-18', dimensions: '3000x2000', source: 'upload', folder: 'studio' },
-    { id: 'm6', url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=700&q=80', name: 'stretching-woman.jpg', type: 'image/jpeg', size: '1.5MB', uploadedAt: '2024-11-15', dimensions: '1500x1000', source: 'nanobanana', folder: 'lifestyle' },
-    { id: 'm7', url: 'https://images.unsplash.com/photo-1599447421405-0d320d77f0f4?auto=format&fit=crop&w=800&q=80', name: 'group-yoga-lesson.jpg', type: 'image/jpeg', size: '2.8MB', uploadedAt: '2024-11-14', dimensions: '2500x1667', source: 'upload', folder: 'class' },
-    { id: 'm8', url: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80', name: 'mindfulness-sunset.jpg', type: 'image/jpeg', size: '1.9MB', uploadedAt: '2024-11-12', dimensions: '1800x1200', source: 'nanobanana', folder: 'lifestyle' },
-    { id: 'm9', url: 'https://images.unsplash.com/photo-1552196563-55cd4e45efb3?auto=format&fit=crop&w=800&q=80', name: 'yoga-retreat.jpg', type: 'image/jpeg', size: '2.2MB', uploadedAt: '2024-11-10', dimensions: '2000x1333', source: 'upload', folder: 'event' },
-    { id: 'm10', url: 'https://images.unsplash.com/photo-1593811167562-9cef47bfc4d7?auto=format&fit=crop&w=600&q=80', name: 'home-workout.jpg', type: 'image/jpeg', size: '1.6MB', uploadedAt: '2024-11-08', dimensions: '1600x1066', source: 'upload', folder: 'lifestyle' },
-];
+// Media item type
+interface MediaItem {
+    id: string;
+    url: string;
+    name: string;
+    type: string;
+    size: string;
+    uploadedAt: string;
+    dimensions?: string;
+    source: string;
+    folder: string;
+}
 
 const INITIAL_FOLDERS = [
     { id: 'all', name: 'すべてのメディア', icon: <HardDrive size={16} /> },
@@ -53,11 +53,28 @@ const INITIAL_FOLDERS = [
 ];
 
 export function MediaLibraryView() {
-    const [media, setMedia] = useState(INITIAL_MEDIA);
+    // Use API hooks
+    const { data: mediaData, isLoading, error } = useMedia();
+    const uploadMedia = useUploadMedia();
+    const deleteMediaMutation = useDeleteMedia();
+
+    // Map API data to local format
+    const media: MediaItem[] = (mediaData?.data || []).map((item: any) => ({
+        id: item.id,
+        url: item.url,
+        name: item.filename || item.originalFilename,
+        type: item.mimeType,
+        size: item.size ? `${(item.size / 1024 / 1024).toFixed(1)}MB` : '-',
+        uploadedAt: item.createdAt?.split('T')[0] || '-',
+        dimensions: item.width && item.height ? `${item.width}x${item.height}` : undefined,
+        source: item.source || 'upload',
+        folder: item.folder || 'all',
+    }));
+
     const [folders, setFolders] = useState(INITIAL_FOLDERS);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFolder, setSelectedFolder] = useState('all');
-    const [selectedItem, setSelectedItem] = useState<typeof INITIAL_MEDIA[0] | null>(null);
+    const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
     
     // NanoBanana States
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
@@ -129,8 +146,9 @@ export function MediaLibraryView() {
     };
 
     const handleDelete = (id: string) => {
-        setMedia(media.filter(m => m.id !== id));
-        setSelectedItem(null);
+        deleteMediaMutation.mutate(id, {
+            onSuccess: () => setSelectedItem(null),
+        });
     };
 
     const handleCreateFolder = () => {
@@ -157,6 +175,35 @@ export function MediaLibraryView() {
 
     const folderOptions = folders.filter(f => !['all', 'favorites', 'trash'].includes(f.id));
 
+    // Handle file upload
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            uploadMedia.mutate({ file });
+            e.target.value = ''; // Reset input
+        }
+    };
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                <p className="mt-2 text-sm text-neutral-500">読み込み中...</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <p className="text-sm text-red-500">データの読み込みに失敗しました</p>
+                <p className="mt-1 text-xs text-neutral-400">{(error as Error).message}</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header */}
@@ -166,13 +213,27 @@ export function MediaLibraryView() {
                     <p className="text-sm text-neutral-500 font-medium">画像リソースの管理とAI生成</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button 
+                    <Button
                         className="h-12 !px-8 rounded-full bg-neutral-900 text-white font-bold hover:bg-neutral-800 shadow-sm"
                         onClick={() => document.getElementById('file-upload')?.click()}
+                        disabled={uploadMedia.isPending}
                     >
-                        アップロード
+                        {uploadMedia.isPending ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                アップロード中...
+                            </>
+                        ) : (
+                            'アップロード'
+                        )}
                     </Button>
-                    <input id="file-upload" type="file" className="hidden" accept="image/*" />
+                    <input
+                        id="file-upload"
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                    />
                 </div>
             </header>
 

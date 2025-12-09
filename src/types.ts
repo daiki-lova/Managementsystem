@@ -3,7 +3,7 @@ export type ViewState = 'dashboard' | 'editor';
 
 export interface BlockData {
   id: string;
-  type: 'p' | 'h2' | 'h3' | 'image' | 'html';
+  type: 'p' | 'h2' | 'h3' | 'h4' | 'image' | 'html';
   content: string;
   metadata?: any; // For HTML block settings or Image captions
 }

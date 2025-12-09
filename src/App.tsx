@@ -1,6 +1,5 @@
 'use client'
 
-import { AnalyticsOverlay } from './components/analytics/AnalyticsOverlay';
 import { Dashboard, DashboardTab } from './components/dashboard/Dashboard';
 import { GlobalHeader } from './components/GlobalHeader';
 import { EditorCanvas } from './components/editor/EditorCanvas';
@@ -10,7 +9,7 @@ import { MobileRestrictionView } from './components/mobile/MobileRestrictionView
 import { AnimatePresence, motion } from 'motion/react';
 import React, { useState, useEffect } from 'react';
 import { Toaster } from './components/ui/sonner';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import {
@@ -23,9 +22,10 @@ import {
 import { Calendar } from './components/ui/calendar';
 import { Button } from './components/ui/button';
 import type { AppMode, BlockData, ViewState } from './types';
+import { useAuth } from './lib/auth-context';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated, isLoading, logout, user } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [view, setView] = useState<ViewState>('dashboard');
   const [mode, setMode] = useState<AppMode>('write');
@@ -33,6 +33,10 @@ export default function App() {
   const [articleStatus, setArticleStatus] = useState<'draft' | 'review' | 'published' | 'scheduled'>('draft');
   const [showPreview, setShowPreview] = useState(false);
   const [dashboardTab, setDashboardTab] = useState<DashboardTab>('home');
+
+  // Current editing article ID
+  const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
+  const [articleVersion, setArticleVersion] = useState(1);
 
   // Schedule Dialog State
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
@@ -51,7 +55,7 @@ export default function App() {
   // Article State
   const [title, setTitle] = useState("");
   const [blocks, setBlocks] = useState<BlockData[]>([]);
-  
+
   // Article Metadata State
   const [thumbnail, setThumbnail] = useState<string | undefined>();
   const [category, setCategory] = useState("");
@@ -72,7 +76,7 @@ export default function App() {
   const handlePublish = () => {
     const isUpdating = articleStatus === 'published';
     setStatus('saving');
-    
+
     if (isUpdating) {
         toast("更新処理を開始しました...", {
             description: "変更内容を反映しています。",
@@ -86,21 +90,15 @@ export default function App() {
     setTimeout(() => {
         setStatus('saved');
         setArticleStatus('published');
-        
+
         if (isUpdating) {
              toast.success("記事を更新しました！", {
                 description: "最新の内容が公開されました。",
             });
-            // For update, we might stay in editor or go back?
-            // Usually stay in editor for quick fixes, but let's consistent with publish
-            // Let's stay in editor for update, go back for new publish?
-            // User request didn't specify, but usually updates allow continued editing.
-            // Let's keep it simple and just toast success for now.
         } else {
             toast.success("記事を公開しました！", {
                 description: "記事一覧画面に戻ります。",
             });
-            // Return to dashboard after a short delay only for new publish
              setTimeout(() => {
                 setDashboardTab('posts');
                 setView('dashboard');
@@ -119,15 +117,14 @@ export default function App() {
 
       setStatus('saving');
       setIsScheduleDialogOpen(false);
-      
-      // Mock Scheduling Process
+
       setTimeout(() => {
           setStatus('saved');
           setArticleStatus('scheduled');
           toast.success("公開予約が完了しました", {
               description: `${format(scheduleDate, 'yyyy年MM月dd日 HH:mm', { locale: ja })} に公開されます。`,
           });
-          
+
            setTimeout(() => {
             setDashboardTab('posts');
             setView('dashboard');
@@ -160,7 +157,8 @@ export default function App() {
   };
 
   const handleNavigateToEditor = (articleId?: string, initialTitle?: string) => {
-      if (articleId === 'a2') { // Scenario: "瞑想を続けるための3つのコツ" (AI Generated Draft)
+      if (articleId === 'a2') {
+          setCurrentArticleId(articleId);
           setTitle(initialTitle || '瞑想を続けるための3つのコツ');
           setBlocks([
               { id: '1', type: 'p', content: '「瞑想が良いのはわかっているけど、なかなか続かない...」そんな悩みをお持ちではありませんか？実は、瞑想の習慣化に失敗する人の多くが、ある「誤解」をしています。' },
@@ -180,9 +178,10 @@ export default function App() {
           setTags(["瞑想", "習慣化", "マインドフルネス"]);
           setSlug("meditation-tips");
           setDescription("瞑想が続かない人向けに、脳科学に基づいた習慣化のコツを3つ紹介します。");
-          setArticleStatus('draft'); // Reset to draft for editing scenario
-      } else if (initialTitle) {
-          // Other existing articles
+          setArticleStatus('draft');
+          setArticleVersion(1);
+      } else if (articleId && initialTitle) {
+          setCurrentArticleId(articleId);
           setTitle(initialTitle);
           setBlocks([{ id: '1', type: 'p', content: 'ここに本文を入力してください...' }]);
           setThumbnail(undefined);
@@ -191,9 +190,10 @@ export default function App() {
           setSlug("");
           setDescription("");
           setArticleStatus('draft');
+          setArticleVersion(1);
       } else {
-          // New Article
-          setTitle(''); 
+          setCurrentArticleId(null);
+          setTitle('');
           setBlocks([{ id: '1', type: 'p', content: '' }]);
           setThumbnail(undefined);
           setCategory("");
@@ -201,14 +201,24 @@ export default function App() {
           setSlug("");
           setDescription("");
           setArticleStatus('draft');
+          setArticleVersion(1);
       }
       setView('editor');
   };
 
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA]">
+        <div className="w-8 h-8 border-2 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
       return (
           <>
-            <LoginView onLogin={() => setIsAuthenticated(true)} />
+            <LoginView />
             <Toaster />
           </>
       );
@@ -222,10 +232,10 @@ export default function App() {
   if (view === 'dashboard') {
     return (
         <>
-            <Dashboard 
-                onNavigateToEditor={handleNavigateToEditor} 
+            <Dashboard
+                onNavigateToEditor={handleNavigateToEditor}
                 isMobile={isMobile}
-                onLogout={() => setIsAuthenticated(false)}
+                onLogout={logout}
                 initialTab={dashboardTab}
             />
             <Toaster />
@@ -238,10 +248,10 @@ export default function App() {
       <Toaster />
       {/* Global Navigation */}
       <div className="flex-none z-50">
-        <GlobalHeader 
-            mode={mode} 
-            setMode={setMode} 
-            status={status} 
+        <GlobalHeader
+            mode={mode}
+            setMode={setMode}
+            status={status}
             articleStatus={articleStatus}
             onBack={() => {
                 setDashboardTab('posts');
@@ -257,7 +267,7 @@ export default function App() {
         />
       </div>
 
-      <ArticlePreview 
+      <ArticlePreview
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
         title={title}
@@ -266,7 +276,7 @@ export default function App() {
         category={category}
         tags={tags}
       />
-      
+
       {/* Editor Schedule Dialog */}
       <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -291,10 +301,10 @@ export default function App() {
 
       <main className="flex-1 overflow-y-auto relative pt-8">
         {/* Write Mode (Always rendered, essentially the base layer) */}
-        <EditorCanvas 
-          title={title} 
-          setTitle={setTitle} 
-          blocks={blocks} 
+        <EditorCanvas
+          title={title}
+          setTitle={setTitle}
+          blocks={blocks}
           setBlocks={setBlocks}
           mode={mode}
           // Metadata props

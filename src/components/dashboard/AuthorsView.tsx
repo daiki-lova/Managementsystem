@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react';
-import { User, PenTool, Plus, Trash2, Search, Instagram, Facebook, Award, MoreHorizontal, Link as LinkIcon, Tag, Hash, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy } from 'lucide-react';
+import { User, PenTool, Plus, Trash2, Search, Instagram, Facebook, Award, MoreHorizontal, Link as LinkIcon, Tag, Hash, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Input } from '../ui/input';
@@ -28,13 +28,35 @@ import {
 } from '../ui/popover';
 import { cn } from '../../lib/utils';
 import type { Profile } from '../../types';
+import { useAuthors, useCreateAuthor, useUpdateAuthor, useDeleteAuthor } from '../../lib/hooks';
 
 interface AuthorsViewProps {
     profiles?: Profile[];
     onProfilesChange?: (profiles: Profile[]) => void;
 }
 
-export function AuthorsView({ profiles = [], onProfilesChange }: AuthorsViewProps) {
+export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfilesChange }: AuthorsViewProps) {
+    // Use API hooks instead of props
+    const { data: authorsData, isLoading, error } = useAuthors();
+    const createAuthor = useCreateAuthor();
+    const updateAuthor = useUpdateAuthor();
+    const deleteAuthor = useDeleteAuthor();
+
+    // Map API data to Profile format
+    const profiles: Profile[] = (authorsData?.data || []).map((author: any) => ({
+        id: author.id,
+        name: author.name,
+        slug: author.slug,
+        role: author.title || '',
+        qualifications: author.qualifications || '',
+        categories: author.categories || [],
+        tags: author.tags || [],
+        instagram: author.instagramUrl,
+        facebook: author.facebookUrl,
+        avatar: author.avatarUrl,
+        bio: author.bio,
+        systemPrompt: author.systemPrompt,
+    }));
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -63,31 +85,36 @@ export function AuthorsView({ profiles = [], onProfilesChange }: AuthorsViewProp
 
     const handleDelete = (id: string) => {
         if (window.confirm('この監修者を削除してもよろしいですか？')) {
-            onProfilesChange?.(profiles.filter(p => p.id !== id));
+            deleteAuthor.mutate(id);
         }
     };
 
     const handleSubmit = () => {
         if (!formData.name || !formData.role || !formData.slug) return;
+
+        const authorData = {
+            name: formData.name!,
+            slug: formData.slug!,
+            title: formData.role!,
+            qualifications: formData.qualifications || '',
+            categories: formData.categories || [],
+            tags: formData.tags || [],
+            instagramUrl: formData.instagram,
+            facebookUrl: formData.facebook,
+            avatarUrl: formData.avatar,
+            bio: formData.bio,
+            systemPrompt: formData.systemPrompt,
+        };
+
         if (editingProfile) {
-            onProfilesChange?.(profiles.map(p => p.id === editingProfile.id ? { ...p, ...formData } as Profile : p));
+            updateAuthor.mutate({ id: editingProfile.id, data: authorData }, {
+                onSuccess: () => setIsDialogOpen(false),
+            });
         } else {
-            const newProfile: Profile = {
-                id: Math.random().toString(36).substr(2, 9),
-                name: formData.name!,
-                slug: formData.slug!,
-                role: formData.role!,
-                qualifications: formData.qualifications || '',
-                categories: formData.categories || [],
-                tags: formData.tags || [],
-                instagram: formData.instagram,
-                facebook: formData.facebook,
-                avatar: formData.avatar,
-                bio: formData.bio
-            };
-            onProfilesChange?.([...profiles, newProfile]);
+            createAuthor.mutate(authorData, {
+                onSuccess: () => setIsDialogOpen(false),
+            });
         }
-        setIsDialogOpen(false);
     };
 
     const uniqueCategories = Array.from(new Set(profiles.flatMap(p => p.categories))).sort();
@@ -204,6 +231,26 @@ export function AuthorsView({ profiles = [], onProfilesChange }: AuthorsViewProp
         );
     };
 
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                <p className="mt-2 text-sm text-neutral-500">読み込み中...</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <p className="text-sm text-red-500">データの読み込みに失敗しました</p>
+                <p className="mt-1 text-xs text-neutral-400">{(error as Error).message}</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header Area */}
@@ -294,8 +341,19 @@ export function AuthorsView({ profiles = [], onProfilesChange }: AuthorsViewProp
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-32">
                                              <DropdownMenuItem onClick={() => {
-                                                 const newProfile = { ...profile, id: Math.random().toString(36).substr(2, 9), name: `${profile.name} (Copy)` };
-                                                 onProfilesChange?.([...profiles, newProfile]);
+                                                 createAuthor.mutate({
+                                                     name: `${profile.name} (コピー)`,
+                                                     slug: `${profile.slug}-copy`,
+                                                     title: profile.role,
+                                                     qualifications: profile.qualifications || '',
+                                                     categories: profile.categories || [],
+                                                     tags: profile.tags || [],
+                                                     instagramUrl: profile.instagram,
+                                                     facebookUrl: profile.facebook,
+                                                     avatarUrl: profile.avatar,
+                                                     bio: profile.bio,
+                                                     systemPrompt: profile.systemPrompt,
+                                                 });
                                              }}>
                                                 <Copy size={14} className="mr-2" /> 複製
                                             </DropdownMenuItem>
