@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const dateRange = getDateRange(days);
 
       // 記事を取得
-      const article = await prisma.article.findUnique({
+      const article = await prisma.articles.findUnique({
         where: { id },
         select: {
           id: true,
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           slug: true,
           status: true,
           publishedAt: true,
-          category: { select: { name: true, slug: true } },
+          categories: { select: { name: true, slug: true } },
         },
       });
 
@@ -38,10 +38,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
 
       // 記事のパスを構築
-      const pagePath = `/${article.category.slug}/${article.slug}`;
+      const pagePath = `/${article.categories.slug}/${article.slug}`;
 
       // 設定を取得
-      const settings = await prisma.systemSettings.findUnique({
+      const settings = await prisma.system_settings.findUnique({
         where: { id: "default" },
       });
 
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
 
       // 保存済みアナリティクスデータを取得
-      const storedData = await prisma.analyticsData.findMany({
+      const storedData = await prisma.analytics_data.findMany({
         where: {
           articleId: id,
           date: {

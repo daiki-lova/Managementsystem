@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       const startDate = searchParams.get("startDate");
       const endDate = searchParams.get("endDate");
 
-      const where: Prisma.AuditLogWhereInput = {
+      const where: Prisma.audit_logsWhereInput = {
         ...(action && { action }),
         ...(userId && { userId }),
         ...(resourceType && { resourceType }),
@@ -55,10 +55,10 @@ export async function GET(request: NextRequest) {
         }),
       };
 
-      const total = await prisma.auditLog.count({ where });
+      const total = await prisma.audit_logs.count({ where });
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const logs = await prisma.auditLog.findMany({
+      const logs = await prisma.audit_logs.findMany({
         where,
         select: {
           id: true,

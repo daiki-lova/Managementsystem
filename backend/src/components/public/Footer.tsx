@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 
 const CATEGORIES = [
   { label: 'Yoga', slug: 'yoga' },
@@ -19,11 +18,9 @@ export function Footer() {
       <div className="max-w-[1552px] mx-auto px-[64px] max-md:px-[40px]">
         {/* Logo Section */}
         <div className="text-center max-md:text-left mb-14 max-md:mb-8">
-          <Image
+          <img
             src="/images/logo-footer.png"
             alt="RADIANCE Logo"
-            width={200}
-            height={50}
             className="h-[50px] w-auto mx-auto max-md:mx-0 mb-3 max-md:mb-2 object-contain max-md:h-8"
           />
           <p className="text-[#777] text-[11px] max-md:text-[9px] tracking-[2.5px] max-md:tracking-[1.5px] uppercase font-[var(--font-noto-sans)]">

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async () => {
       const { id } = await params;
 
-      const conversion = await prisma.conversion.findUnique({
+      const conversion = await prisma.conversions.findUnique({
         where: { id },
         select: {
           id: true,
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           createdAt: true,
           updatedAt: true,
           _count: {
-            select: { articles: true },
+            select: { article_conversions: true },
           },
         },
       });
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
       return successResponse({
         ...conversion,
-        articlesCount: conversion._count.articles,
+        articlesCount: conversion._count.article_conversions,
         _count: undefined,
       });
     });
@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const data = await validateBody(request, updateConversionSchema);
 
       // 存在確認
-      const existing = await prisma.conversion.findUnique({
+      const existing = await prisma.conversions.findUnique({
         where: { id },
       });
 
@@ -89,7 +89,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         throw new NotFoundError("コンバージョン");
       }
 
-      const conversion = await prisma.conversion.update({
+      const conversion = await prisma.conversions.update({
         where: { id },
         data: {
           name: data.name,
@@ -151,7 +151,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       const { id } = await params;
 
       // 存在確認
-      const existing = await prisma.conversion.findUnique({
+      const existing = await prisma.conversions.findUnique({
         where: { id },
       });
 
@@ -160,7 +160,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // 紐づいている記事からは自動で削除される（Cascade）
-      await prisma.conversion.delete({
+      await prisma.conversions.delete({
         where: { id },
       });
 

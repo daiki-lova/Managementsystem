@@ -13,6 +13,7 @@ import {
 import { validateBody, commonSchemas } from "@/lib/validation";
 import { isAppError, handlePrismaError } from "@/lib/errors";
 import { ArticleStatus, Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 // 記事一覧取得
 export async function GET(request: NextRequest) {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
         | "desc";
 
       // where条件構築
-      const where: Prisma.ArticleWhereInput = {
+      const where: Prisma.articlesWhereInput = {
         // DELETEDは通常表示しない
         ...(status ? { status } : { status: { not: ArticleStatus.DELETED } }),
         ...(categoryId && { categoryId }),
@@ -47,10 +48,13 @@ export async function GET(request: NextRequest) {
         }),
       };
 
-      const total = await prisma.article.count({ where });
+      const total = await prisma.articles.count({ where });
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const articles = await prisma.article.findMany({
+      console.log(`[API] GET /articles - Params: status=${status}, page=${page}, limit=${limit}`);
+      console.log(`[API] GET /articles - Where:`, JSON.stringify(where));
+
+      const articles = await prisma.articles.findMany({
         where,
         skip,
         take,
@@ -62,24 +66,33 @@ export async function GET(request: NextRequest) {
           publishedAt: true,
           createdAt: true,
           updatedAt: true,
-          category: {
+          categories: {
             select: { id: true, name: true, slug: true, color: true },
           },
-          author: {
+          authors: {
             select: { id: true, name: true, imageUrl: true },
           },
-          brand: {
+          brands: {
             select: { id: true, name: true, slug: true },
           },
-          thumbnail: {
+          media_assets: {
             select: { id: true, url: true },
           },
-          createdBy: {
+          article_tags: {
+            select: {
+              tags: {
+                select: { id: true, name: true, slug: true },
+              },
+            },
+          },
+          users: {
             select: { id: true, name: true, email: true },
           },
         },
         orderBy: { [sortBy]: sortOrder },
       });
+
+      console.log(`[API] GET /articles - Found ${articles.length} articles`);
 
       return paginatedResponse({
         items: articles,
@@ -141,8 +154,9 @@ export async function POST(request: NextRequest) {
     return await withAuth(request, async (user: AuthUser) => {
       const data = await validateBody(request, createArticleSchema);
 
-      const article = await prisma.article.create({
+      const article = await prisma.articles.create({
         data: {
+          id: randomUUID(),
           title: data.title,
           slug: data.slug,
           blocks: data.blocks as unknown as Prisma.InputJsonValue,
@@ -155,19 +169,20 @@ export async function POST(request: NextRequest) {
           metaDescription: data.metaDescription,
           createdById: user.id,
           // タグの紐づけ
-          tags: data.tagIds
+          article_tags: data.tagIds
             ? {
-                create: data.tagIds.map((tagId) => ({ tagId })),
-              }
+              create: data.tagIds.map((tagId) => ({ tagId })),
+            }
             : undefined,
           // コンバージョンの紐づけ
-          conversions: data.conversionIds
+          article_conversions: data.conversionIds
             ? {
-                create: data.conversionIds.map((conversionId, index) => ({
-                  conversionId,
-                  position: index,
-                })),
-              }
+              create: data.conversionIds.map((conversionId, index) => ({
+                id: randomUUID(),
+                conversionId,
+                position: index,
+              })),
+            }
             : undefined,
         },
         select: {
@@ -180,7 +195,7 @@ export async function POST(request: NextRequest) {
       });
 
       // カテゴリの記事数を更新
-      await prisma.category.update({
+      await prisma.categories.update({
         where: { id: data.categoryId },
         data: { articlesCount: { increment: 1 } },
       });

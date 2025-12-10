@@ -7,6 +7,7 @@ import { inngest } from "@/inngest/client";
 import { ArticleStatus } from "@prisma/client";
 import { z } from "zod";
 import { isAppError } from "@/lib/errors";
+import { randomUUID } from "crypto";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async (user) => {
       const validated = await validateBody(request, scheduleSchema);
 
-      const article = await prisma.article.findUnique({
+      const article = await prisma.articles.findUnique({
         where: { id },
       });
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // 記事を予約状態に更新
-      const updated = await prisma.article.update({
+      const updated = await prisma.articles.update({
         where: { id },
         data: {
           status: ArticleStatus.SCHEDULED,
@@ -71,8 +72,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       // 通知を作成
-      await prisma.notification.create({
+      await prisma.notifications.create({
         data: {
+          id: randomUUID(),
           userId: user.id,
           type: "ARTICLE_SCHEDULED",
           title: "記事を予約投稿しました",
@@ -101,7 +103,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     return await withAuth(request, async (user) => {
-      const article = await prisma.article.findUnique({
+      const article = await prisma.articles.findUnique({
         where: { id },
       });
 
@@ -120,7 +122,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // 記事を下書きに戻す
-      const updated = await prisma.article.update({
+      const updated = await prisma.articles.update({
         where: { id },
         data: {
           status: ArticleStatus.DRAFT,

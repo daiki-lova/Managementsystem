@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const data = await validateBody(request, publishSchema);
 
       // 存在確認
-      const existing = await prisma.article.findUnique({
+      const existing = await prisma.articles.findUnique({
         where: { id },
         select: { id: true, status: true, publishedAt: true },
       });
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           return ApiErrors.badRequest("不正なアクションです");
       }
 
-      const article = await prisma.article.update({
+      const article = await prisma.articles.update({
         where: { id },
         data: updateData,
         select: {

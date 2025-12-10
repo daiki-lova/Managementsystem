@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async (user: AuthUser) => {
       const { id } = await params;
 
-      const author = await prisma.author.findUnique({
+      const author = await prisma.authors.findUnique({
         where: { id },
         select: {
           id: true,
@@ -32,6 +32,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           bio: true,
           imageUrl: true,
           socialLinks: true,
+          categories: true, // Explicit
+          tags: true,       // Explicit
           // systemPromptはオーナーのみ閲覧可
           ...(user.role === UserRole.OWNER && { systemPrompt: true }),
           createdAt: true,
@@ -66,6 +68,8 @@ const updateAuthorSchemaWriter = z.object({
   name: z.string().min(1).max(100).optional(),
   role: z.string().min(1).max(100).optional(),
   qualifications: z.array(z.string()).optional(),
+  categories: z.array(z.string()).optional(), // New
+  tags: z.array(z.string()).optional(),       // New
   bio: z.string().min(1).optional(),
   imageUrl: commonSchemas.url.optional().nullable(),
   socialLinks: z
@@ -98,7 +102,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const data = await validateBody(request, schema);
 
       // 存在確認
-      const existing = await prisma.author.findUnique({
+      const existing = await prisma.authors.findUnique({
         where: { id },
       });
 
@@ -109,12 +113,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // systemPromptフィールドの取得（オーナースキーマのみに存在）
       const systemPromptValue = "systemPrompt" in data ? data.systemPrompt as string | undefined : undefined;
 
-      const author = await prisma.author.update({
+      const author = await prisma.authors.update({
         where: { id },
         data: {
           name: data.name,
           role: data.role,
           qualifications: data.qualifications,
+          categories: data.categories,
+          tags: data.tags,
           bio: data.bio,
           imageUrl: data.imageUrl,
           socialLinks: data.socialLinks === null
@@ -127,6 +133,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           name: true,
           role: true,
           qualifications: true,
+          categories: true,
+          tags: true,
           bio: true,
           imageUrl: true,
           socialLinks: true,
@@ -163,7 +171,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       const { id } = await params;
 
       // 存在確認
-      const existing = await prisma.author.findUnique({
+      const existing = await prisma.authors.findUnique({
         where: { id },
         include: { _count: { select: { articles: true } } },
       });
@@ -179,7 +187,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      await prisma.author.delete({
+      await prisma.authors.delete({
         where: { id },
       });
 

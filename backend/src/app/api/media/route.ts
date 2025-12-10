@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       const search = searchParams.get("search");
 
       // ライブラリに表示するものだけ取得
-      const where: Prisma.MediaAssetWhereInput = {
+      const where: Prisma.media_assetsWhereInput = {
         showInLibrary: true,
         isDeleted: false,
         ...(source && { source }),
@@ -43,10 +43,10 @@ export async function GET(request: NextRequest) {
         }),
       };
 
-      const total = await prisma.mediaAsset.count({ where });
+      const total = await prisma.media_assets.count({ where });
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const media = await prisma.mediaAsset.findMany({
+      const media = await prisma.media_assets.findMany({
         where,
         skip,
         take,
@@ -60,9 +60,9 @@ export async function GET(request: NextRequest) {
           height: true,
           fileSize: true,
           createdAt: true,
-          tags: {
+          media_asset_tags: {
             select: {
-              tag: {
+              tags: {
                 select: { id: true, name: true, slug: true },
               },
             },
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       return paginatedResponse({
         items: media.map((m) => ({
           ...m,
-          tags: m.tags.map((t) => t.tag),
+          tags: m.media_asset_tags.map((t) => t.tags),
         })),
         total,
         page,
@@ -150,8 +150,9 @@ export async function POST(request: NextRequest) {
       );
 
       // DB に保存
-      const media = await prisma.mediaAsset.create({
+      const media = await prisma.media_assets.create({
         data: {
+          id: randomUUID(),
           url,
           fileName: sanitizedFilename,
           altText: altText || null,

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async () => {
       const { id } = await params;
 
-      const item = await prisma.knowledgeItem.findUnique({
+      const item = await prisma.knowledge_items.findUnique({
         where: { id },
         select: {
           id: true,
@@ -33,15 +33,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           usageCount: true,
           createdAt: true,
           updatedAt: true,
-          brand: {
+          brands: {
             select: { id: true, name: true, slug: true },
           },
-          author: {
+          authors: {
             select: { id: true, name: true, role: true },
           },
-          articles: {
+          article_knowledge_items: {
             select: {
-              article: {
+              articles: {
                 select: { id: true, title: true, slug: true, status: true },
               },
             },
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
       return successResponse({
         ...item,
-        articles: item.articles.map((a) => a.article),
+        articles: item.article_knowledge_items.map((a) => a.articles),
       });
     });
   } catch (error) {
@@ -87,7 +87,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const data = await validateBody(request, updateKnowledgeItemSchema);
 
       // 存在確認
-      const existing = await prisma.knowledgeItem.findUnique({
+      const existing = await prisma.knowledge_items.findUnique({
         where: { id },
       });
 
@@ -95,7 +95,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         throw new NotFoundError("情報バンク項目");
       }
 
-      const item = await prisma.knowledgeItem.update({
+      const item = await prisma.knowledge_items.update({
         where: { id },
         data: {
           title: data.title,
@@ -135,7 +135,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       const { id } = await params;
 
       // 存在確認
-      const existing = await prisma.knowledgeItem.findUnique({
+      const existing = await prisma.knowledge_items.findUnique({
         where: { id },
       });
 
@@ -144,7 +144,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // 紐づいている記事からは自動で削除される（Cascade）
-      await prisma.knowledgeItem.delete({
+      await prisma.knowledge_items.delete({
         where: { id },
       });
 

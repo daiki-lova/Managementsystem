@@ -19,59 +19,60 @@ export interface Article {
 }
 
 export interface Category {
-    id: string;
-    name: string;
-    slug: string;
-    description?: string;
-    count: number;
-    supervisorName?: string;
-    supervisorRole?: string;
-    supervisorImage?: string;
-    systemPrompt?: string;
-    color?: string;
-    supervisorId?: string; // Link to Profile
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  count: number;
+  supervisorName?: string;
+  supervisorRole?: string;
+  supervisorImage?: string;
+  systemPrompt?: string;
+  color?: string;
+  supervisorId?: string; // Link to Profile
 }
 
 export interface Profile {
-    id: string;
-    name: string;
-    slug: string;
-    role: string;
-    qualifications: string;
-    categories: string[];
-    tags: string[];
-    instagram?: string;
-    facebook?: string;
-    avatar?: string;
-    bio?: string;
-    systemPrompt?: string; // Added systemPrompt to Profile
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+  qualifications: string;
+  categories: string[];
+  tags: string[];
+  instagram?: string;
+  facebook?: string;
+  twitter?: string;
+  avatar?: string;
+  bio?: string;
+  systemPrompt?: string; // Added systemPrompt to Profile
 }
 
 export interface ConversionItem {
-    id: string;
-    name: string;
-    type: 'campaign' | 'evergreen' | 'app';
-    url: string;
-    thumbnail?: string;
-    status: 'active' | 'scheduled' | 'ended';
-    ctr: string;
-    clicks: number;
-    cv: number;
-    period?: string;
-    context?: string;
+  id: string;
+  name: string;
+  type: 'campaign' | 'evergreen' | 'app';
+  url: string;
+  thumbnail?: string;
+  status: 'active' | 'scheduled' | 'ended';
+  ctr: string;
+  clicks: number;
+  cv: number;
+  period?: string;
+  context?: string;
 }
 
 export interface KnowledgeItem {
-    id: string;
-    content: string;
-    brand: 'OREO' | 'SEQUENCE' | 'ALL';
-    kind?: 'STUDENT_VOICE' | 'AUTHOR_ARTICLE' | 'EXTERNAL';
-    course?: string;
-    authorId?: string;
-    authorName?: string;
-    createdAt: string;
-    usageCount: number;
-    source: 'manual' | 'spreadsheet';
-    sourceType?: 'url' | 'text' | 'file';
-    relevanceScore?: number; // For search results
+  id: string;
+  content: string;
+  brand: 'OREO' | 'SEQUENCE' | 'ALL';
+  kind?: 'STUDENT_VOICE' | 'AUTHOR_ARTICLE' | 'EXTERNAL';
+  course?: string;
+  authorId?: string;
+  authorName?: string;
+  createdAt: string;
+  usageCount: number;
+  source: 'manual' | 'spreadsheet';
+  sourceType?: 'url' | 'text' | 'file';
+  relevanceScore?: number; // For search results
 }

@@ -15,6 +15,7 @@ import { GenerationJobStatus, PublishStrategy } from "@prisma/client";
 import { z } from "zod";
 import { isAppError } from "@/lib/errors";
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit";
+import { randomUUID } from "crypto";
 
 // バリデーションスキーマ
 const createJobSchema = z.object({
@@ -52,14 +53,14 @@ export async function GET(request: NextRequest) {
         ...(status && { status }),
       };
 
-      const total = await prisma.generationJob.count({ where });
+      const total = await prisma.generation_jobs.count({ where });
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const jobs = await prisma.generationJob.findMany({
+      const jobs = await prisma.generation_jobs.findMany({
         where,
         include: {
-          category: { select: { id: true, name: true } },
-          author: { select: { id: true, name: true } },
+          categories: { select: { id: true, name: true } },
+          authors: { select: { id: true, name: true } },
           articles: {
             select: { id: true, title: true, slug: true, status: true },
           },
@@ -114,9 +115,9 @@ export async function POST(request: NextRequest) {
 
       // カテゴリ、監修者、ブランドの存在確認
       const [category, author, brand] = await Promise.all([
-        prisma.category.findUnique({ where: { id: validated.categoryId } }),
-        prisma.author.findUnique({ where: { id: validated.authorId } }),
-        prisma.brand.findUnique({ where: { id: validated.brandId } }),
+        prisma.categories.findUnique({ where: { id: validated.categoryId } }),
+        prisma.authors.findUnique({ where: { id: validated.authorId } }),
+        prisma.brands.findUnique({ where: { id: validated.brandId } }),
       ]);
 
       if (!category) {
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
 
       // コンバージョンの存在確認
       if (validated.conversionIds.length > 0) {
-        const conversions = await prisma.conversion.findMany({
+        const conversions = await prisma.conversions.findMany({
           where: { id: { in: validated.conversionIds } },
         });
         if (conversions.length !== validated.conversionIds.length) {
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
 
       // 情報バンクの存在確認
       if (validated.knowledgeItemIds.length > 0) {
-        const knowledgeItems = await prisma.knowledgeItem.findMany({
+        const knowledgeItems = await prisma.knowledge_items.findMany({
           where: { id: { in: validated.knowledgeItemIds } },
         });
         if (knowledgeItems.length !== validated.knowledgeItemIds.length) {
@@ -154,8 +155,9 @@ export async function POST(request: NextRequest) {
 
       for (const keywordData of validated.keywords) {
         // ジョブを作成
-        const job = await prisma.generationJob.create({
+        const job = await prisma.generation_jobs.create({
           data: {
+            id: randomUUID(),
             keyword: keywordData.keyword,
             searchVolume: keywordData.searchVolume,
             categoryId: validated.categoryId,
@@ -165,12 +167,12 @@ export async function POST(request: NextRequest) {
             scheduledAt: validated.scheduledAt
               ? new Date(validated.scheduledAt)
               : null,
-            conversions: {
+            generation_job_conversions: {
               create: validated.conversionIds.map((conversionId: string) => ({
                 conversionId,
               })),
             },
-            knowledgeItems: {
+            generation_job_knowledge_items: {
               create: validated.knowledgeItemIds.map((knowledgeItemId: string) => ({
                 knowledgeItemId,
               })),

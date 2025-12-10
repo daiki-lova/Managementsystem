@@ -111,13 +111,13 @@ function ArticleGrid({
       {articles.map((article) => (
         <Link
           key={article.id}
-          href={`/${article.category.slug}/${article.slug}`}
+          href={`/${article.categories.slug}/${article.slug}`}
           className="flex flex-col cursor-pointer group"
         >
           <div className="aspect-square overflow-hidden bg-gray-100">
             <ImageWithFallback
-              src={article.thumbnail?.url || `https://images.unsplash.com/photo-1610562269919-86791081ad29?w=800&q=80`}
-              alt={article.thumbnail?.altText || article.title}
+              src={article.media_assets?.url || `https://images.unsplash.com/photo-1610562269919-86791081ad29?w=800&q=80`}
+              alt={article.media_assets?.altText || article.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
           </div>
@@ -129,7 +129,7 @@ function ArticleGrid({
               {article.title}
             </h2>
             <p className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[12px] tracking-[1.2px] md:tracking-[1.964px] uppercase mt-2 md:mt-4">
-              By {article.author.name}
+              By {article.authors.name}
             </p>
             <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] md:text-[12px] text-[#666] md:text-black mt-1 md:mt-2">
               {article.publishedAt

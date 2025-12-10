@@ -11,6 +11,7 @@ import { validateBody, commonSchemas } from "@/lib/validation";
 import { isAppError, handlePrismaError, NotFoundError } from "@/lib/errors";
 import { ArticleStatus, Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit-log";
+import { randomUUID } from "crypto";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async () => {
       const { id } = await params;
 
-      const article = await prisma.article.findUnique({
+      const article = await prisma.articles.findUnique({
         where: { id },
         select: {
           id: true,
@@ -39,10 +40,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           ogpImageUrl: true,
           createdAt: true,
           updatedAt: true,
-          category: {
+          categories: {
             select: { id: true, name: true, slug: true, color: true },
           },
-          author: {
+          authors: {
             select: {
               id: true,
               name: true,
@@ -51,26 +52,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
               bio: true,
             },
           },
-          brand: {
+          brands: {
             select: { id: true, name: true, slug: true },
           },
-          thumbnail: {
+          media_assets: {
             select: { id: true, url: true, altText: true },
           },
-          createdBy: {
+          users: {
             select: { id: true, name: true, email: true },
           },
-          tags: {
+          article_tags: {
             select: {
-              tag: {
+              tags: {
                 select: { id: true, name: true, slug: true },
               },
             },
           },
-          conversions: {
+          article_conversions: {
             select: {
               position: true,
-              conversion: {
+              conversions: {
                 select: {
                   id: true,
                   name: true,
@@ -82,18 +83,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             },
             orderBy: { position: "asc" },
           },
-          images: {
+          article_images: {
             select: {
               type: true,
               position: true,
-              mediaAsset: {
+              media_assets: {
                 select: { id: true, url: true, altText: true },
               },
             },
           },
-          knowledgeItems: {
+          article_knowledge_items: {
             select: {
-              knowledgeItem: {
+              knowledge_items: {
                 select: { id: true, title: true, type: true },
               },
             },
@@ -108,17 +109,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       // フラット化して返却
       return successResponse({
         ...article,
-        tags: article.tags.map((t) => t.tag),
-        conversions: article.conversions.map((c) => ({
-          ...c.conversion,
+        tags: article.article_tags.map((t) => t.tags),
+        conversions: article.article_conversions.map((c) => ({
+          ...c.conversions,
           position: c.position,
         })),
-        images: article.images.map((i) => ({
-          ...i.mediaAsset,
+        images: article.article_images.map((i) => ({
+          ...i.media_assets,
           type: i.type,
           position: i.position,
         })),
-        knowledgeItems: article.knowledgeItems.map((k) => k.knowledgeItem),
+        knowledgeItems: article.article_knowledge_items.map((k) => k.knowledge_items),
       });
     });
   } catch (error) {
@@ -179,7 +180,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const data = await validateBody(request, updateArticleSchema);
 
       // 存在確認
-      const existing = await prisma.article.findUnique({
+      const existing = await prisma.articles.findUnique({
         where: { id },
         select: { id: true, slug: true, categoryId: true, status: true, version: true },
       });
@@ -206,10 +207,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         // スラッグ変更時はSlugHistoryに記録（301リダイレクト用）
         if (slugChanged && previousSlug) {
           // 既存の履歴があれば更新、なければ作成
-          await tx.slugHistory.upsert({
+          await tx.slug_history.upsert({
             where: { oldSlug: previousSlug },
             update: { newSlug: data.slug! },
             create: {
+              id: randomUUID(),
               articleId: id,
               oldSlug: previousSlug,
               newSlug: data.slug!,
@@ -218,9 +220,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
         // タグの更新
         if (data.tagIds !== undefined) {
-          await tx.articleTag.deleteMany({ where: { articleId: id } });
+          await tx.article_tags.deleteMany({ where: { articleId: id } });
           if (data.tagIds.length > 0) {
-            await tx.articleTag.createMany({
+            await tx.article_tags.createMany({
               data: data.tagIds.map((tagId) => ({ articleId: id, tagId })),
             });
           }
@@ -228,10 +230,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         // コンバージョンの更新
         if (data.conversionIds !== undefined) {
-          await tx.articleConversion.deleteMany({ where: { articleId: id } });
+          await tx.article_conversions.deleteMany({ where: { articleId: id } });
           if (data.conversionIds.length > 0) {
-            await tx.articleConversion.createMany({
+            await tx.article_conversions.createMany({
               data: data.conversionIds.map((conversionId, index) => ({
+                id: randomUUID(),
                 articleId: id,
                 conversionId,
                 position: index,
@@ -242,11 +245,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         // カテゴリ変更時の記事数更新
         if (data.categoryId && data.categoryId !== existing.categoryId) {
-          await tx.category.update({
+          await tx.categories.update({
             where: { id: existing.categoryId },
             data: { articlesCount: { decrement: 1 } },
           });
-          await tx.category.update({
+          await tx.categories.update({
             where: { id: data.categoryId },
             data: { articlesCount: { increment: 1 } },
           });
@@ -261,7 +264,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         // 記事の更新（versionをインクリメント）
-        return tx.article.update({
+        return tx.articles.update({
           where: { id },
           data: {
             title: data.title,
@@ -314,7 +317,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         const { id } = await params;
 
         // 存在確認
-        const existing = await prisma.article.findUnique({
+        const existing = await prisma.articles.findUnique({
           where: { id },
           select: { id: true, title: true, status: true, categoryId: true },
         });
@@ -330,7 +333,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         }
 
         // SlugHistoryも含めて削除（Cascadeで自動削除される）
-        await prisma.article.delete({ where: { id } });
+        await prisma.articles.delete({ where: { id } });
 
         // 監査ログ
         await auditLog.articleDeletePermanent(request, user.id, id, existing.title);
@@ -343,7 +346,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         const { id } = await params;
 
         // 存在確認
-        const existing = await prisma.article.findUnique({
+        const existing = await prisma.articles.findUnique({
           where: { id },
           select: { id: true, title: true, status: true, categoryId: true },
         });
@@ -357,7 +360,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         }
 
         // ゴミ箱移動
-        await prisma.article.update({
+        await prisma.articles.update({
           where: { id },
           data: {
             status: ArticleStatus.DELETED,
@@ -366,7 +369,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         });
 
         // カテゴリの記事数を減らす
-        await prisma.category.update({
+        await prisma.categories.update({
           where: { id: existing.categoryId },
           data: { articlesCount: { decrement: 1 } },
         });

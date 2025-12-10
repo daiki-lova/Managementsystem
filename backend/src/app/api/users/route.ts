@@ -14,6 +14,7 @@ import { validateBody, commonSchemas } from "@/lib/validation";
 import { isAppError, handlePrismaError } from "@/lib/errors";
 import { createAuthUser } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 // ユーザー一覧取得（オーナーのみ）
 export async function GET(request: NextRequest) {
@@ -22,10 +23,10 @@ export async function GET(request: NextRequest) {
       const { searchParams } = new URL(request.url);
       const { page, limit } = parsePaginationParams(searchParams);
 
-      const total = await prisma.user.count();
+      const total = await prisma.users.count();
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const users = await prisma.user.findMany({
+      const users = await prisma.users.findMany({
         skip,
         take,
         select: {
@@ -74,8 +75,9 @@ export async function POST(request: NextRequest) {
       const authUserId = await createAuthUser(data.email, data.password);
 
       // DB にユーザー作成
-      const user = await prisma.user.create({
+      const user = await prisma.users.create({
         data: {
+          id: randomUUID(),
           email: data.email,
           password: authUserId, // Supabase のユーザーIDを保存（パスワードはSupabaseで管理）
           name: data.name,

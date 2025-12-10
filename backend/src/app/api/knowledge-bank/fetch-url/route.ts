@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       const extractedContent = extractMainContent(html);
 
       // OpenRouter APIでAI要約を生成
-      const systemSettings = await prisma.systemSettings.findUnique({
+      const systemSettings = await prisma.system_settings.findUnique({
         where: { id: "default" },
       });
 

@@ -109,7 +109,7 @@ export function SettingsView() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto">
                 <div className="w-full max-w-6xl mx-auto px-10 py-12 space-y-12">
-                    
+
                     {/* Group 1: Integrations */}
                     <section>
                         <div className="flex items-center gap-3 mb-6">
@@ -118,7 +118,7 @@ export function SettingsView() {
                             </div>
                             <h2 className="text-lg font-bold text-neutral-900">外部連携</h2>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-6">
                             {/* GA4 Card - OAuth Style */}
                             <div className="group p-6 rounded-3xl border border-neutral-200 hover:border-neutral-300 transition-all bg-white hover:shadow-sm">
@@ -137,7 +137,7 @@ export function SettingsView() {
                                     </div>
                                     <Switch defaultChecked={true} className="data-[state=checked]:bg-neutral-900" />
                                 </div>
-                                
+
                                 <div className="space-y-4">
                                     {/* Connected Account Info */}
                                     <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100 flex items-center justify-between">
@@ -188,7 +188,7 @@ export function SettingsView() {
                                     </div>
                                     <Switch defaultChecked={true} className="data-[state=checked]:bg-neutral-900" />
                                 </div>
-                                
+
                                 <div className="space-y-4">
                                     {/* Account Info - Reused if connected, otherwise button */}
                                     <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100 flex items-center justify-between">
@@ -265,15 +265,15 @@ export function SettingsView() {
                                     </div>
                                 </div>
                                 <div className="relative">
-                                    <Input 
+                                    <Input
                                         type="password"
                                         value="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                                         readOnly
                                         className="h-12 bg-white/10 border-transparent rounded-xl font-mono text-sm pl-4 text-white placeholder:text-white/30 focus:bg-white/20 transition-all"
                                         placeholder="OpenRouter API Key (sk-or-...)"
                                     />
-                                    <Button 
-                                        size="sm" 
+                                    <Button
+                                        size="sm"
                                         className="absolute right-2 top-2 h-8 bg-white text-neutral-900 hover:bg-neutral-200 font-bold text-xs"
                                     >
                                         変更
@@ -371,7 +371,7 @@ export function SettingsView() {
                             </div>
                             <h2 className="text-lg font-bold text-neutral-900">システムプロンプト設定</h2>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {/* 1行目左：キーワード分析・企画 */}
                             <div className="space-y-3">
@@ -380,14 +380,15 @@ export function SettingsView() {
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
                                 </div>
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea 
+                                    <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        defaultValue={`あなたはWebメディアの編集長です。
-与えられたキーワードやテーマに基づき、検索意図（インサイト）を深く分析してください。
-以下の観点を重視して企画案を作成してください：
-1. ターゲット読者の潜在的な悩み
-2. 競合記事にはない独自の切り口（一次情報の活用など）
-3. SEOにおける勝ち筋（共起語、関連クエリの網羅）`}
+                                        defaultValue={`あなたはWebメディアの編集長であり、SEOストラテジストです。
+与えられたテーマに基づき、検索ユーザーの深層心理（インサイト）まで踏み込んだ企画を立案してください。
+
+【分析・企画のルール】
+- **検索意図の深掘り**: 表面的な悩みだけでなく、その裏にある「感情的な痛み」や「理想の未来」を特定すること。
+- **競合との差別化**: 単なる情報の羅列ではなく、一次情報、体験談、専門家の見解など「独自性（Originality）」を加えるポイントを明記すること。
+- **SEO構造**: メインキーワードだけでなく、共起語や関連クエリ（LSIキーワード）を網羅し、トピッククラスターとしての網羅性を担保すること。`}
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-400 pl-1">キーワードの検索意図分析と記事企画の作成時に使用されます</p>
@@ -400,15 +401,16 @@ export function SettingsView() {
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
                                 </div>
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea 
+                                    <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        defaultValue={`あなたは熟練のWebライターです。
-作成された企画案に基づき、記事全体の構成（H2, H3見出し）を作成してください。
-構成作成のルール：
-- 読者が知りたい結論を最初に提示する（PREP法）
-- 読み飛ばしを防ぐため、見出しは具体的かつ魅力的にする
-- 各セクションの役割を明確にし、論理的な流れを作る
-- 記事の最後には、具体的なアクションプラン（まとめ）を提示する`}
+                                        defaultValue={`あなたは熟練のWebライター兼コンテンツディレクターです。
+企画案に基づき、読者がスムーズに読み進められ、かつ検索エンジンに評価される論理的な記事構成（H2, H3）を作成してください。
+
+【構成作成のルール】
+- **PREP法の徹底**: 各セクションは結論から述べ、理由・具体例で補強する流れを作ること。
+- **スキャナブルな見出し**: 読み飛ばされても内容が伝わるよう、見出し自体に具体的なベネフィットや答えを含めること（例：「ヨガの効果」→「ヨガが自律神経を整える3つの科学的理由」）。
+- **ユーザー体験（UX）**: 文字ばかりにならず、箇条書き、図解の挿入箇所、内部リンクの提案などを構成案に含めること。
+- **CVへの導線**: 記事のゴール（コンバージョン）に向けて、自然な流れで誘導ポイントを作ること。`}
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-400 pl-1">H2・H3見出しの階層構造を作成する際に使用されます</p>
@@ -421,9 +423,16 @@ export function SettingsView() {
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
                                 </div>
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea 
+                                    <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        placeholder="校正・推敲の指示を入力してください..."
+                                        defaultValue={`あなたはプロの校正者であり、厳しいファクトチェッカーです。
+執筆された文章に対し、以下の観点から厳格なチェックと修正を行ってください。
+
+【校正・推敲のルール】
+- **信頼性の担保**: 断定表現を使う場合はその根拠が明確か確認し、曖昧な表現（〜だと言われています等）を排除すること。
+- **読みやすさ（Readability）**: 一文は60文字以内を目安とし、冗長な表現を削ぎ落とすこと。専門用語には必ず平易な解説を加えること。
+- **表記ゆれ・誤字脱字**: 徹底的に修正すること。
+- **トンマナの統一**: ブランドイメージに合致した、「親しみやすく、かつ専門性のある」文体に整えること。`}
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-400 pl-1">誤字脱字、表記ゆれ、ファクトチェックの基準として使用されます</p>
@@ -436,9 +445,16 @@ export function SettingsView() {
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
                                 </div>
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea 
+                                    <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        placeholder="SEO最適化の指示を入力してください..."
+                                        defaultValue={`あなたはテクニカルSEOのスペシャリストです。
+記事全体を検索エンジンが正しく理解し、上位表示されるよう最適化してください。
+
+【SEO最適化のルール】
+- **メタデータの最適化**: クリック率（CTR）を最大化する魅力的なタイトル（32文字以内）とメタディスクリプション（120文字以内）を作成すること。キーワードは左側に配置すること。
+- **内部リンク戦略**: サイト内の関連性の高い記事へのリンクを提案し、滞在回遊率を高めること。
+- **強調スニペット対策**: ユーザーの疑問に対する簡潔な回答パラグラフを作成すること。
+- **画像Alt属性**: 記事内で使用する画像のAltテキストをSEO観点から提案すること。`}
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-400 pl-1">メタ情報の生成、キーワード配置、内部リンク提案に使用されます</p>

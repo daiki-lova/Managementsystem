@@ -24,17 +24,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { slug } = await params;
 
     // まず現在のスラッグで検索
-    let article = await prisma.article.findUnique({
+    let article = await prisma.articles.findUnique({
       where: { slug },
       include: {
-        category: {
+        categories: {
           select: {
             id: true,
             name: true,
             slug: true,
           },
         },
-        author: {
+        authors: {
           select: {
             id: true,
             name: true,
@@ -45,22 +45,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             socialLinks: true,
           },
         },
-        brand: {
+        brands: {
           select: {
             id: true,
             name: true,
             slug: true,
           },
         },
-        thumbnail: {
+        media_assets: {
           select: {
             url: true,
             altText: true,
           },
         },
-        images: {
+        article_images: {
           include: {
-            mediaAsset: {
+            media_assets: {
               select: {
                 url: true,
                 altText: true,
@@ -69,9 +69,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           },
           orderBy: { position: "asc" },
         },
-        conversions: {
+        article_conversions: {
           include: {
-            conversion: {
+            conversions: {
               select: {
                 id: true,
                 name: true,
@@ -83,9 +83,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           },
           orderBy: { position: "asc" },
         },
-        tags: {
+        article_tags: {
           include: {
-            tag: {
+            tags: {
               select: {
                 id: true,
                 name: true,
@@ -100,40 +100,40 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 見つからない場合はSlugHistoryまたはpreviousSlugで検索（301リダイレクト用）
     if (!article) {
       // SlugHistoryを検索
-      const slugHistory = await prisma.slugHistory.findUnique({
+      const slugHistory = await prisma.slug_history.findUnique({
         where: { oldSlug: slug },
         select: {
           newSlug: true,
-          article: {
+          articles: {
             select: {
               slug: true,
               status: true,
-              category: { select: { slug: true } },
+              categories: { select: { slug: true } },
             },
           },
         },
       });
 
-      if (slugHistory && slugHistory.article.status === "PUBLISHED") {
+      if (slugHistory && slugHistory.articles.status === "PUBLISHED") {
         // 301リダイレクトを返す
         return NextResponse.json(
           {
             success: false,
             redirect: true,
-            newSlug: slugHistory.article.slug,
-            newUrl: `/${slugHistory.article.category.slug}/${slugHistory.article.slug}`,
+            newSlug: slugHistory.articles.slug,
+            newUrl: `/${slugHistory.articles.categories.slug}/${slugHistory.articles.slug}`,
           },
           {
             status: 301,
             headers: {
-              Location: `/${slugHistory.article.category.slug}/${slugHistory.article.slug}`,
+              Location: `/${slugHistory.articles.categories.slug}/${slugHistory.articles.slug}`,
             },
           }
         );
       }
 
       // 削除済みの記事の場合は410 Gone
-      if (slugHistory && slugHistory.article.status === "DELETED") {
+      if (slugHistory && slugHistory.articles.status === "DELETED") {
         return NextResponse.json(
           { success: false, error: { message: "この記事は削除されました" } },
           { status: 410 }
@@ -141,9 +141,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
 
       // 旧previousSlugフィールドでも検索（後方互換性）
-      const articleWithOldSlug = await prisma.article.findFirst({
+      const articleWithOldSlug = await prisma.articles.findFirst({
         where: { previousSlug: slug },
-        select: { slug: true, status: true, category: { select: { slug: true } } },
+        select: { slug: true, status: true, categories: { select: { slug: true } } },
       });
 
       if (articleWithOldSlug && articleWithOldSlug.status === "PUBLISHED") {
@@ -153,12 +153,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             success: false,
             redirect: true,
             newSlug: articleWithOldSlug.slug,
-            newUrl: `/${articleWithOldSlug.category.slug}/${articleWithOldSlug.slug}`,
+            newUrl: `/${articleWithOldSlug.categories.slug}/${articleWithOldSlug.slug}`,
           },
           {
             status: 301,
             headers: {
-              Location: `/${articleWithOldSlug.category.slug}/${articleWithOldSlug.slug}`,
+              Location: `/${articleWithOldSlug.categories.slug}/${articleWithOldSlug.slug}`,
             },
           }
         );
@@ -195,23 +195,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       blocks: article.blocks,
       metaTitle: article.metaTitle,
       metaDescription: article.metaDescription,
-      ogpImageUrl: article.ogpImageUrl || article.thumbnail?.url,
+      ogpImageUrl: article.ogpImageUrl || article.media_assets?.url,
       publishedAt: article.publishedAt,
-      category: article.category,
-      author: article.author,
-      brand: article.brand,
-      thumbnail: article.thumbnail,
-      images: article.images.map((img) => ({
+      category: article.categories,
+      author: article.authors,
+      brand: article.brands,
+      thumbnail: article.media_assets,
+      images: article.article_images.map((img) => ({
         type: img.type,
         position: img.position,
-        url: img.mediaAsset.url,
-        altText: img.mediaAsset.altText,
+        url: img.media_assets.url,
+        altText: img.media_assets.altText,
       })),
-      conversions: article.conversions.map((ac) => ({
+      conversions: article.article_conversions.map((ac) => ({
         position: ac.position,
-        ...ac.conversion,
+        ...ac.conversions,
       })),
-      tags: article.tags.map((at) => at.tag),
+      tags: article.article_tags.map((at) => at.tags),
     };
 
     return NextResponse.json({

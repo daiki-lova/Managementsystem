@@ -173,7 +173,7 @@ export default async function HomePage() {
   const categoryArticles: Record<string, typeof allArticles> = {};
   for (const category of categories) {
     categoryArticles[category.slug] = allArticles.filter(
-      (article) => article.category.slug === category.slug
+      (article) => article.categories.slug === category.slug
     ).slice(0, 5);
   }
 

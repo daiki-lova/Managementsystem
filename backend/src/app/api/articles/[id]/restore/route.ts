@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const { id } = await params;
 
       // 存在確認
-      const existing = await prisma.article.findUnique({
+      const existing = await prisma.articles.findUnique({
         where: { id },
         select: { id: true, status: true, categoryId: true },
       });
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // 下書きとして復元
-      const article = await prisma.article.update({
+      const article = await prisma.articles.update({
         where: { id },
         data: {
           status: ArticleStatus.DRAFT,
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       // カテゴリの記事数を増やす
-      await prisma.category.update({
+      await prisma.categories.update({
         where: { id: existing.categoryId },
         data: { articlesCount: { increment: 1 } },
       });

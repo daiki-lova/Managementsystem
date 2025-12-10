@@ -25,14 +25,14 @@ export async function GET(request: NextRequest) {
       };
 
       const [notifications, total, unreadCount] = await Promise.all([
-        prisma.notification.findMany({
+        prisma.notifications.findMany({
           where,
           orderBy: { createdAt: "desc" },
           skip,
           take,
         }),
-        prisma.notification.count({ where }),
-        prisma.notification.count({
+        prisma.notifications.count({ where }),
+        prisma.notifications.count({
           where: { userId: user.id, read: false },
         }),
       ]);
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
-      await prisma.notification.updateMany({
+      await prisma.notifications.updateMany({
         where: { userId: user.id, read: false },
         data: { read: true },
       });

@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 // GET /api/public/categories - 公開カテゴリ一覧（認証不要）
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
+    const categories = await prisma.categories.findMany({
       select: {
         id: true,
         name: true,

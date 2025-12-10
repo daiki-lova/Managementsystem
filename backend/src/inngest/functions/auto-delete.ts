@@ -25,7 +25,7 @@ export const autoDeleteCron = inngest.createFunction(
     const trashedArticles = await step.run(
       "fetch-trashed-articles",
       async () => {
-        return prisma.article.findMany({
+        return prisma.articles.findMany({
           where: {
             status: ArticleStatus.DELETED,
             deletedAt: {
@@ -33,10 +33,10 @@ export const autoDeleteCron = inngest.createFunction(
             },
           },
           include: {
-            thumbnail: true,
-            images: {
+            media_assets: true,
+            article_images: {
               include: {
-                mediaAsset: true,
+                media_assets: true,
               },
             },
           },
@@ -54,12 +54,12 @@ export const autoDeleteCron = inngest.createFunction(
       await step.run(`delete-article-${article.id}`, async () => {
         // 関連する画像を削除（AI生成画像のみ）
         const imagesToDelete = [
-          ...(article.thumbnail?.source === "AI_GENERATED"
-            ? [article.thumbnail]
+          ...(article.media_assets?.source === "AI_GENERATED"
+            ? [article.media_assets]
             : []),
-          ...article.images
-            .filter((img) => img.mediaAsset.source === "AI_GENERATED")
-            .map((img) => img.mediaAsset),
+          ...article.article_images
+            .filter((img) => img.media_assets.source === "AI_GENERATED")
+            .map((img) => img.media_assets),
         ];
 
         for (const image of imagesToDelete) {
@@ -70,7 +70,7 @@ export const autoDeleteCron = inngest.createFunction(
             await deleteImage("MEDIA", filePath);
 
             // MediaAssetレコード削除
-            await prisma.mediaAsset.delete({
+            await prisma.media_assets.delete({
               where: { id: image.id },
             });
           } catch (error) {
@@ -79,7 +79,7 @@ export const autoDeleteCron = inngest.createFunction(
         }
 
         // 記事を完全削除
-        await prisma.article.delete({
+        await prisma.articles.delete({
           where: { id: article.id },
         });
 
@@ -120,13 +120,13 @@ export const autoDeleteEvent = inngest.createFunction(
     await step.sleep("wait-7-days", "7d");
 
     const article = await step.run("check-article", async () => {
-      return prisma.article.findUnique({
+      return prisma.articles.findUnique({
         where: { id: articleId },
         include: {
-          thumbnail: true,
-          images: {
+          media_assets: true,
+          article_images: {
             include: {
-              mediaAsset: true,
+              media_assets: true,
             },
           },
         },
@@ -141,12 +141,12 @@ export const autoDeleteEvent = inngest.createFunction(
     // 関連画像を削除
     await step.run("delete-images", async () => {
       const imagesToDelete = [
-        ...(article.thumbnail?.source === "AI_GENERATED"
-          ? [article.thumbnail]
+        ...(article.media_assets?.source === "AI_GENERATED"
+          ? [article.media_assets]
           : []),
-        ...article.images
-          .filter((img) => img.mediaAsset.source === "AI_GENERATED")
-          .map((img) => img.mediaAsset),
+        ...article.article_images
+          .filter((img) => img.media_assets.source === "AI_GENERATED")
+          .map((img) => img.media_assets),
       ];
 
       for (const image of imagesToDelete) {
@@ -154,7 +154,7 @@ export const autoDeleteEvent = inngest.createFunction(
           const urlParts = image.url.split("/");
           const filePath = urlParts.slice(-2).join("/");
           await deleteImage("MEDIA", filePath);
-          await prisma.mediaAsset.delete({ where: { id: image.id } });
+          await prisma.media_assets.delete({ where: { id: image.id } });
         } catch (error) {
           console.error(`Failed to delete image ${image.id}:`, error);
         }
@@ -163,7 +163,7 @@ export const autoDeleteEvent = inngest.createFunction(
 
     // 記事を完全削除
     await step.run("delete-article", async () => {
-      await prisma.article.delete({
+      await prisma.articles.delete({
         where: { id: articleId },
       });
     });

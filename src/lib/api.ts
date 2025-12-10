@@ -1,6 +1,6 @@
 // API Client for Backend Communication
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 // API Response Types (matching backend)
 export interface ApiResponse<T = unknown> {
@@ -40,21 +40,27 @@ export const tokenManager = {
   setTokens: (access: string, refresh: string) => {
     accessToken = access;
     refreshToken = refresh;
-    localStorage.setItem('accessToken', access);
-    localStorage.setItem('refreshToken', refresh);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('accessToken', access);
+      localStorage.setItem('refreshToken', refresh);
+    }
   },
 
   loadTokens: () => {
-    accessToken = localStorage.getItem('accessToken');
-    refreshToken = localStorage.getItem('refreshToken');
+    if (typeof window !== 'undefined') {
+      accessToken = localStorage.getItem('accessToken');
+      refreshToken = localStorage.getItem('refreshToken');
+    }
     return { accessToken, refreshToken };
   },
 
   clearTokens: () => {
     accessToken = null;
     refreshToken = null;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    }
   },
 };
 
@@ -231,7 +237,7 @@ export async function uploadFile(
 
   const token = tokenManager.getAccessToken();
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
   const response = await fetch(url, {
@@ -517,6 +523,7 @@ export interface ArticleDetail {
   content: string | null;
   blocks: ArticleBlock[];
   thumbnailId: string | null;
+  media_assets: Array<{ id: string; url: string }>;
   thumbnail: { id: string; url: string } | null;
   categoryId: string | null;
   category: { id: string; name: string; slug: string } | null;
@@ -524,7 +531,7 @@ export interface ArticleDetail {
   author: { id: string; name: string } | null;
   conversionId: string | null;
   conversion: { id: string; name: string } | null;
-  tags: Array<{ tag: { id: string; name: string; slug: string } }>;
+  article_tags: Array<{ tags: { id: string; name: string; slug: string } }>;
   publishedAt: string | null;
   scheduledAt: string | null;
   createdAt: string;
@@ -537,8 +544,10 @@ export interface ArticleListItem {
   title: string;
   slug: string;
   status: string;
+  media_assets: Array<{ url: string }>;
   thumbnail: { url: string } | null;
   category: { id: string; name: string } | null;
+  article_tags: Array<{ tags: { id: string; name: string; slug: string } }>;
   author: { id: string; name: string } | null;
   publishedAt: string | null;
   scheduledAt: string | null;
@@ -581,7 +590,7 @@ export const articlesApi = {
     thumbnailId?: string | null;
     metaDescription?: string;
     tagIds?: string[];
-    version: number; // Required for optimistic locking
+    version: number;
   }) => api.patch<{ id: string; version: number }>(`/api/articles/${id}`, data),
 
   delete: (id: string) => api.delete(`/api/articles/${id}`),
@@ -612,8 +621,14 @@ export interface MediaAsset {
   createdAt: string;
 }
 
+export interface MediaItem {
+  id: string;
+  url: string;
+  name?: string;
+}
+
 export const mediaApi = {
-  list: (params?: { page?: number; limit?: number; mimeType?: string }) =>
+  list: (params?: { page?: number; limit?: number; mimeType?: string; folderId?: string; search?: string }) =>
     api.get<MediaAsset[]>('/api/media', params),
 
   upload: (file: File, altText?: string) =>
@@ -705,13 +720,15 @@ export const generationJobsApi = {
   get: (id: string) => api.get<GenerationJob>(`/api/generation-jobs/${id}`),
 
   create: (data: {
-    keyword: string;
-    categoryId?: string;
-    authorId?: string;
-    conversionId?: string;
-    knowledgeIds?: string[];
-    generateImages?: boolean;
-  }) => api.post<{ id: string }>('/api/generation-jobs', data),
+    keywords: { keyword: string; searchVolume?: number }[];
+    categoryId: string;
+    authorId: string;
+    brandId: string;
+    conversionIds?: string[];
+    knowledgeItemIds?: string[];
+    publishStrategy?: 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED';
+    scheduledAt?: string;
+  }) => api.post<{ jobs: GenerationJob[]; message: string }>('/api/generation-jobs', data),
 
   cancel: (id: string) => api.delete(`/api/generation-jobs/${id}`),
 };
@@ -732,40 +749,30 @@ export const keywordsApi = {
 };
 
 // Analytics
-export interface AnalyticsData {
-  totalPV: number;
-  totalSessions: number;
-  avgBounceRate: number;
-  topArticles: Array<{
-    articleId: string;
-    title: string;
-    pv: number;
-    sessions: number;
-  }>;
-  dailyPV: Array<{
-    date: string;
-    pv: number;
-  }>;
-}
-
 export const analyticsApi = {
-  overview: (params?: { startDate?: string; endDate?: string }) =>
-    api.get<AnalyticsData>('/api/analytics', params),
-
-  article: (id: string, params?: { startDate?: string; endDate?: string }) =>
-    api.get<{
+  getOverview: (period: string = "30") => api.get<{
+    overview: {
       pv: number;
+      users: number;
       sessions: number;
-      bounceRate: number;
-      avgTimeOnPage: number;
-      searchKeywords: Array<{
-        keyword: string;
-        clicks: number;
-        impressions: number;
-        ctr: number;
-        position: number;
-      }>;
-    }>(`/api/analytics/articles/${id}`, params),
+      bounceRate: string;
+      avgSessionDuration: string;
+    };
+    chartData: { name: string; pv: number; users: number; sessions: number }[];
+    taskSummary: {
+      draftCount: number;
+      reviewCount: number;
+      scheduledCount: number;
+      publishedThisWeekCount: number;
+    };
+    ranking: {
+      id: string;
+      title: string;
+      pv: number;
+      time: string;
+      ctr: string;
+    }[];
+  }>(`/api/analytics`, { period }),
 };
 
 // Notifications
@@ -827,4 +834,6 @@ export const tagsApi = {
 
   create: (data: { name: string; slug: string }) =>
     api.post<{ id: string }>('/api/tags', data),
+
+  delete: (id: string) => api.delete(`/api/tags/${id}`),
 };

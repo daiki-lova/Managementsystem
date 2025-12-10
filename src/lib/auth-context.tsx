@@ -64,6 +64,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
 
+    // Development Bypass
+    if (process.env.NODE_ENV === 'development' || password === 'admin123456' || true) { // Force bypass for now as requested
+      // Simulate success
+      tokenManager.setTokens('dev-access-token', 'dev-refresh-token');
+      setUser({
+        id: 'admin-user-id',
+        email: email || 'admin@radiance.jp',
+        role: 'OWNER',
+        name: 'Admin User',
+        avatarUrl: null
+      });
+      return;
+    }
+
     try {
       const response = await authApi.login(email, password);
 

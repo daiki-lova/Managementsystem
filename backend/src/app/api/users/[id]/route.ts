@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return ApiErrors.forbidden();
       }
 
-      const user = await prisma.user.findUnique({
+      const user = await prisma.users.findUnique({
         where: { id },
         select: {
           id: true,
@@ -77,7 +77,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       // ユーザー存在確認
-      const existingUser = await prisma.user.findUnique({
+      const existingUser = await prisma.users.findUnique({
         where: { id },
       });
 
@@ -85,7 +85,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         throw new NotFoundError("ユーザー");
       }
 
-      const user = await prisma.user.update({
+      const user = await prisma.users.update({
         where: { id },
         data: {
           name: data.name,
@@ -123,7 +123,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // ユーザー存在確認
-      const existingUser = await prisma.user.findUnique({
+      const existingUser = await prisma.users.findUnique({
         where: { id },
       });
 
@@ -131,7 +131,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         return ApiErrors.notFound("ユーザー");
       }
 
-      await prisma.user.delete({
+      await prisma.users.delete({
         where: { id },
       });
 

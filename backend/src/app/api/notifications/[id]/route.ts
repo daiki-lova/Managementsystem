@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     return await withAuth(request, async (user) => {
-      const notification = await prisma.notification.findUnique({
+      const notification = await prisma.notifications.findUnique({
         where: { id },
       });
 
@@ -26,7 +26,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return ApiErrors.forbidden();
       }
 
-      const updated = await prisma.notification.update({
+      const updated = await prisma.notifications.update({
         where: { id },
         data: { read: true },
       });
@@ -48,7 +48,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     return await withAuth(request, async (user) => {
-      const notification = await prisma.notification.findUnique({
+      const notification = await prisma.notifications.findUnique({
         where: { id },
       });
 
@@ -60,7 +60,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         return ApiErrors.forbidden();
       }
 
-      await prisma.notification.delete({
+      await prisma.notifications.delete({
         where: { id },
       });
 

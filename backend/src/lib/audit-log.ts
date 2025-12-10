@@ -1,6 +1,7 @@
 import prisma from "./prisma";
 import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 // 監査ログのアクションタイプ
 export type AuditAction =
@@ -77,8 +78,9 @@ export async function createAuditLog(
       ? request.headers.get("user-agent") || "unknown"
       : entry.userAgent || "system";
 
-    await prisma.auditLog.create({
+    await prisma.audit_logs.create({
       data: {
+        id: randomUUID(),
         action: entry.action,
         userId: entry.userId,
         userEmail: entry.userEmail,

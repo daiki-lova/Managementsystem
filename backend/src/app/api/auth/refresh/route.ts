@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // DB からユーザー情報を取得（トークンに含まれるメールで検索）
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { email: authData.user?.email! },
       select: {
         id: true,

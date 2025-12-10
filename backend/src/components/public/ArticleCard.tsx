@@ -8,14 +8,14 @@ interface ArticleCardProps {
     slug: string;
     title: string;
     publishedAt: Date | null;
-    category: {
+    categories: {
       name: string;
       slug: string;
     };
-    author: {
+    authors: {
       name: string;
     };
-    thumbnail: {
+    media_assets: {
       url: string;
       altText: string | null;
     } | null;
@@ -45,30 +45,30 @@ export function ArticleCard({
   showAuthor = true,
   showDate = true,
 }: ArticleCardProps) {
-  const imageUrl = article.thumbnail?.url || getFallbackImage(article.slug);
+  const imageUrl = article.media_assets?.url || getFallbackImage(article.slug);
   const formattedDate = article.publishedAt
     ? format(new Date(article.publishedAt), 'yyyy年M月d日', { locale: ja })
     : '';
 
   if (variant === 'hero') {
     return (
-      <Link href={`/${article.category.slug}/${article.slug}`} className="block group cursor-pointer">
+      <Link href={`/${article.categories.slug}/${article.slug}`} className="block group cursor-pointer">
         <div className="aspect-[4/5] overflow-hidden bg-gray-100 mb-3">
           <ImageWithFallback
             src={imageUrl}
-            alt={article.thumbnail?.altText || article.title}
+            alt={article.media_assets?.altText || article.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         </div>
         <p className="font-[var(--font-noto-sans)] font-bold text-[10px] tracking-[1.4px] uppercase mb-2">
-          {article.category.name}
+          {article.categories.name}
         </p>
         <h2 className="font-[var(--font-noto-sans-jp)] font-medium text-[18px] leading-[1.4] mb-3 group-hover:underline">
           {article.title}
         </h2>
         {showAuthor && (
           <p className="font-[var(--font-noto-sans)] font-bold text-[10px] tracking-[1.2px] uppercase mb-1">
-            By {article.author.name}
+            By {article.authors.name}
           </p>
         )}
         {showDate && formattedDate && (
@@ -82,17 +82,17 @@ export function ArticleCard({
 
   if (variant === 'horizontal') {
     return (
-      <Link href={`/${article.category.slug}/${article.slug}`} className="flex gap-3 cursor-pointer group">
+      <Link href={`/${article.categories.slug}/${article.slug}`} className="flex gap-3 cursor-pointer group">
         <div className="w-[100px] h-[100px] flex-shrink-0 bg-gray-100 overflow-hidden">
           <ImageWithFallback
             src={imageUrl}
-            alt={article.thumbnail?.altText || article.title}
+            alt={article.media_assets?.altText || article.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         </div>
         <div className="flex-1">
           <p className="font-[var(--font-noto-sans)] font-bold text-[9px] tracking-[1.4px] uppercase mb-1">
-            {article.category.name}
+            {article.categories.name}
           </p>
           <h3 className="font-[var(--font-noto-sans-jp)] font-medium text-[13px] leading-[1.4] mb-2 line-clamp-2 group-hover:underline">
             {article.title}
@@ -109,16 +109,16 @@ export function ArticleCard({
 
   if (variant === 'small') {
     return (
-      <Link href={`/${article.category.slug}/${article.slug}`} className="group cursor-pointer" style={{ width: '200px', flexShrink: 0 }}>
+      <Link href={`/${article.categories.slug}/${article.slug}`} className="group cursor-pointer" style={{ width: '200px', flexShrink: 0 }}>
         <div className="aspect-square overflow-hidden bg-gray-100 mb-2">
           <ImageWithFallback
             src={imageUrl}
-            alt={article.thumbnail?.altText || article.title}
+            alt={article.media_assets?.altText || article.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         </div>
         <p className="font-[var(--font-noto-sans)] font-bold text-[9px] tracking-[1.4px] uppercase mb-1">
-          {article.category.name}
+          {article.categories.name}
         </p>
         <h3 className="font-[var(--font-noto-sans-jp)] font-medium leading-[1.4] text-[12px] group-hover:underline line-clamp-2 mb-1">
           {article.title}
@@ -134,23 +134,23 @@ export function ArticleCard({
 
   // Default grid variant
   return (
-    <Link href={`/${article.category.slug}/${article.slug}`} className="cursor-pointer group">
+    <Link href={`/${article.categories.slug}/${article.slug}`} className="cursor-pointer group">
       <div className="aspect-square overflow-hidden bg-gray-100 mb-2">
         <ImageWithFallback
           src={imageUrl}
-          alt={article.thumbnail?.altText || article.title}
+          alt={article.media_assets?.altText || article.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
       </div>
       <p className="font-[var(--font-noto-sans)] font-bold text-[9px] tracking-[1.4px] uppercase mb-1">
-        {article.category.name}
+        {article.categories.name}
       </p>
       <h3 className="font-[var(--font-noto-sans-jp)] font-medium leading-[1.4] text-[12px] group-hover:underline line-clamp-2">
         {article.title}
       </h3>
       {showAuthor && (
         <p className="font-[var(--font-noto-sans)] font-bold text-[9px] tracking-[1.2px] uppercase mt-2">
-          By {article.author.name}
+          By {article.authors.name}
         </p>
       )}
       {showDate && formattedDate && (

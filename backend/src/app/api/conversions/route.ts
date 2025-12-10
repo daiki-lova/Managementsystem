@@ -14,6 +14,7 @@ import { validateBody, commonSchemas } from "@/lib/validation";
 import { isAppError, handlePrismaError } from "@/lib/errors";
 import { ConversionType, ConversionStatus } from "@prisma/client";
 import { auditLog } from "@/lib/audit-log";
+import { randomUUID } from "crypto";
 
 // コンバージョン一覧取得
 export async function GET(request: NextRequest) {
@@ -29,10 +30,10 @@ export async function GET(request: NextRequest) {
         ...(type && { type }),
       };
 
-      const total = await prisma.conversion.count({ where });
+      const total = await prisma.conversions.count({ where });
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const conversions = await prisma.conversion.findMany({
+      const conversions = await prisma.conversions.findMany({
         where,
         skip,
         take,
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           updatedAt: true,
           _count: {
-            select: { articles: true },
+            select: { article_conversions: true },
           },
         },
         orderBy: { createdAt: "desc" },
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
       return paginatedResponse({
         items: conversions.map((c) => ({
           ...c,
-          articlesCount: c._count.articles,
+          articlesCount: c._count.article_conversions,
           _count: undefined,
         })),
         total,
@@ -94,8 +95,9 @@ export async function POST(request: NextRequest) {
     return await withOwnerAuth(request, async (user) => {
       const data = await validateBody(request, createConversionSchema);
 
-      const conversion = await prisma.conversion.create({
+      const conversion = await prisma.conversions.create({
         data: {
+          id: randomUUID(),
           name: data.name,
           type: data.type,
           status: data.status,

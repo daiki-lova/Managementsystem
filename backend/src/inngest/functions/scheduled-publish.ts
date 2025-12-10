@@ -1,6 +1,7 @@
 import { inngest } from "../client";
 import prisma from "@/lib/prisma";
 import { ArticleStatus } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 // 予約投稿チェック関数（毎分実行）
 export const scheduledPublishCron = inngest.createFunction(
@@ -23,7 +24,7 @@ export const scheduledPublishCron = inngest.createFunction(
     const scheduledArticles = await step.run(
       "fetch-scheduled-articles",
       async () => {
-        return prisma.article.findMany({
+        return prisma.articles.findMany({
           where: {
             status: ArticleStatus.SCHEDULED,
             publishedAt: {
@@ -48,7 +49,7 @@ export const scheduledPublishCron = inngest.createFunction(
 
     for (const article of scheduledArticles) {
       await step.run(`publish-article-${article.id}`, async () => {
-        await prisma.article.update({
+        await prisma.articles.update({
           where: { id: article.id },
           data: {
             status: ArticleStatus.PUBLISHED,
@@ -56,8 +57,9 @@ export const scheduledPublishCron = inngest.createFunction(
         });
 
         // 通知を作成
-        await prisma.notification.create({
+        await prisma.notifications.create({
           data: {
+            id: randomUUID(),
             userId: article.createdById,
             type: "ARTICLE_PUBLISHED",
             title: "記事が公開されました",
@@ -89,13 +91,14 @@ export const scheduledPublishEvent = inngest.createFunction(
       // 公開失敗の通知を作成
       if (!articleId) return;
       try {
-        const article = await prisma.article.findUnique({
+        const article = await prisma.articles.findUnique({
           where: { id: articleId },
           select: { createdById: true, title: true },
         });
         if (article) {
-          await prisma.notification.create({
+          await prisma.notifications.create({
             data: {
+              id: randomUUID(),
               userId: article.createdById,
               type: "SYSTEM",
               title: "予約公開に失敗しました",
@@ -120,7 +123,7 @@ export const scheduledPublishEvent = inngest.createFunction(
     const { articleId } = event.data;
 
     const article = await step.run("fetch-article", async () => {
-      return prisma.article.findUnique({
+      return prisma.articles.findUnique({
         where: { id: articleId },
         select: {
           id: true,
@@ -148,7 +151,7 @@ export const scheduledPublishEvent = inngest.createFunction(
 
     // 記事を公開
     await step.run("publish-article", async () => {
-      await prisma.article.update({
+      await prisma.articles.update({
         where: { id: articleId },
         data: {
           status: ArticleStatus.PUBLISHED,
@@ -156,8 +159,9 @@ export const scheduledPublishEvent = inngest.createFunction(
       });
 
       // 通知を作成
-      await prisma.notification.create({
+      await prisma.notifications.create({
         data: {
+          id: randomUUID(),
           userId: article.createdById,
           type: "ARTICLE_PUBLISHED",
           title: "記事が公開されました",

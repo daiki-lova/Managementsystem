@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     // DB からユーザー情報を取得
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { email },
       select: {
         id: true,

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       const validated = await validateBody(request, searchSchema);
 
       // 設定からAPIキーを取得
-      const settings = await prisma.systemSettings.findUnique({
+      const settings = await prisma.system_settings.findUnique({
         where: { id: "default" },
       });
 
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       }
 
       // 設定からAPIキーを取得
-      const settings = await prisma.systemSettings.findUnique({
+      const settings = await prisma.system_settings.findUnique({
         where: { id: "default" },
       });
 

@@ -1,30 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
 const CATEGORIES = [
-  { label: 'YOGA', slug: 'yoga' },
-  { label: 'PILATES', slug: 'pilates' },
-  { label: 'DIET', slug: 'diet' },
-  { label: 'JOB', slug: 'job' },
-  { label: 'BEAUTY', slug: 'beauty' },
-  { label: 'LIFE', slug: 'life' },
-  { label: 'SPORTS', slug: 'sports' },
-  { label: 'SIDE BUSINESS', slug: 'side-business' },
-  { label: 'SKILLS', slug: 'skills' },
+  { label: 'YOGA POSES', slug: 'yoga-poses' },
+  { label: 'YOGA PHILOSOPHY', slug: 'yoga-philosophy' },
+  { label: 'MEDITATION', slug: 'meditation' },
+  { label: 'HEALTH', slug: 'health-wellness' },
 ];
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scale, setScale] = useState(1);
+  const [containerWidth, setContainerWidth] = useState(1680);
   const designWidth = 1680;
 
   useEffect(() => {
     const updateScale = () => {
       const viewportWidth = window.innerWidth;
       setScale(Math.min(1, viewportWidth / designWidth));
+      setContainerWidth(Math.min(viewportWidth, designWidth));
     };
     updateScale();
     window.addEventListener('resize', updateScale);
@@ -48,9 +44,7 @@ export function Header() {
       <header className="fixed top-0 left-0 right-0 z-[100] hidden md:block w-full">
         <div
           className="mx-auto"
-          style={{
-            width: Math.min(typeof window !== 'undefined' ? window.innerWidth : designWidth, designWidth),
-          }}
+          style={{ width: containerWidth }}
         >
           <div
             className="origin-top-left"
@@ -89,11 +83,9 @@ export function Header() {
                       className="absolute h-[70px] left-1/2 overflow-clip top-0 translate-x-[-50%] w-[300px] cursor-pointer"
                     >
                       <div className="absolute h-[70px] left-0 overflow-clip top-0 w-[300px] flex flex-col items-center justify-center">
-                        <Image
+                        <img
                           src="/images/logo-header.png"
                           alt="Radiance Logo"
-                          width={200}
-                          height={50}
                           className="h-[50px] w-auto mb-1"
                         />
                         <p className="text-black text-[9px] tracking-[1px] whitespace-nowrap font-[var(--font-noto-sans-jp)]">
@@ -145,11 +137,9 @@ export function Header() {
           </button>
 
           <Link href="/" className="cursor-pointer">
-            <Image
+            <img
               src="/images/logo-header.png"
               alt="Radiance Logo"
-              width={100}
-              height={32}
               className="h-8 w-auto"
             />
           </Link>

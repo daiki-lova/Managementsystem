@@ -29,7 +29,7 @@ export const cleanupAuditLogsCron = inngest.createFunction(
 
     // 古いログを削除
     const result = await step.run("delete-old-logs", async () => {
-      const { count } = await prisma.auditLog.deleteMany({
+      const { count } = await prisma.audit_logs.deleteMany({
         where: {
           createdAt: {
             lt: cutoffDate,

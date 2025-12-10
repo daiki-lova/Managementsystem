@@ -135,19 +135,19 @@ function RelatedArticles({
         {articles.map((article) => (
           <Link
             key={article.id}
-            href={`/${article.category.slug}/${article.slug}`}
+            href={`/${article.categories.slug}/${article.slug}`}
             className="group cursor-pointer"
           >
             <div className="aspect-square overflow-hidden bg-gray-100 mb-2 md:mb-3">
               <ImageWithFallback
-                src={article.thumbnail?.url || 'https://images.unsplash.com/photo-1610562269919-86791081ad29?w=800&q=80'}
-                alt={article.thumbnail?.altText || article.title}
+                src={article.media_assets?.url || 'https://images.unsplash.com/photo-1610562269919-86791081ad29?w=800&q=80'}
+                alt={article.media_assets?.altText || article.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             </div>
             <div className="mb-1 md:mb-2">
               <span className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[10px] tracking-[1.4px] md:tracking-[1.6px] uppercase">
-                {article.category.name}
+                {article.categories.name}
               </span>
             </div>
             <h4 className="font-[var(--font-noto-sans-jp)] font-medium leading-[1.4] text-[12px] md:text-[14px] text-black group-hover:underline line-clamp-2">
@@ -177,19 +177,19 @@ function PopularArticlesSidebar({
         {articles.map((article) => (
           <Link
             key={article.id}
-            href={`/${article.category.slug}/${article.slug}`}
+            href={`/${article.categories.slug}/${article.slug}`}
             className="group cursor-pointer block"
           >
             <div className="aspect-[16/9] overflow-hidden bg-gray-100 mb-2">
               <ImageWithFallback
-                src={article.thumbnail?.url || 'https://images.unsplash.com/photo-1610562269919-86791081ad29?w=800&q=80'}
-                alt={article.thumbnail?.altText || article.title}
+                src={article.media_assets?.url || 'https://images.unsplash.com/photo-1610562269919-86791081ad29?w=800&q=80'}
+                alt={article.media_assets?.altText || article.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             </div>
             <div className="mb-1">
               <span className="font-[var(--font-noto-sans)] font-bold text-[9px] tracking-[1.4px] uppercase">
-                {article.category.name}
+                {article.categories.name}
               </span>
             </div>
             <h5 className="font-[var(--font-noto-sans-jp)] font-medium leading-[18px] text-[13px] text-black group-hover:underline line-clamp-2">
@@ -316,13 +316,13 @@ export default async function ArticlePage({
   }
 
   // カテゴリが一致しない場合は正しいURLにリダイレクト
-  if (article.category.slug !== categorySlug) {
-    redirect(`/${article.category.slug}/${slug}`);
+  if (article.categories.slug !== categorySlug) {
+    redirect(`/${article.categories.slug}/${slug}`);
   }
 
   // 関連記事と人気記事を並列取得
   const [relatedArticles, popularArticles] = await Promise.all([
-    getRelatedArticles(article.id, article.category.id, 8),
+    getRelatedArticles(article.id, article.categories.id, 8),
     getPopularArticles(5),
   ]);
 
@@ -342,10 +342,10 @@ export default async function ArticlePage({
         {/* カテゴリータグ */}
         <div className="text-center mb-4 md:mb-[24px]">
           <Link
-            href={`/${article.category.slug}`}
+            href={`/${article.categories.slug}`}
             className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.5px] md:tracking-[1.8px] uppercase hover:underline"
           >
-            {article.category.name}
+            {article.categories.name}
           </Link>
         </div>
 
@@ -361,7 +361,7 @@ export default async function ArticlePage({
               By
             </span>
             <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.4px] md:tracking-[1.964px] uppercase">
-              {article.author.name}
+              {article.authors.name}
             </span>
           </div>
           {formattedDate && (
@@ -377,11 +377,11 @@ export default async function ArticlePage({
             {/* 左側：記事本文 */}
             <article className="flex-1 max-w-[760px]">
               {/* メイン画像 */}
-              {article.thumbnail && (
+              {article.media_assets && (
                 <figure className="mb-6 md:mb-[40px]">
                   <ImageWithFallback
-                    src={article.thumbnail.url}
-                    alt={article.thumbnail.altText || article.title}
+                    src={article.media_assets.url}
+                    alt={article.media_assets.altText || article.title}
                     className="w-full h-auto object-cover"
                   />
                 </figure>
@@ -403,7 +403,7 @@ export default async function ArticlePage({
               <div className="md:hidden">
                 {/* 著者プロフィール */}
                 <div className="mt-8">
-                  <AuthorProfile author={article.author} />
+                  <AuthorProfile author={article.authors} />
                 </div>
 
                 <RelatedArticles articles={relatedArticles} />
@@ -418,7 +418,7 @@ export default async function ArticlePage({
             {/* 右側：サイドバー（デスクトップのみ） */}
             <aside className="hidden md:block w-[320px] flex-shrink-0 space-y-[32px]">
               {/* 著者プロフィール */}
-              <AuthorProfile author={article.author} />
+              <AuthorProfile author={article.authors} />
 
               {/* 人気記事 */}
               <PopularArticlesSidebar articles={popularArticles} />

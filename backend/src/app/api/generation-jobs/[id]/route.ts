@@ -16,20 +16,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     return await withAuth(request, async (user) => {
-      const job = await prisma.generationJob.findUnique({
+      const job = await prisma.generation_jobs.findUnique({
         where: { id },
         include: {
-          category: { select: { id: true, name: true, slug: true } },
-          author: { select: { id: true, name: true, role: true } },
-          user: { select: { id: true, name: true, email: true } },
-          conversions: {
+          categories: { select: { id: true, name: true, slug: true } },
+          authors: { select: { id: true, name: true, role: true } },
+          users: { select: { id: true, name: true, email: true } },
+          generation_job_conversions: {
             include: {
-              conversion: { select: { id: true, name: true, type: true } },
+              conversions: { select: { id: true, name: true, type: true } },
             },
           },
-          knowledgeItems: {
+          generation_job_knowledge_items: {
             include: {
-              knowledgeItem: { select: { id: true, title: true, type: true } },
+              knowledge_items: { select: { id: true, title: true, type: true } },
             },
           },
           articles: {
@@ -70,7 +70,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     return await withAuth(request, async (user) => {
-      const job = await prisma.generationJob.findUnique({
+      const job = await prisma.generation_jobs.findUnique({
         where: { id },
       });
 
@@ -92,7 +92,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // ステータスをキャンセルに更新
-      const updated = await prisma.generationJob.update({
+      const updated = await prisma.generation_jobs.update({
         where: { id },
         data: {
           status: GenerationJobStatus.CANCELLED,

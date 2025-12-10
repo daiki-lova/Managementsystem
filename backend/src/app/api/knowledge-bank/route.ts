@@ -13,6 +13,7 @@ import {
 import { validateBody, commonSchemas } from "@/lib/validation";
 import { isAppError, handlePrismaError } from "@/lib/errors";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 // 情報バンク一覧取得
 export async function GET(request: NextRequest) {
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       const course = searchParams.get("course");
       const search = searchParams.get("search");
 
-      const where: Prisma.KnowledgeItemWhereInput = {
+      const where: Prisma.knowledge_itemsWhereInput = {
         ...(type && { type }),
         ...(brandId && { brandId }),
         ...(authorId && { authorId }),
@@ -40,10 +41,10 @@ export async function GET(request: NextRequest) {
         }),
       };
 
-      const total = await prisma.knowledgeItem.count({ where });
+      const total = await prisma.knowledge_items.count({ where });
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const items = await prisma.knowledgeItem.findMany({
+      const items = await prisma.knowledge_items.findMany({
         where,
         skip,
         take,
@@ -57,10 +58,10 @@ export async function GET(request: NextRequest) {
           usageCount: true,
           createdAt: true,
           updatedAt: true,
-          brand: {
+          brands: {
             select: { id: true, name: true, slug: true },
           },
-          author: {
+          authors: {
             select: { id: true, name: true },
           },
         },
@@ -101,8 +102,9 @@ export async function POST(request: NextRequest) {
     return await withAuth(request, async () => {
       const data = await validateBody(request, createKnowledgeItemSchema);
 
-      const item = await prisma.knowledgeItem.create({
+      const item = await prisma.knowledge_items.create({
         data: {
+          id: randomUUID(),
           title: data.title,
           type: data.type,
           brandId: data.brandId,

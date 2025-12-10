@@ -43,24 +43,38 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
     const deleteAuthor = useDeleteAuthor();
 
     // Map API data to Profile format
-    const profiles: Profile[] = (authorsData?.data || []).map((author: any) => ({
-        id: author.id,
-        name: author.name,
-        slug: author.slug,
-        role: author.title || '',
-        qualifications: author.qualifications || '',
-        categories: author.categories || [],
-        tags: author.tags || [],
-        instagram: author.instagramUrl,
-        facebook: author.facebookUrl,
-        avatar: author.avatarUrl,
-        bio: author.bio,
-        systemPrompt: author.systemPrompt,
-    }));
+    const profiles: Profile[] = (authorsData?.data || []).map((author: any) => {
+        // Handle socialLinks potentially being a string (JSON) or object
+        const socialLinks = typeof author.socialLinks === 'string'
+            ? JSON.parse(author.socialLinks)
+            : author.socialLinks || {};
+
+        // Handle qualifications being an array or string
+        const qualificationsRaw = author.qualifications || [];
+        const qualificationsStr = Array.isArray(qualificationsRaw)
+            ? qualificationsRaw.join(', ')
+            : String(qualificationsRaw);
+
+        return {
+            id: author.id,
+            name: author.name,
+            slug: author.slug,
+            role: author.role || (author as any).title || '', // Fallback for API mismatch
+            qualifications: qualificationsStr,
+            categories: author.computedCategories || author.categories || [],
+            tags: author.computedTags || author.tags || [],
+            instagram: socialLinks.instagram,
+            facebook: socialLinks.facebook,
+            twitter: socialLinks.twitter,
+            avatar: author.imageUrl || author.avatarUrl,
+            bio: author.bio,
+            systemPrompt: author.systemPrompt,
+        };
+    });
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeFilters, setActiveFilters] = useState<Record<string, Set<string>>>({});
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -70,9 +84,9 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
 
     const handleOpenCreate = () => {
         setEditingProfile(null);
-        setFormData({ 
-            name: '', slug: '', role: '', qualifications: '', categories: [], tags: [], 
-            bio: '', avatar: '', instagram: '', facebook: '' 
+        setFormData({
+            name: '', slug: '', role: '', qualifications: '', categories: [], tags: [],
+            bio: '', avatar: '', instagram: '', facebook: ''
         });
         setIsDialogOpen(true);
     };
@@ -93,15 +107,22 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
         if (!formData.name || !formData.role || !formData.slug) return;
 
         const authorData = {
-            name: formData.name!,
-            slug: formData.slug!,
-            title: formData.role!,
-            qualifications: formData.qualifications || '',
+            name: formData.name,
+            slug: formData.slug,
+            role: formData.role,
+            // Convert comma-separated string back to array for API
+            qualifications: typeof formData.qualifications === 'string'
+                ? formData.qualifications.split(/[,、]/).map(s => s.trim()).filter(Boolean)
+                : formData.qualifications || [],
             categories: formData.categories || [],
             tags: formData.tags || [],
-            instagramUrl: formData.instagram,
-            facebookUrl: formData.facebook,
-            avatarUrl: formData.avatar,
+            socialLinks: {
+                instagram: formData.instagram || '',
+                facebook: formData.facebook || '',
+                twitter: formData.twitter || '',
+            },
+            imageUrl: formData.avatar, // API expects imageUrl
+            avatarUrl: formData.avatar, // Keeping avatarUrl for compatibility if needed
             bio: formData.bio,
             systemPrompt: formData.systemPrompt,
         };
@@ -123,8 +144,8 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
 
     const filteredProfiles = profiles.filter(profile => {
         const matchesSearch = profile.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              profile.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              profile.role.toLowerCase().includes(searchQuery.toLowerCase());
+            profile.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            profile.role.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
         return Object.entries(activeFilters).every(([key, filterSet]) => {
@@ -173,7 +194,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
         const isSortable = true;
 
         return (
-            <th 
+            <th
                 className="px-4 py-2.5 relative bg-neutral-50/80 select-none whitespace-nowrap text-xs text-neutral-500 font-medium group border-b border-neutral-200 border-r border-neutral-100/50"
                 style={{ width }}
             >
@@ -192,9 +213,9 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                             </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-2" align="start">
-                             <div className="space-y-2">
+                            <div className="space-y-2">
                                 <div className="text-xs font-medium text-neutral-500 px-2 py-1">{label}</div>
-                                
+
                                 {isSortable && (
                                     <div className="space-y-1 border-b border-neutral-100 pb-2 mb-2">
                                         <button onClick={() => handleSort(key, 'asc')} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-neutral-100">
@@ -207,12 +228,12 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                 )}
 
                                 {isFilterable && (
-                                     <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
                                         {filterOptions.map((opt) => (
                                             <div key={opt} className="flex items-center justify-between px-2 py-1.5 hover:bg-neutral-50 rounded">
                                                 <div className="flex items-center gap-2 overflow-hidden">
-                                                    <input 
-                                                        type="checkbox" 
+                                                    <input
+                                                        type="checkbox"
                                                         checked={activeFilters[key]?.has(opt) || false}
                                                         onChange={(e) => toggleFilter(key, opt, e.target.checked)}
                                                         className="rounded border-neutral-300 text-blue-600"
@@ -221,7 +242,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                                 </div>
                                             </div>
                                         ))}
-                                     </div>
+                                    </div>
                                 )}
                             </div>
                         </PopoverContent>
@@ -262,7 +283,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                 <div className="flex items-center gap-3">
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={18} />
-                        <Input 
+                        <Input
                             className="w-[300px] pl-11 h-12 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded-full text-sm font-medium transition-all"
                             placeholder="監修者を検索..."
                             value={searchQuery}
@@ -301,12 +322,12 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                 <table className="w-full text-left border-collapse" style={{ minWidth: '1200px' }}>
                     <thead className="sticky top-0 z-20">
                         <tr>
-                             <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-0 z-20">
+                            <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-0 z-20">
                                 {/* Actions Column Header */}
                             </th>
                             <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-[40px] z-20">
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={filteredProfiles.length > 0 && selectedIds.size === filteredProfiles.length}
                                     onChange={(e) => toggleSelectAll(e.target.checked)}
                                     className="rounded border-neutral-300 scale-90 cursor-pointer"
@@ -325,8 +346,8 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
                         {filteredProfiles.map(profile => (
-                            <tr 
-                                key={profile.id} 
+                            <tr
+                                key={profile.id}
                                 className={cn(
                                     "group hover:bg-neutral-50/80 transition-colors",
                                     selectedIds.has(profile.id) && "bg-blue-50/50 hover:bg-blue-50/60"
@@ -340,21 +361,21 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-32">
-                                             <DropdownMenuItem onClick={() => {
-                                                 createAuthor.mutate({
-                                                     name: `${profile.name} (コピー)`,
-                                                     slug: `${profile.slug}-copy`,
-                                                     title: profile.role,
-                                                     qualifications: profile.qualifications || '',
-                                                     categories: profile.categories || [],
-                                                     tags: profile.tags || [],
-                                                     instagramUrl: profile.instagram,
-                                                     facebookUrl: profile.facebook,
-                                                     avatarUrl: profile.avatar,
-                                                     bio: profile.bio,
-                                                     systemPrompt: profile.systemPrompt,
-                                                 });
-                                             }}>
+                                            <DropdownMenuItem onClick={() => {
+                                                createAuthor.mutate({
+                                                    name: `${profile.name} (コピー)`,
+                                                    slug: `${profile.slug}-copy`,
+                                                    title: profile.role,
+                                                    qualifications: profile.qualifications || '',
+                                                    categories: profile.categories || [],
+                                                    tags: profile.tags || [],
+                                                    instagramUrl: profile.instagram,
+                                                    facebookUrl: profile.facebook,
+                                                    avatarUrl: profile.avatar,
+                                                    bio: profile.bio,
+                                                    systemPrompt: profile.systemPrompt,
+                                                });
+                                            }}>
                                                 <Copy size={14} className="mr-2" /> 複製
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleOpenEdit(profile)}>
@@ -367,8 +388,8 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                     </DropdownMenu>
                                 </td>
                                 <td className="px-4 py-3.5 bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50 sticky left-[40px] text-center z-10">
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         checked={selectedIds.has(profile.id)}
                                         onChange={() => toggleSelection(profile.id)}
                                         className="rounded border-neutral-300 scale-90 cursor-pointer"
@@ -383,7 +404,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                     </Avatar>
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
-                                    <div 
+                                    <div
                                         className="font-medium text-neutral-900 text-sm leading-normal cursor-pointer hover:text-blue-600 hover:underline decoration-blue-300 underline-offset-2 transition-all"
                                         onClick={() => handleOpenEdit(profile)}
                                     >
@@ -426,7 +447,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                     </div>
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
-                                    {profile.qualifications && (
+                                    {profile.qualifications && typeof profile.qualifications === 'string' && (
                                         <div className="flex flex-wrap gap-1">
                                             {profile.qualifications.split(/[,、]/).slice(0, 2).map((q, i) => (
                                                 <span key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 text-orange-700 text-[10px] rounded border border-orange-100 whitespace-nowrap">
@@ -471,7 +492,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                             信頼性の高い監修者情報を作成してください。スラグはURLに使用されます。
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     <div className="grid gap-6 py-4">
                         <div className="flex items-start gap-6">
                             <div className="w-24 flex flex-col items-center gap-2 pt-2">
@@ -485,11 +506,11 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                     <Label htmlFor="avatar-upload" className="block text-[10px] text-center text-blue-600 cursor-pointer hover:underline mb-1">
                                         画像を変更
                                     </Label>
-                                    <Input 
-                                        id="avatar-upload" 
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="hidden" 
+                                    <Input
+                                        id="avatar-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
@@ -507,84 +528,84 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="name" className="text-xs">名前 <span className="text-red-500">*</span></Label>
-                                        <Input id="name" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="h-8 text-sm" placeholder="例: 山田 花子" />
+                                        <Input id="name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} className="h-8 text-sm" placeholder="例: 山田 花子" />
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="slug" className="text-xs">スラグ (ID) <span className="text-red-500">*</span></Label>
-                                        <Input id="slug" value={formData.slug || ''} onChange={e => setFormData({...formData, slug: e.target.value})} className="h-8 text-sm font-mono" placeholder="例: hanako-yamada" />
+                                        <Input id="slug" value={formData.slug || ''} onChange={e => setFormData({ ...formData, slug: e.target.value })} className="h-8 text-sm font-mono" placeholder="例: hanako-yamada" />
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="role" className="text-xs">肩書き <span className="text-red-500">*</span></Label>
-                                    <Input id="role" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="h-8 text-sm" placeholder="例: ヨガインストラクター" />
+                                    <Input id="role" value={formData.role || ''} onChange={e => setFormData({ ...formData, role: e.target.value })} className="h-8 text-sm" placeholder="例: ヨガインストラクター" />
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="qualifications" className="text-xs">保有資格 (カンマ区切り)</Label>
-                                    <Input id="qualifications" value={formData.qualifications || ''} onChange={e => setFormData({...formData, qualifications: e.target.value})} className="h-8 text-sm" placeholder="例: RYT200, 管理栄養士" />
+                                    <Input id="qualifications" value={formData.qualifications || ''} onChange={e => setFormData({ ...formData, qualifications: e.target.value })} className="h-8 text-sm" placeholder="例: RYT200, 管理栄養士" />
                                 </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-6">
-                             <div className="space-y-1.5">
+                            <div className="space-y-1.5">
                                 <Label htmlFor="categories" className="text-xs">得意カテゴリー (カンマ区切り)</Label>
-                                <Input 
-                                    id="categories" 
-                                    value={formData.categories?.join(', ') || ''} 
-                                    onChange={e => setFormData({...formData, categories: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})} 
-                                    className="h-8 text-sm" 
-                                    placeholder="例: ヨガ, 瞑想" 
+                                <Input
+                                    id="categories"
+                                    value={formData.categories?.join(', ') || ''}
+                                    onChange={e => setFormData({ ...formData, categories: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                                    className="h-8 text-sm"
+                                    placeholder="例: ヨガ, 瞑想"
                                 />
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="tags" className="text-xs">タグ (カンマ区切り)</Label>
-                                <Input 
-                                    id="tags" 
-                                    value={formData.tags?.join(', ') || ''} 
-                                    onChange={e => setFormData({...formData, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})} 
-                                    className="h-8 text-sm" 
-                                    placeholder="例: 初心者歓迎, 30代向け" 
+                                <Input
+                                    id="tags"
+                                    value={formData.tags?.join(', ') || ''}
+                                    onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                                    className="h-8 text-sm"
+                                    placeholder="例: 初心者歓迎, 30代向け"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
                             <Label htmlFor="systemPrompt" className="text-xs">システムプロンプト (専門性・トーンの指定)</Label>
-                            <Textarea 
-                                id="systemPrompt" 
-                                value={formData.systemPrompt || ''} 
-                                onChange={e => setFormData({...formData, systemPrompt: e.target.value})} 
-                                className="text-sm min-h-[120px] font-mono" 
-                                placeholder="例: あなたはヨガのプロフェッショナルです。初心者にも分かりやすく、かつ解剖学的な根拠に基づいた解説を行ってください..." 
+                            <Textarea
+                                id="systemPrompt"
+                                value={formData.systemPrompt || ''}
+                                onChange={e => setFormData({ ...formData, systemPrompt: e.target.value })}
+                                className="text-sm min-h-[120px] font-mono"
+                                placeholder="例: あなたはヨガのプロフェッショナルです。初心者にも分かりやすく、かつ解剖学的な根拠に基づいた解説を行ってください..."
                             />
-                             <p className="text-[10px] text-neutral-500">
+                            <p className="text-[10px] text-neutral-500">
                                 ※ 記事生成時にAIの役割（Role）として設定されます。E-E-A-T（経験・専門性・権威性・信頼性）を高めるための指示を記述してください。
                             </p>
                         </div>
 
                         <div className="space-y-1.5">
                             <Label htmlFor="bio" className="text-xs">自己紹介文</Label>
-                            <Textarea 
-                                id="bio" 
-                                value={formData.bio || ''} 
-                                onChange={e => setFormData({...formData, bio: e.target.value})} 
-                                className="text-sm min-h-[80px]" 
-                                placeholder="読者に向けた自己紹介メッセージを入力してください。" 
+                            <Textarea
+                                id="bio"
+                                value={formData.bio || ''}
+                                onChange={e => setFormData({ ...formData, bio: e.target.value })}
+                                className="text-sm min-h-[80px]"
+                                placeholder="読者に向けた自己紹介メッセージを入力してください。"
                             />
                         </div>
 
                         <div className="grid grid-cols-2 gap-6">
-                             <div className="space-y-1.5">
+                            <div className="space-y-1.5">
                                 <Label htmlFor="instagram" className="text-xs flex items-center gap-1"><Instagram size={12} /> Instagram URL</Label>
-                                <Input id="instagram" value={formData.instagram || ''} onChange={e => setFormData({...formData, instagram: e.target.value})} className="h-8 text-xs font-mono" placeholder="https://instagram.com/..." />
+                                <Input id="instagram" value={formData.instagram || ''} onChange={e => setFormData({ ...formData, instagram: e.target.value })} className="h-8 text-xs font-mono" placeholder="https://instagram.com/..." />
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="facebook" className="text-xs flex items-center gap-1"><Facebook size={12} /> Facebook URL</Label>
-                                <Input id="facebook" value={formData.facebook || ''} onChange={e => setFormData({...formData, facebook: e.target.value})} className="h-8 text-xs font-mono" placeholder="https://facebook.com/..." />
+                                <Input id="facebook" value={formData.facebook || ''} onChange={e => setFormData({ ...formData, facebook: e.target.value })} className="h-8 text-xs font-mono" placeholder="https://facebook.com/..." />
                             </div>
                         </div>
                     </div>
-                    
+
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
                         <Button onClick={handleSubmit}>保存する</Button>

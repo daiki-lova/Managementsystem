@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     // カテゴリフィルタ
     let categoryId: string | undefined;
     if (categorySlug) {
-      const category = await prisma.category.findUnique({
+      const category = await prisma.categories.findUnique({
         where: { slug: categorySlug },
         select: { id: true },
       });
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     // ブランドフィルタ
     let brandId: string | undefined;
     if (brandSlug) {
-      const brand = await prisma.brand.findUnique({
+      const brand = await prisma.brands.findUnique({
         where: { slug: brandSlug },
         select: { id: true },
       });
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     };
 
     const [articles, total] = await Promise.all([
-      prisma.article.findMany({
+      prisma.articles.findMany({
         where,
         select: {
           id: true,
@@ -58,26 +58,26 @@ export async function GET(request: NextRequest) {
           metaTitle: true,
           metaDescription: true,
           publishedAt: true,
-          thumbnail: {
+          media_assets: {
             select: {
               url: true,
               altText: true,
             },
           },
-          category: {
+          categories: {
             select: {
               name: true,
               slug: true,
             },
           },
-          author: {
+          authors: {
             select: {
               name: true,
               role: true,
               imageUrl: true,
             },
           },
-          brand: {
+          brands: {
             select: {
               name: true,
               slug: true,
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
         skip,
         take,
       }),
-      prisma.article.count({ where }),
+      prisma.articles.count({ where }),
     ]);
 
     const { totalPages } = calculatePagination(total, page, take);

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async () => {
       const { id } = await params;
 
-      const media = await prisma.mediaAsset.findUnique({
+      const media = await prisma.media_assets.findUnique({
         where: { id },
         select: {
           id: true,
@@ -35,17 +35,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           fileSize: true,
           createdAt: true,
           updatedAt: true,
-          tags: {
+          media_asset_tags: {
             select: {
-              tag: {
+              tags: {
                 select: { id: true, name: true, slug: true },
               },
             },
           },
           _count: {
             select: {
-              thumbnailArticles: true,
-              articleImages: true,
+              articles: true,
+              article_images: true,
             },
           },
         },
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
       return successResponse({
         ...media,
-        tags: media.tags.map((t) => t.tag),
+        tags: media.media_asset_tags.map((t) => t.tags),
         usageCount:
-          media._count.thumbnailArticles + media._count.articleImages,
+          media._count.articles + media._count.article_images,
         _count: undefined,
       });
     });
@@ -87,7 +87,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const data = await validateBody(request, updateMediaSchema);
 
       // 存在確認
-      const existing = await prisma.mediaAsset.findUnique({
+      const existing = await prisma.media_assets.findUnique({
         where: { id },
       });
 
@@ -99,15 +99,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const media = await prisma.$transaction(async (tx) => {
         // タグの更新
         if (data.tagIds !== undefined) {
-          await tx.mediaAssetTag.deleteMany({ where: { mediaAssetId: id } });
+          await tx.media_asset_tags.deleteMany({ where: { mediaAssetId: id } });
           if (data.tagIds.length > 0) {
-            await tx.mediaAssetTag.createMany({
+            await tx.media_asset_tags.createMany({
               data: data.tagIds.map((tagId) => ({ mediaAssetId: id, tagId })),
             });
           }
         }
 
-        return tx.mediaAsset.update({
+        return tx.media_assets.update({
           where: { id },
           data: {
             altText: data.altText,
@@ -142,13 +142,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       const { id } = await params;
 
       // 存在確認
-      const existing = await prisma.mediaAsset.findUnique({
+      const existing = await prisma.media_assets.findUnique({
         where: { id },
         include: {
           _count: {
             select: {
-              thumbnailArticles: true,
-              articleImages: true,
+              articles: true,
+              article_images: true,
             },
           },
         },
@@ -160,7 +160,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
       // 使用中のメディアは削除不可
       const usageCount =
-        existing._count.thumbnailArticles + existing._count.articleImages;
+        existing._count.articles + existing._count.article_images;
       if (usageCount > 0) {
         return ApiErrors.badRequest(
           `このメディアは${usageCount}件の記事で使用されています。先に記事から削除してください。`
@@ -168,7 +168,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // 論理削除
-      await prisma.mediaAsset.update({
+      await prisma.media_assets.update({
         where: { id },
         data: {
           isDeleted: true,

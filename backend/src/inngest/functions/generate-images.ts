@@ -20,13 +20,14 @@ export const generateImages = inngest.createFunction(
       try {
         if (jobId) {
           // ジョブは既にCOMPLETEDの可能性があるので、画像生成失敗は別途通知
-          const job = await prisma.generationJob.findUnique({
+          const job = await prisma.generation_jobs.findUnique({
             where: { id: jobId },
             select: { userId: true },
           });
           if (job) {
-            await prisma.notification.create({
+            await prisma.notifications.create({
               data: {
+                id: randomUUID(),
                 userId: job.userId,
                 type: "SYSTEM",
                 title: "画像生成に失敗しました",
@@ -53,10 +54,10 @@ export const generateImages = inngest.createFunction(
 
     // 記事データを取得
     const article = await step.run("fetch-article", async () => {
-      return prisma.article.findUnique({
+      return prisma.articles.findUnique({
         where: { id: articleId },
         include: {
-          category: true,
+          categories: true,
         },
       });
     });
@@ -78,7 +79,7 @@ export const generateImages = inngest.createFunction(
     // アイキャッチ画像を生成
     const thumbnailUrl = await step.run("generate-thumbnail", async () => {
       return generateImage({
-        prompt: `ヨガに関するブログ記事のアイキャッチ画像。タイトル: "${article.title}"。カテゴリ: ${article.category.name}。落ち着いた色調、プロフェッショナルな雰囲気、テキストなし。`,
+        prompt: `ヨガに関するブログ記事のアイキャッチ画像。タイトル: "${article.title}"。カテゴリ: ${article.categories.name}。落ち着いた色調、プロフェッショナルな雰囲気、テキストなし。`,
         apiKey: settings.openRouterApiKey!,
       });
     });
@@ -86,8 +87,9 @@ export const generateImages = inngest.createFunction(
     // サムネイルをDBに保存
     if (thumbnailUrl) {
       await step.run("save-thumbnail", async () => {
-        const mediaAsset = await prisma.mediaAsset.create({
+        const mediaAsset = await prisma.media_assets.create({
           data: {
+            id: randomUUID(),
             url: thumbnailUrl,
             fileName: `thumbnail-${articleId}.png`,
             source: MediaSource.AI_GENERATED,
@@ -95,7 +97,7 @@ export const generateImages = inngest.createFunction(
           },
         });
 
-        await prisma.article.update({
+        await prisma.articles.update({
           where: { id: articleId },
           data: { thumbnailId: mediaAsset.id },
         });
@@ -112,8 +114,9 @@ export const generateImages = inngest.createFunction(
 
     if (insertedImage1Url) {
       await step.run("save-inserted-1", async () => {
-        const mediaAsset = await prisma.mediaAsset.create({
+        const mediaAsset = await prisma.media_assets.create({
           data: {
+            id: randomUUID(),
             url: insertedImage1Url,
             fileName: `inserted1-${articleId}.png`,
             source: MediaSource.AI_GENERATED,
@@ -121,8 +124,9 @@ export const generateImages = inngest.createFunction(
           },
         });
 
-        await prisma.articleImage.create({
+        await prisma.article_images.create({
           data: {
+            id: randomUUID(),
             articleId,
             mediaAssetId: mediaAsset.id,
             type: ArticleImageType.INSERTED_1,
@@ -142,8 +146,9 @@ export const generateImages = inngest.createFunction(
 
     if (insertedImage2Url) {
       await step.run("save-inserted-2", async () => {
-        const mediaAsset = await prisma.mediaAsset.create({
+        const mediaAsset = await prisma.media_assets.create({
           data: {
+            id: randomUUID(),
             url: insertedImage2Url,
             fileName: `inserted2-${articleId}.png`,
             source: MediaSource.AI_GENERATED,
@@ -151,8 +156,9 @@ export const generateImages = inngest.createFunction(
           },
         });
 
-        await prisma.articleImage.create({
+        await prisma.article_images.create({
           data: {
+            id: randomUUID(),
             articleId,
             mediaAssetId: mediaAsset.id,
             type: ArticleImageType.INSERTED_2,

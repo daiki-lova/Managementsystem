@@ -2,6 +2,7 @@ import { inngest } from "../client";
 import prisma from "@/lib/prisma";
 import { ArticleStatus, GenerationJobStatus } from "@prisma/client";
 import { getDecryptedSettings } from "@/lib/settings";
+import { randomUUID } from "crypto";
 
 // 記事生成関数
 export const generateArticle = inngest.createFunction(
@@ -19,7 +20,7 @@ export const generateArticle = inngest.createFunction(
       // ジョブをFAILEDに更新
       if (!jobId || !userId) return;
       try {
-        await prisma.generationJob.update({
+        await prisma.generation_jobs.update({
           where: { id: jobId },
           data: {
             status: GenerationJobStatus.FAILED,
@@ -27,8 +28,9 @@ export const generateArticle = inngest.createFunction(
           },
         });
         // 失敗通知を作成
-        await prisma.notification.create({
+        await prisma.notifications.create({
           data: {
+            id: randomUUID(),
             userId,
             type: "GENERATION_FAILED",
             title: "記事生成失敗",
@@ -65,7 +67,7 @@ export const generateArticle = inngest.createFunction(
 
     // ジョブステータスを「実行中」に更新
     await step.run("update-job-running", async () => {
-      await prisma.generationJob.update({
+      await prisma.generation_jobs.update({
         where: { id: jobId },
         data: {
           status: GenerationJobStatus.RUNNING,
@@ -78,13 +80,13 @@ export const generateArticle = inngest.createFunction(
     const [category, author, brand, conversions, knowledgeItems, settings] =
       await step.run("fetch-data", async () => {
         return Promise.all([
-          prisma.category.findUnique({ where: { id: categoryId } }),
-          prisma.author.findUnique({ where: { id: authorId } }),
-          prisma.brand.findUnique({ where: { id: brandId } }),
-          prisma.conversion.findMany({
+          prisma.categories.findUnique({ where: { id: categoryId } }),
+          prisma.authors.findUnique({ where: { id: authorId } }),
+          prisma.brands.findUnique({ where: { id: brandId } }),
+          prisma.conversions.findMany({
             where: { id: { in: conversionIds } },
           }),
-          prisma.knowledgeItem.findMany({
+          prisma.knowledge_items.findMany({
             where: { id: { in: knowledgeItemIds } },
           }),
           // 暗号化されたAPIキーを復号して取得
@@ -93,7 +95,7 @@ export const generateArticle = inngest.createFunction(
       });
 
     if (!category || !author || !brand) {
-      await prisma.generationJob.update({
+      await prisma.generation_jobs.update({
         where: { id: jobId },
         data: {
           status: GenerationJobStatus.FAILED,
@@ -105,7 +107,7 @@ export const generateArticle = inngest.createFunction(
 
     // 進捗更新
     await step.run("update-progress-20", async () => {
-      await prisma.generationJob.update({
+      await prisma.generation_jobs.update({
         where: { id: jobId },
         data: { progress: 20 },
       });
@@ -120,7 +122,7 @@ export const generateArticle = inngest.createFunction(
       return generateArticleContent({
         keyword,
         category: category.name,
-        author: {
+        authors: {
           name: author.name,
           role: author.role,
           systemPrompt: author.systemPrompt,
@@ -140,7 +142,7 @@ export const generateArticle = inngest.createFunction(
 
     // 進捗更新
     await step.run("update-progress-70", async () => {
-      await prisma.generationJob.update({
+      await prisma.generation_jobs.update({
         where: { id: jobId },
         data: { progress: 70 },
       });
@@ -152,8 +154,9 @@ export const generateArticle = inngest.createFunction(
       const slug = generateSlug(keyword);
 
       // 記事を作成
-      const newArticle = await prisma.article.create({
+      const newArticle = await prisma.articles.create({
         data: {
+          id: randomUUID(),
           title: articleContent.title,
           slug,
           blocks: articleContent.blocks,
@@ -166,14 +169,15 @@ export const generateArticle = inngest.createFunction(
           metaTitle: articleContent.metaTitle,
           metaDescription: articleContent.metaDescription,
           // コンバージョンを紐づけ
-          conversions: {
+          article_conversions: {
             create: conversionIds.map((conversionId: string, index: number) => ({
+              id: randomUUID(),
               conversionId,
               position: index,
             })),
           },
           // 情報バンクを紐づけ
-          knowledgeItems: {
+          article_knowledge_items: {
             create: knowledgeItemIds.map((knowledgeItemId: string) => ({
               knowledgeItemId,
             })),
@@ -182,13 +186,13 @@ export const generateArticle = inngest.createFunction(
       });
 
       // 情報バンクの使用回数を更新
-      await prisma.knowledgeItem.updateMany({
+      await prisma.knowledge_items.updateMany({
         where: { id: { in: knowledgeItemIds } },
         data: { usageCount: { increment: 1 } },
       });
 
       // カテゴリの記事数を更新
-      await prisma.category.update({
+      await prisma.categories.update({
         where: { id: categoryId },
         data: { articlesCount: { increment: 1 } },
       });
@@ -207,7 +211,7 @@ export const generateArticle = inngest.createFunction(
 
     // ジョブを完了
     await step.run("complete-job", async () => {
-      await prisma.generationJob.update({
+      await prisma.generation_jobs.update({
         where: { id: jobId },
         data: {
           status: GenerationJobStatus.COMPLETED,
@@ -217,8 +221,9 @@ export const generateArticle = inngest.createFunction(
       });
 
       // 通知を作成
-      await prisma.notification.create({
+      await prisma.notifications.create({
         data: {
+          id: randomUUID(),
           userId,
           type: "GENERATION_COMPLETE",
           title: "記事生成完了",
@@ -236,7 +241,7 @@ export const generateArticle = inngest.createFunction(
 interface GenerateContentParams {
   keyword: string;
   category: string;
-  author: {
+  authors: {
     name: string;
     role: string;
     systemPrompt: string;
@@ -257,7 +262,7 @@ interface GeneratedContent {
 async function generateArticleContent(
   params: GenerateContentParams
 ): Promise<GeneratedContent> {
-  const { keyword, category, author, conversions, knowledgeItems, apiKey, model } =
+  const { keyword, category, authors: author, conversions, knowledgeItems, apiKey, model } =
     params;
 
   // コンテキスト情報を構築
@@ -269,7 +274,26 @@ async function generateArticleContent(
     ? `\n\n【訴求ポイント】\n${conversions.map((c) => `- ${c.name}: ${c.context}`).join("\n")}`
     : "";
 
+  const GLOBAL_RULES = `
+【構成作成・執筆・SEOの共通ルール】
+1. **構成作成（PREP法）**:
+   - 読者が知りたい結論を最初に提示する。
+   - 各見出しは具体的かつ魅力的にし、読み飛ばしを防ぐ。
+   - 記事の最後には具体的なアクションプランを提示する。
+
+2. **SEO最適化**:
+   - メインキーワード、共起語、関連クエリを自然に網羅する。
+   - タイトルは32文字以内、メタディスクリプションは120文字以内とし、クリック率を意識する。
+   - 内部リンクの提案を含め、サイト回遊率を高める構造にする。
+
+3. **品質管理（E-E-A-T）**:
+   - 断定表現を使う場合は根拠を明確にする。
+   - 専門用語には補足を入れ、誰にでもわかる表現にする。
+   - ユーザーの潜在的な悩み（インサイト）に寄り添い、感情を動かす執筆をする。`;
+
   const systemPrompt = `${author.systemPrompt}
+
+${GLOBAL_RULES}
 
 あなたは「${author.name}」（${author.role}）として、ヨガに関する記事を執筆します。
 カテゴリ: ${category}
@@ -278,28 +302,31 @@ ${conversionContext}
 
 記事はJSON形式で出力してください。以下の形式に従ってください：
 {
-  "title": "記事タイトル（60文字以内）",
-  "metaTitle": "SEOタイトル（60文字以内）",
-  "metaDescription": "メタディスクリプション（160文字以内）",
+  "title": "記事タイトル（32文字以内・SEO最適化）",
+  "metaTitle": "SEOタイトル（32文字以内）",
+  "metaDescription": "メタディスクリプション（120文字以内・興味付け）",
   "blocks": [
     {"id": "unique-id", "type": "p", "content": "段落テキスト"},
     {"id": "unique-id", "type": "h2", "content": "見出し2"},
     {"id": "unique-id", "type": "h3", "content": "見出し3"},
     {"id": "unique-id", "type": "ul", "content": "リスト項目1\\nリスト項目2"},
-    {"id": "unique-id", "type": "blockquote", "content": "引用文"}
+    {"id": "unique-id", "type": "blockquote", "content": "引用文"},
+    {"id": "unique-id", "type": "callout", "content": "重要なポイント"},
+    {"id": "unique-id", "type": "internal-link", "content": "関連記事: [記事タイトル]"}
   ]
 }
 
 記事の構成：
-1. 導入部（読者の悩みに寄り添う）
-2. 本題（H2で3-5セクション）
-3. 実践的なアドバイス
-4. まとめ
+1. 導入部（共感＋結論）
+2. 本題（H2で3-5セクション、各セクションにH3を含む、PREP法）
+3. 実践的なアドバイス（今すぐできること）
+4. まとめ（アクションプラン）
 
 注意点：
 - 各ブロックのidはユニークな文字列
-- 2000-3000文字程度
-- 読みやすく、SEOに最適化された内容`;
+- 3000-5000文字程度の充実した内容
+- 読みやすく、SEOに最適化された内容
+- ユーザーに語りかけるような文体（です・ます調）`;
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",

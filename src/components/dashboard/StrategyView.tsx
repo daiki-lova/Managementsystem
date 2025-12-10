@@ -107,6 +107,7 @@ export function StrategyView({
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
     const [selectedConversionIds, setSelectedConversionIds] = useState<Set<string>>(new Set());
     const [selectedAuthorId, setSelectedAuthorId] = useState<string | null>(null);
+    const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState<Set<string>>(new Set());
 
     // Keyword State
     const [showKeywords, setShowKeywords] = useState(false);
@@ -150,6 +151,13 @@ export function StrategyView({
         setSelectedConversionIds(newSet);
     };
 
+    const toggleKnowledge = (id: string) => {
+        const newSet = new Set(selectedKnowledgeIds);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedKnowledgeIds(newSet);
+    };
+
     const toggleKeyword = (id: string) => {
         const newSet = new Set(selectedKeywordIds);
         if (newSet.has(id)) {
@@ -161,10 +169,10 @@ export function StrategyView({
         }
         setSelectedKeywordIds(newSet);
     };
-    
+
     const addCustomKeyword = () => {
         if (!customKeyword.trim()) return;
-        
+
         const newId = `custom-${Date.now()}`;
         const newKw: KeywordCandidate = {
             id: newId,
@@ -172,10 +180,10 @@ export function StrategyView({
             volume: 0, // Unknown for custom
             difficulty: 0
         };
-        
+
         setCustomKeywords([...customKeywords, newKw]);
         setCustomKeyword('');
-        
+
         // Auto select the newly added custom keyword if under limit
         if (selectedKeywordIds.size < 5) {
             const newSet = new Set(selectedKeywordIds);
@@ -183,7 +191,7 @@ export function StrategyView({
             setSelectedKeywordIds(newSet);
         }
     };
-    
+
     const removeCustomKeyword = (id: string) => {
         setCustomKeywords(customKeywords.filter(k => k.id !== id));
         const newSet = new Set(selectedKeywordIds);
@@ -217,30 +225,38 @@ export function StrategyView({
 
         // Get selected category ID (first one)
         const categoryId = Array.from(selectedCategoryIds)[0];
-        // Get selected conversion ID (first one)
-        const conversionId = Array.from(selectedConversionIds)[0];
+        // Get selected conversion IDs (as array)
+        const conversionIds = Array.from(selectedConversionIds);
         // Get relevant knowledge IDs
-        const knowledgeIds = knowledgeItems.slice(0, 5).map(k => k.id);
+        const knowledgeItemIds = Array.from(selectedKnowledgeIds);
+        // Default brand ID (RADIANCE)
+        const brandId = 'd23546a5-6bbb-40e6-80f3-18e60fbaca34';
+
+        // Map publish strategy
+        const publishStrategy = scheduleMode === 'now' ? 'PUBLISH_NOW' :
+            scheduleMode === 'schedule' ? 'SCHEDULED' : 'DRAFT';
 
         try {
-            // Create generation jobs for each keyword
-            const jobPromises = selectedKeywordsList.map(keyword =>
-                createGenerationJob.mutateAsync({
-                    keyword: keyword.keyword,
-                    categoryId,
-                    authorId: selectedAuthorId || undefined,
-                    conversionId,
-                    knowledgeIds,
-                    generateImages: true,
-                })
-            );
+            // Create generation jobs in a single API call
+            const result = await createGenerationJob.mutateAsync({
+                keywords: selectedKeywordsList.map(k => ({
+                    keyword: k.keyword,
+                    searchVolume: k.volume,
+                })),
+                categoryId,
+                authorId: selectedAuthorId || '',
+                brandId,
+                conversionIds,
+                knowledgeItemIds,
+                publishStrategy: publishStrategy as 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED',
+                scheduledAt: scheduleMode === 'schedule' ? `${startDate}T${postTime}:00Z` : undefined,
+            });
 
-            const results = await Promise.all(jobPromises);
-            const jobIds = results.map(r => r.id);
+            const jobIds = result.data?.jobs.map(j => j.id) || [];
             setActiveJobIds(jobIds);
 
-            // Start polling for job status
-            pollJobStatus(jobIds);
+            // Start polling for job status (useEffect handles this)
+            // pollJobStatus(jobIds);
         } catch (error) {
             console.error('Failed to create generation jobs:', error);
             setGenStatus('error');
@@ -248,69 +264,65 @@ export function StrategyView({
     };
 
     // Poll job status
-    const pollJobStatus = (jobIds: string[]) => {
-        let completedCount = 0;
-        const totalJobs = jobIds.length;
+    const { data: jobsData } = useGenerationJobs({ limit: 10 });
 
-        const checkStatus = async () => {
-            try {
-                // In a real implementation, we would fetch job status from API
-                // For now, simulate progress with timeout
-                completedCount++;
-                const progressPercent = Math.min(100, Math.floor((completedCount / totalJobs) * 100));
+    useEffect(() => {
+        if (activeJobIds.length === 0 || !jobsData?.data) return;
 
-                // Map progress to steps
-                let step = 0;
-                if (progressPercent < 15) step = 0;
-                else if (progressPercent < 30) step = 1;
-                else if (progressPercent < 55) step = 2;
-                else if (progressPercent < 75) step = 3;
-                else if (progressPercent < 90) step = 4;
-                else step = 5;
+        const activeJobs = jobsData.data.filter((job: any) => activeJobIds.includes(job.id));
 
-                setCurrentStep(step);
-                setProgress(progressPercent);
+        if (activeJobs.length === 0) return;
 
-                if (progressPercent >= 100) {
-                    // All jobs completed
-                    const category = categories.find(c => selectedCategoryIds.has(c.id));
-                    const generatedArticles: GeneratedArticleData[] = selectedKeywordsList.map(keyword => {
-                        let title = keyword.keyword;
-                        let status: 'draft' | 'published' | 'scheduled' = 'draft';
-                        let publishedAt = '-';
+        // Check for errors
+        const failedJob = activeJobs.find((job: any) => job.status === 'FAILED');
+        if (failedJob) {
+            setGenStatus('error');
+            // Show error from backend if available
+            console.error('Job failed:', failedJob.errorMessage);
+            return;
+        }
 
-                        if (scheduleMode === 'schedule') {
-                            status = 'scheduled';
-                            publishedAt = `${startDate} ${postTime}`;
-                        } else if (scheduleMode === 'now') {
-                            status = 'published';
-                            publishedAt = new Date().toISOString();
-                        }
+        // Calculate progress
+        const totalProgress = activeJobs.reduce((acc: number, job: any) => acc + (job.progress || 0), 0);
+        const avgProgress = Math.floor(totalProgress / activeJobs.length);
 
-                        return {
-                            title,
-                            status,
-                            publishedAt,
-                            category: category?.name || '未分類',
-                            author: selectedAuthor?.name || 'AI Assistant'
-                        };
+        setProgress(avgProgress);
+
+        // Map progress to steps
+        let step = 0;
+        if (avgProgress < 15) step = 0;
+        else if (avgProgress < 30) step = 1;
+        else if (avgProgress < 55) step = 2;
+        else if (avgProgress < 75) step = 3;
+        else if (avgProgress < 90) step = 4;
+        else step = 5;
+
+        setCurrentStep(step);
+
+        // Check completion
+        const allCompleted = activeJobs.every((job: any) => job.status === 'COMPLETED');
+        if (allCompleted) {
+            const generatedArticles: GeneratedArticleData[] = [];
+
+            activeJobs.forEach((job: any) => {
+                if (job.articles && job.articles.length > 0) {
+                    job.articles.forEach((article: any) => {
+                        generatedArticles.push({
+                            title: article.title,
+                            status: article.status === 'PUBLISH_NOW' ? 'published' :
+                                article.status === 'SCHEDULED' ? 'scheduled' : 'draft',
+                            publishedAt: article.scheduledAt || article.createdAt || new Date().toISOString(),
+                            category: job.categories?.name || '未分類',
+                            author: job.authors?.name || 'AI Assistant'
+                        });
                     });
-
-                    setGeneratedResult(generatedArticles);
-                    setGenStatus('completed');
-                } else {
-                    // Continue polling
-                    setTimeout(checkStatus, 2000);
                 }
-            } catch (error) {
-                console.error('Error checking job status:', error);
-                setGenStatus('error');
-            }
-        };
+            });
 
-        // Start initial check after delay
-        setTimeout(checkStatus, 2000);
-    };
+            setGeneratedResult(generatedArticles);
+            setGenStatus('completed');
+        }
+    }, [jobsData, activeJobIds]);
 
     const handleComplete = () => {
         onGenerate(generatedResult);
@@ -339,8 +351,8 @@ export function StrategyView({
 
     return (
         <div className="flex flex-col h-full bg-white p-6">
-             {/* Header - Consistent with CategoriesView/PostsView */}
-             <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
+            {/* Header - Consistent with CategoriesView/PostsView */}
+            <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-bold tracking-tight text-neutral-900">AI記事企画</h1>
                     <p className="text-sm text-neutral-500 font-medium">カテゴリーとコンバージョンを選択して記事構成を一括生成</p>
@@ -351,7 +363,7 @@ export function StrategyView({
                 {/* Left Column: Selection Area (Scrollable) */}
                 <div className="flex-1 overflow-y-auto p-6">
                     <div className="max-w-3xl space-y-8">
-                        
+
                         {/* Step 1: Category */}
                         <section className="space-y-3">
                             <div className="flex items-center justify-between">
@@ -363,7 +375,7 @@ export function StrategyView({
                                     {selectedCategoryIds.size} 選択中
                                 </div>
                             </div>
-                            
+
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                                 {categories.map(cat => {
                                     const isSelected = selectedCategoryIds.has(cat.id);
@@ -375,7 +387,7 @@ export function StrategyView({
                                             className={cn(
                                                 "relative p-3 rounded-lg border text-left transition-all group flex items-center justify-between",
                                                 isSelected
-                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900" 
+                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
                                                     : "border-neutral-100 bg-white hover:border-neutral-300"
                                             )}
                                         >
@@ -440,7 +452,7 @@ export function StrategyView({
                                     <h2 className="text-sm font-bold text-neutral-900">監修者</h2>
                                 </div>
                                 {selectedAuthorId && (
-                                     <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
+                                    <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
                                         選択済み
                                     </div>
                                 )}
@@ -457,7 +469,7 @@ export function StrategyView({
                                             className={cn(
                                                 "p-2 rounded-lg border text-left transition-all flex items-center gap-3 group",
                                                 isSelected
-                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900" 
+                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
                                                     : "border-neutral-200 bg-white hover:border-neutral-300"
                                             )}
                                         >
@@ -483,7 +495,63 @@ export function StrategyView({
                                 })}
                             </div>
                         </section>
-                        
+
+                        {/* Step 4: Knowledge Bank (New) */}
+                        <section className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">4</span>
+                                    <h2 className="text-sm font-bold text-neutral-900">情報バンク (参照ソース)</h2>
+                                </div>
+                                <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
+                                    {selectedKnowledgeIds.size} 選択中
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
+                                {knowledgeItems.map((item) => {
+                                    const isSelected = selectedKnowledgeIds.has(item.id);
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => genStatus !== 'processing' && toggleKnowledge(item.id)}
+                                            disabled={genStatus === 'processing'}
+                                            className={cn(
+                                                "p-3 rounded-lg border text-left transition-all group flex flex-col gap-1",
+                                                isSelected
+                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
+                                                    : "border-neutral-200 bg-white hover:border-neutral-300"
+                                            )}
+                                        >
+                                            <div className="flex items-start justify-between w-full">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className={cn(
+                                                        "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                                                        item.kind === 'fact' ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                                            item.kind === 'voice' ? "bg-green-50 text-green-700 border-green-200" :
+                                                                "bg-neutral-100 text-neutral-600 border-neutral-200"
+                                                    )}>
+                                                        {item.kind === 'fact' ? 'EVIDENCE' : item.kind === 'voice' ? 'VOICE' : 'INFO'}
+                                                    </span>
+                                                    <h3 className={cn("font-bold text-xs line-clamp-1", isSelected ? "text-neutral-900" : "text-neutral-700")}>
+                                                        {item.title}
+                                                    </h3>
+                                                </div>
+                                                {isSelected && (
+                                                    <div className="bg-neutral-900 text-white rounded-full p-0.5 shrink-0">
+                                                        <Check size={10} strokeWidth={3} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-neutral-500 line-clamp-2 leading-relaxed w-full">
+                                                {item.content}
+                                            </p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </section>
+
                         {/* Keyword Selection Action */}
                         <AnimatePresence mode="wait">
                             {!showKeywords && (
@@ -493,7 +561,7 @@ export function StrategyView({
                                     exit={{ opacity: 0, y: -10 }}
                                     className="py-4"
                                 >
-                                    <Button 
+                                    <Button
                                         variant="outline"
                                         className="w-full h-16 border-dashed border-2 text-neutral-500 hover:text-neutral-900 hover:border-neutral-900 hover:bg-neutral-50 transition-all group"
                                         disabled={!isStep123Complete || isAnalyzing}
@@ -511,7 +579,7 @@ export function StrategyView({
                                                     キーワードを選定する
                                                 </span>
                                                 <span className="text-xs font-normal opacity-70">
-                                                    {isStep123Complete ? 'カテゴリーと監修者から最適なキーワードを分析します' : '先にカテゴリー・CV・監修者を選択してください'}
+                                                    {isStep123Complete ? '構成要素から最適なキーワードを分析します' : 'カテゴリー・CV・監修者を選択してください'}
                                                 </span>
                                             </div>
                                         )}
@@ -519,16 +587,16 @@ export function StrategyView({
                                 </motion.div>
                             )}
 
-                            {/* Step 4: Keywords (After Selection) */}
+                            {/* Step 5: Keywords (After Selection) */}
                             {showKeywords && (
-                                <motion.section 
+                                <motion.section
                                     initial={{ opacity: 0, height: 0 }}
                                     animate={{ opacity: 1, height: 'auto' }}
                                     className="space-y-3"
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">4</span>
+                                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">5</span>
                                             <h2 className="text-sm font-bold text-neutral-900">キーワード設定</h2>
                                         </div>
                                         <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
@@ -539,15 +607,15 @@ export function StrategyView({
                                     <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-100 space-y-4">
                                         {/* Custom Keyword Input */}
                                         <div className="flex gap-2">
-                                            <Input 
-                                                placeholder="狙いたいキーワードを入力..." 
+                                            <Input
+                                                placeholder="狙いたいキーワードを入力..."
                                                 className="h-9 text-xs bg-white"
                                                 value={customKeyword}
                                                 onChange={(e) => setCustomKeyword(e.target.value)}
                                                 onKeyDown={(e) => e.key === 'Enter' && addCustomKeyword()}
                                             />
-                                            <Button 
-                                                size="sm" 
+                                            <Button
+                                                size="sm"
                                                 onClick={addCustomKeyword}
                                                 disabled={!customKeyword.trim() || selectedKeywordIds.size >= 5}
                                                 className="h-9 bg-neutral-900 text-white hover:bg-neutral-800"
@@ -570,7 +638,7 @@ export function StrategyView({
                                                                     className={cn(
                                                                         "flex-1 p-3 rounded-lg border text-left transition-all flex items-center gap-3 bg-white hover:border-neutral-300",
                                                                         isSelected
-                                                                            ? "border-neutral-900 ring-1 ring-neutral-900 z-10" 
+                                                                            ? "border-neutral-900 ring-1 ring-neutral-900 z-10"
                                                                             : "border-neutral-200"
                                                                     )}
                                                                 >
@@ -604,7 +672,7 @@ export function StrategyView({
                                                 {keywordCandidates.map((kw) => {
                                                     const isSelected = selectedKeywordIds.has(kw.id);
                                                     const isDisabled = !isSelected && selectedKeywordIds.size >= 5;
-                                                    
+
                                                     return (
                                                         <button
                                                             key={kw.id}
@@ -613,7 +681,7 @@ export function StrategyView({
                                                             className={cn(
                                                                 "w-full p-3 rounded-lg border text-left transition-all flex items-center gap-3 bg-white hover:border-neutral-300",
                                                                 isSelected
-                                                                    ? "border-neutral-900 ring-1 ring-neutral-900 z-10" 
+                                                                    ? "border-neutral-900 ring-1 ring-neutral-900 z-10"
                                                                     : "border-neutral-200",
                                                                 isDisabled && "opacity-50 cursor-not-allowed hover:border-neutral-200"
                                                             )}
@@ -639,11 +707,11 @@ export function StrategyView({
                                                 })}
                                             </div>
                                         </div>
-                                        
+
                                         <div className="flex justify-center pt-2">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm" 
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                 onClick={handleAnalyzeKeywords}
                                                 className="text-xs text-neutral-500 hover:text-neutral-900 h-8"
                                             >
@@ -660,11 +728,11 @@ export function StrategyView({
 
                 {/* Right Column: Settings & Action (Fixed Width) */}
                 <div className="w-[360px] flex flex-col border-l border-neutral-100 bg-neutral-50/50 relative overflow-hidden">
-                    
+
                     <div className={cn("p-6 space-y-6 flex-1 overflow-y-auto transition-opacity duration-300", genStatus === 'processing' ? "opacity-30 pointer-events-none" : "opacity-100")}>
                         <div className="flex items-center gap-2 mb-2">
-                             <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">5</span>
-                             <h2 className="text-sm font-bold text-neutral-900">生成オプション</h2>
+                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">6</span>
+                            <h2 className="text-sm font-bold text-neutral-900">生成オプション</h2>
                         </div>
 
                         {/* Schedule */}
@@ -673,9 +741,9 @@ export function StrategyView({
                                 <CalendarDays size={12} className="text-green-600" />
                                 公開設定
                             </Label>
-                            
-                            <Tabs 
-                                value={scheduleMode} 
+
+                            <Tabs
+                                value={scheduleMode}
                                 onValueChange={(v) => setScheduleMode(v as 'draft' | 'now' | 'schedule')}
                                 className="w-full"
                             >
@@ -690,7 +758,7 @@ export function StrategyView({
                                         予約投稿
                                     </TabsTrigger>
                                 </TabsList>
-                                
+
                                 <TabsContent value="draft" className="mt-0">
                                     <p className="text-[10px] text-neutral-500 bg-neutral-50 p-2 rounded border border-neutral-100">
                                         「下書き」として保存します。公開は手動で行います。
@@ -705,14 +773,14 @@ export function StrategyView({
                                         </span>
                                     </div>
                                 </TabsContent>
-                                
+
                                 <TabsContent value="schedule" className="mt-0 space-y-3">
                                     <div className="space-y-2">
                                         <div className="space-y-1">
                                             <Label htmlFor="start-date" className="text-[10px] font-medium text-neutral-600">予約日 (一括指定)</Label>
-                                            <Input 
-                                                id="start-date" 
-                                                type="date" 
+                                            <Input
+                                                id="start-date"
+                                                type="date"
                                                 className="bg-neutral-50 h-8 text-xs"
                                                 value={startDate}
                                                 onChange={(e) => setStartDate(e.target.value)}
@@ -720,9 +788,9 @@ export function StrategyView({
                                         </div>
                                         <div className="space-y-1">
                                             <Label htmlFor="post-time" className="text-[10px] font-medium text-neutral-600">投稿時間</Label>
-                                            <Input 
-                                                id="post-time" 
-                                                type="time" 
+                                            <Input
+                                                id="post-time"
+                                                type="time"
                                                 className="bg-neutral-50 h-8 text-xs"
                                                 value={postTime}
                                                 onChange={(e) => setPostTime(e.target.value)}
@@ -764,9 +832,9 @@ export function StrategyView({
                                 <span className="text-xs text-neutral-400">キーワード未選択</span>
                             )}
                         </div>
-                        
-                        <Button 
-                            size="lg" 
+
+                        <Button
+                            size="lg"
                             className="w-full rounded-full h-12 text-sm font-bold shadow-lg shadow-neutral-200 bg-neutral-900 text-white hover:bg-neutral-800"
                             disabled={selectedKeywordsList.length === 0 || genStatus === 'processing'}
                             onClick={handleGenerate}
@@ -777,7 +845,7 @@ export function StrategyView({
                     </div>
                 </div>
             </div>
-            
+
             <GenerationProgressModal
                 isOpen={progressModalOpen}
                 currentStepIndex={currentStep}

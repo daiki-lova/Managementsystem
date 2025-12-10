@@ -11,12 +11,12 @@ export interface PublicArticle {
   metaTitle: string | null;
   metaDescription: string | null;
   ogpImageUrl: string | null;
-  category: {
+  categories: {
     id: string;
     name: string;
     slug: string;
   };
-  author: {
+  authors: {
     id: string;
     name: string;
     role: string;
@@ -24,7 +24,7 @@ export interface PublicArticle {
     imageUrl: string | null;
     qualifications: unknown;
   };
-  thumbnail: {
+  media_assets: {
     url: string;
     altText: string | null;
   } | null;
@@ -38,6 +38,83 @@ export interface PublicArticle {
 // ISR用のrevalidate設定（60秒）
 export const REVALIDATE_INTERVAL = 60;
 
+// 記事クエリ用のselect定義
+const articleSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  blocks: true,
+  publishedAt: true,
+  metaTitle: true,
+  metaDescription: true,
+  ogpImageUrl: true,
+  categories: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+  authors: {
+    select: {
+      id: true,
+      name: true,
+      role: true,
+      bio: true,
+      imageUrl: true,
+      qualifications: true,
+    },
+  },
+  media_assets: {
+    select: {
+      url: true,
+      altText: true,
+    },
+  },
+  article_tags: {
+    select: {
+      tags: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+    },
+  },
+} as const;
+
+// 記事をPublicArticle形式に変換
+function mapArticle(article: {
+  id: string;
+  title: string;
+  slug: string;
+  blocks: unknown;
+  publishedAt: Date | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  ogpImageUrl: string | null;
+  categories: { id: string; name: string; slug: string };
+  authors: { id: string; name: string; role: string; bio: string; imageUrl: string | null; qualifications: unknown };
+  media_assets: { url: string; altText: string | null } | null;
+  article_tags: Array<{ tags: { id: string; name: string; slug: string } }>;
+}): PublicArticle {
+  return {
+    id: article.id,
+    title: article.title,
+    slug: article.slug,
+    blocks: article.blocks,
+    publishedAt: article.publishedAt,
+    metaTitle: article.metaTitle,
+    metaDescription: article.metaDescription,
+    ogpImageUrl: article.ogpImageUrl,
+    categories: article.categories,
+    authors: article.authors,
+    media_assets: article.media_assets,
+    tags: article.article_tags.map((t) => t.tags),
+  };
+}
+
 // 公開記事一覧取得（カテゴリ別）
 export const getPublishedArticles = cache(async (
   categorySlug?: string,
@@ -48,71 +125,25 @@ export const getPublishedArticles = cache(async (
     status: 'PUBLISHED' as const,
     publishedAt: { not: null },
     ...(categorySlug && {
-      category: {
+      categories: {
         slug: categorySlug,
       },
     }),
   };
 
   const [articles, total] = await Promise.all([
-    prisma.article.findMany({
+    prisma.articles.findMany({
       where,
       orderBy: { publishedAt: 'desc' },
       skip: offset,
       take: limit,
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        blocks: true,
-        publishedAt: true,
-        metaTitle: true,
-        metaDescription: true,
-        ogpImageUrl: true,
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        author: {
-          select: {
-            id: true,
-            name: true,
-            role: true,
-            bio: true,
-            imageUrl: true,
-            qualifications: true,
-          },
-        },
-        thumbnail: {
-          select: {
-            url: true,
-            altText: true,
-          },
-        },
-        tags: {
-          select: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            },
-          },
-        },
-      },
+      select: articleSelect,
     }),
-    prisma.article.count({ where }),
+    prisma.articles.count({ where }),
   ]);
 
   return {
-    articles: articles.map((article) => ({
-      ...article,
-      tags: article.tags.map((t) => t.tag),
-    })),
+    articles: articles.map(mapArticle),
     total,
   };
 });
@@ -121,69 +152,23 @@ export const getPublishedArticles = cache(async (
 export const getArticleBySlug = cache(async (
   slug: string
 ): Promise<PublicArticle | null> => {
-  const article = await prisma.article.findFirst({
+  const article = await prisma.articles.findFirst({
     where: {
       slug,
       status: 'PUBLISHED',
       publishedAt: { not: null },
     },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      blocks: true,
-      publishedAt: true,
-      metaTitle: true,
-      metaDescription: true,
-      ogpImageUrl: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
-      },
-      author: {
-        select: {
-          id: true,
-          name: true,
-          role: true,
-          bio: true,
-          imageUrl: true,
-          qualifications: true,
-        },
-      },
-      thumbnail: {
-        select: {
-          url: true,
-          altText: true,
-        },
-      },
-      tags: {
-        select: {
-          tag: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-        },
-      },
-    },
+    select: articleSelect,
   });
 
   if (!article) return null;
 
-  return {
-    ...article,
-    tags: article.tags.map((t) => t.tag),
-  };
+  return mapArticle(article);
 });
 
 // カテゴリ一覧取得
 export const getCategories = cache(async () => {
-  return prisma.category.findMany({
+  return prisma.categories.findMany({
     select: {
       id: true,
       name: true,
@@ -196,7 +181,7 @@ export const getCategories = cache(async () => {
 
 // カテゴリ詳細取得
 export const getCategoryBySlug = cache(async (slug: string) => {
-  return prisma.category.findUnique({
+  return prisma.categories.findUnique({
     where: { slug },
     select: {
       id: true,
@@ -214,7 +199,7 @@ export const getRelatedArticles = cache(async (
   categoryId: string,
   limit: number = 8
 ): Promise<PublicArticle[]> => {
-  const articles = await prisma.article.findMany({
+  const articles = await prisma.articles.findMany({
     where: {
       status: 'PUBLISHED',
       publishedAt: { not: null },
@@ -223,63 +208,17 @@ export const getRelatedArticles = cache(async (
     },
     orderBy: { publishedAt: 'desc' },
     take: limit,
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      blocks: true,
-      publishedAt: true,
-      metaTitle: true,
-      metaDescription: true,
-      ogpImageUrl: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
-      },
-      author: {
-        select: {
-          id: true,
-          name: true,
-          role: true,
-          bio: true,
-          imageUrl: true,
-          qualifications: true,
-        },
-      },
-      thumbnail: {
-        select: {
-          url: true,
-          altText: true,
-        },
-      },
-      tags: {
-        select: {
-          tag: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-        },
-      },
-    },
+    select: articleSelect,
   });
 
-  return articles.map((article) => ({
-    ...article,
-    tags: article.tags.map((t) => t.tag),
-  }));
+  return articles.map(mapArticle);
 });
 
 // 人気記事取得（アナリティクスデータに基づく）
 export const getPopularArticles = cache(async (
   limit: number = 5
 ): Promise<PublicArticle[]> => {
-  const articles = await prisma.article.findMany({
+  const articles = await prisma.articles.findMany({
     where: {
       status: 'PUBLISHED',
       publishedAt: { not: null },
@@ -288,56 +227,10 @@ export const getPopularArticles = cache(async (
       { publishedAt: 'desc' }, // TODO: アナリティクスのPVでソート
     ],
     take: limit,
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      blocks: true,
-      publishedAt: true,
-      metaTitle: true,
-      metaDescription: true,
-      ogpImageUrl: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
-      },
-      author: {
-        select: {
-          id: true,
-          name: true,
-          role: true,
-          bio: true,
-          imageUrl: true,
-          qualifications: true,
-        },
-      },
-      thumbnail: {
-        select: {
-          url: true,
-          altText: true,
-        },
-      },
-      tags: {
-        select: {
-          tag: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-        },
-      },
-    },
+    select: articleSelect,
   });
 
-  return articles.map((article) => ({
-    ...article,
-    tags: article.tags.map((t) => t.tag),
-  }));
+  return articles.map(mapArticle);
 });
 
 // トレンド記事取得
@@ -348,7 +241,7 @@ export const getTrendingArticles = cache(async (
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const articles = await prisma.article.findMany({
+  const articles = await prisma.articles.findMany({
     where: {
       status: 'PUBLISHED',
       publishedAt: {
@@ -358,63 +251,17 @@ export const getTrendingArticles = cache(async (
     },
     orderBy: { publishedAt: 'desc' },
     take: limit,
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      blocks: true,
-      publishedAt: true,
-      metaTitle: true,
-      metaDescription: true,
-      ogpImageUrl: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
-      },
-      author: {
-        select: {
-          id: true,
-          name: true,
-          role: true,
-          bio: true,
-          imageUrl: true,
-          qualifications: true,
-        },
-      },
-      thumbnail: {
-        select: {
-          url: true,
-          altText: true,
-        },
-      },
-      tags: {
-        select: {
-          tag: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-        },
-      },
-    },
+    select: articleSelect,
   });
 
-  return articles.map((article) => ({
-    ...article,
-    tags: article.tags.map((t) => t.tag),
-  }));
+  return articles.map(mapArticle);
 });
 
 // 旧Slug検索（301リダイレクト用）
 export const getArticleByOldSlug = cache(async (
   oldSlug: string
 ): Promise<{ newSlug: string } | null> => {
-  const history = await prisma.slugHistory.findUnique({
+  const history = await prisma.slug_history.findUnique({
     where: { oldSlug },
     select: { newSlug: true },
   });

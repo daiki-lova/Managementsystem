@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async () => {
       const { id } = await params;
 
-      const brand = await prisma.brand.findUnique({
+      const brand = await prisma.brands.findUnique({
         where: { id },
         select: {
           id: true,
@@ -73,7 +73,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const data = await validateBody(request, updateBrandSchema);
 
       // 存在確認
-      const existing = await prisma.brand.findUnique({
+      const existing = await prisma.brands.findUnique({
         where: { id },
       });
 
@@ -83,13 +83,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
       // isDefault=trueの場合、他のブランドのisDefaultをfalseにする
       if (data.isDefault) {
-        await prisma.brand.updateMany({
+        await prisma.brands.updateMany({
           where: { isDefault: true, id: { not: id } },
           data: { isDefault: false },
         });
       }
 
-      const brand = await prisma.brand.update({
+      const brand = await prisma.brands.update({
         where: { id },
         data: {
           name: data.name,
@@ -127,7 +127,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       const { id } = await params;
 
       // 存在確認
-      const existing = await prisma.brand.findUnique({
+      const existing = await prisma.brands.findUnique({
         where: { id },
         include: { _count: { select: { articles: true } } },
       });
@@ -148,7 +148,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      await prisma.brand.delete({
+      await prisma.brands.delete({
         where: { id },
       });
 

@@ -13,6 +13,7 @@ import {
 import { validateBody, commonSchemas } from "@/lib/validation";
 import { isAppError, handlePrismaError } from "@/lib/errors";
 import { auditLog } from "@/lib/audit-log";
+import { randomUUID } from "crypto";
 
 // カテゴリ一覧取得
 export async function GET(request: NextRequest) {
@@ -21,10 +22,10 @@ export async function GET(request: NextRequest) {
       const { searchParams } = new URL(request.url);
       const { page, limit } = parsePaginationParams(searchParams);
 
-      const total = await prisma.category.count();
+      const total = await prisma.categories.count();
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const categories = await prisma.category.findMany({
+      const categories = await prisma.categories.findMany({
         skip,
         take,
         select: {
@@ -71,8 +72,9 @@ export async function POST(request: NextRequest) {
     return await withOwnerAuth(request, async (user) => {
       const data = await validateBody(request, createCategorySchema);
 
-      const category = await prisma.category.create({
+      const category = await prisma.categories.create({
         data: {
+          id: randomUUID(),
           name: data.name,
           slug: data.slug,
           description: data.description,

@@ -2,9 +2,9 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import {
-  Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon,
-  ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,
-  Send, Calendar as CalendarIcon, Ban, Loader2
+    Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon,
+    ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,
+    Send, Calendar as CalendarIcon, Ban, Loader2
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -25,26 +25,26 @@ import {
     DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from '../ui/popover';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
 } from "../ui/dialog";
 
 import { BulkActionBar } from './BulkActionBar';
 import {
-  useArticles,
-  useDeleteArticle,
-  usePublishArticle,
-  useScheduleArticle,
-  useUpdateArticle,
-  useCreateArticle,
+    useArticles,
+    useDeleteArticle,
+    usePublishArticle,
+    useScheduleArticle,
+    useUpdateArticle,
+    useCreateArticle,
 } from '../../lib/hooks';
 
 export type ExtendedArticle = Article & {
@@ -91,15 +91,15 @@ interface DraggableHeaderProps {
     uniqueValues?: Record<string, { value: string; count: number }[]>;
 }
 
-function DraggableHeader({ 
-    column, 
-    index, 
-    moveColumn, 
-    onResizeStart, 
-    isSticky, 
-    left, 
-    className, 
-    onSelectAll, 
+function DraggableHeader({
+    column,
+    index,
+    moveColumn,
+    onResizeStart,
+    isSticky,
+    left,
+    className,
+    onSelectAll,
     allSelected,
     onFilter,
     filters,
@@ -141,7 +141,7 @@ function DraggableHeader({
     const isSortable = ['title', 'updatedAt', 'publishedAt', 'pv'].includes(column.id);
 
     return (
-        <th 
+        <th
             ref={ref}
             className={cn(
                 "px-4 py-2.5 relative bg-neutral-50/80 select-none whitespace-nowrap text-xs text-neutral-500 font-medium group border-b border-neutral-200 border-r border-neutral-100/50",
@@ -149,7 +149,7 @@ function DraggableHeader({
                 isSticky && "sticky z-20",
                 className
             )}
-            style={{ 
+            style={{
                 width: column.width,
                 minWidth: column.minWidth,
                 left: isSticky ? left : undefined
@@ -158,8 +158,8 @@ function DraggableHeader({
             <div className="flex items-center gap-2 h-full">
                 {column.id === 'select' ? (
                     <div className="flex items-center justify-center w-full">
-                        <input 
-                            type="checkbox" 
+                        <input
+                            type="checkbox"
                             checked={allSelected}
                             onChange={(e) => onSelectAll?.(e.target.checked)}
                             className="rounded border-neutral-300 scale-90 cursor-pointer"
@@ -180,10 +180,10 @@ function DraggableHeader({
                             </button>
                         </PopoverTrigger>
                         {(isFilterable || isSortable) && (
-                             <PopoverContent className="w-56 p-2" align="start">
+                            <PopoverContent className="w-56 p-2" align="start">
                                 <div className="space-y-2">
                                     <div className="text-xs font-medium text-neutral-500 px-2 py-1">{column.label}</div>
-                                    
+
                                     {isSortable && (
                                         <div className="space-y-1 border-b border-neutral-100 pb-2 mb-2">
                                             <button onClick={() => { onSort?.(column.id, 'asc'); setIsMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-neutral-100">
@@ -196,12 +196,12 @@ function DraggableHeader({
                                     )}
 
                                     {isFilterable && (
-                                         <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                        <div className="space-y-1 max-h-[200px] overflow-y-auto">
                                             {uniqueValues![column.id].map((item) => (
                                                 <div key={item.value} className="flex items-center justify-between px-2 py-1.5 hover:bg-neutral-50 rounded">
                                                     <div className="flex items-center gap-2 overflow-hidden">
-                                                        <input 
-                                                            type="checkbox" 
+                                                        <input
+                                                            type="checkbox"
                                                             checked={filters?.[column.id]?.has(item.value) || false}
                                                             onChange={(e) => onFilter?.(column.id, item.value, e.target.checked)}
                                                             className="rounded border-neutral-300 text-blue-600"
@@ -211,7 +211,7 @@ function DraggableHeader({
                                                     <span className="text-xs text-neutral-400">{item.count}</span>
                                                 </div>
                                             ))}
-                                         </div>
+                                        </div>
                                     )}
                                 </div>
                             </PopoverContent>
@@ -219,8 +219,8 @@ function DraggableHeader({
                     </Popover>
                 )}
             </div>
-            
-            <div 
+
+            <div
                 className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors z-30"
                 onMouseDown={(e) => onResizeStart(e, column.id, column.width)}
             />
@@ -255,7 +255,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
         { id: 'publishedAt', label: '公開日', width: 140, minWidth: 120 },
         { id: 'slug', label: 'スラッグ', width: 150, minWidth: 120 },
     ]);
-    
+
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [filters, setFilters] = useState<Record<string, Set<string>>>({});
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -423,8 +423,8 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
                         {filteredData.map((article) => (
-                            <tr 
-                                key={article.id} 
+                            <tr
+                                key={article.id}
                                 className={cn(
                                     "group hover:bg-neutral-50/80 transition-colors",
                                     selectedIds.has(article.id) && "bg-blue-50/50 hover:bg-blue-50/60"
@@ -440,7 +440,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                     }
 
                                     return (
-                                        <td 
+                                        <td
                                             key={column.id}
                                             className={cn(
                                                 "px-4 py-3.5 bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50 align-middle",
@@ -451,15 +451,15 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                         >
                                             {column.id === 'select' && (
                                                 <div className="flex items-center justify-center">
-                                                    <input 
-                                                        type="checkbox" 
+                                                    <input
+                                                        type="checkbox"
                                                         checked={selectedIds.has(article.id)}
                                                         onChange={() => toggleSelection(article.id)}
                                                         className="rounded border-neutral-300 scale-90 cursor-pointer"
                                                     />
                                                 </div>
                                             )}
-                                            
+
                                             {column.id === 'actions' && (
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -474,8 +474,8 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                                         <DropdownMenuItem onClick={() => onEdit(article.id)}>
                                                             <PenTool size={14} className="mr-2" /> 編集
                                                         </DropdownMenuItem>
-                                                         <DropdownMenuItem onClick={() => onDuplicate(article)}>
-                                                             <Copy size={14} className="mr-2" /> 複製
+                                                        <DropdownMenuItem onClick={() => onDuplicate(article)}>
+                                                            <Copy size={14} className="mr-2" /> 複製
                                                         </DropdownMenuItem>
 
                                                         <DropdownMenuSeparator />
@@ -515,20 +515,20 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                                             <div className={cn(
                                                                 "w-2 h-2 rounded-full shrink-0",
                                                                 article.status === 'published' ? "bg-emerald-500" :
-                                                                article.status === 'scheduled' ? "bg-orange-400" :
-                                                                article.status === 'draft' ? "bg-neutral-300" :
-                                                                "bg-blue-500" // review
+                                                                    article.status === 'scheduled' ? "bg-orange-400" :
+                                                                        article.status === 'draft' ? "bg-neutral-300" :
+                                                                            "bg-blue-500" // review
                                                             )} />
                                                             <span className={cn(
                                                                 "text-[11px] font-medium flex-1 whitespace-nowrap",
                                                                 article.status === 'published' ? "text-emerald-700" :
-                                                                article.status === 'scheduled' ? "text-orange-700" :
-                                                                article.status === 'draft' ? "text-neutral-500" :
-                                                                "text-blue-700"
+                                                                    article.status === 'scheduled' ? "text-orange-700" :
+                                                                        article.status === 'draft' ? "text-neutral-500" :
+                                                                            "text-blue-700"
                                                             )}>
                                                                 {article.status === 'published' ? '公開中' :
-                                                                 article.status === 'scheduled' ? '公開予約' :
-                                                                 article.status === 'draft' ? '下書き' : 'レビュー中'}
+                                                                    article.status === 'scheduled' ? '公開予約' :
+                                                                        article.status === 'draft' ? '下書き' : 'レビュー中'}
                                                             </span>
                                                             <ChevronDown size={12} className="text-neutral-400 opacity-0 group-hover/status:opacity-100 transition-opacity" />
                                                         </button>
@@ -559,7 +559,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                             )}
 
                                             {column.id === 'title' && (
-                                                <div 
+                                                <div
                                                     className="font-medium text-neutral-900 text-xs leading-normal cursor-pointer hover:text-blue-600 hover:underline decoration-blue-300 underline-offset-2 transition-all"
                                                     onClick={() => onEdit(article.id)}
                                                 >
@@ -582,7 +582,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                             {column.id === 'author' && (
                                                 <div className="flex items-center gap-1.5">
                                                     <Avatar className="h-5 w-5 border border-neutral-100">
-                                                        <AvatarFallback className="text-[9px]">{article.authorName?.slice(0,2) || 'AD'}</AvatarFallback>
+                                                        <AvatarFallback className="text-[9px]">{article.authorName?.slice(0, 2) || 'AD'}</AvatarFallback>
                                                     </Avatar>
                                                     <span className="text-[11px] text-neutral-600">{article.authorName || 'Admin'}</span>
                                                 </div>
@@ -649,7 +649,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                 />
             </div>
 
-             {/* Schedule Dialog */}
+            {/* Schedule Dialog */}
             <Dialog open={!!schedulingArticle} onOpenChange={(open) => !open && setSchedulingArticle(null)}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
@@ -699,9 +699,9 @@ export function PostsView({
         status: article.status?.toLowerCase() || 'draft',
         pv: article.viewCount || 0,
         updatedAt: article.updatedAt ? format(new Date(article.updatedAt), 'yyyy-MM-dd HH:mm') : '-',
-        tags: article.tags || [],
-        categories: article.category ? [article.category.name] : [],
-        thumbnail: article.featuredImageUrl,
+        categories: article.categories ? [article.categories.name] : [],
+        thumbnail: article.media_assets?.url || null,
+        tags: article.article_tags?.map(at => at.tags.name) || [],
         slug: article.slug,
         publishedAt: article.publishedAt ? format(new Date(article.publishedAt), 'yyyy-MM-dd HH:mm') : undefined,
         authorName: article.author?.name,

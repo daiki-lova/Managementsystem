@@ -32,7 +32,7 @@ export interface DecryptedSettings extends Omit<SystemSettings,
  * システム設定を取得し、暗号化されたAPIキーを復号する
  */
 export async function getDecryptedSettings(): Promise<DecryptedSettings | null> {
-  const settings = await prisma.systemSettings.findUnique({
+  const settings = await prisma.system_settings.findUnique({
     where: { id: "default" },
   });
 
@@ -62,7 +62,7 @@ export async function getDecryptedSettings(): Promise<DecryptedSettings | null> 
 export async function getApiKey(
   keyName: "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "openRouterApiKey"
 ): Promise<string | null> {
-  const settings = await prisma.systemSettings.findUnique({
+  const settings = await prisma.system_settings.findUnique({
     where: { id: "default" },
     select: { [keyName]: true },
   });
@@ -84,6 +84,11 @@ export async function getApiKey(
  * 暗号化されていない古いデータの場合はそのまま返す（後方互換性）
  */
 function safeDecrypt(value: string): string {
+  // APIキーのパターン（sk-で始まる）は平文として扱う
+  if (value.startsWith('sk-') || value.startsWith('AIza')) {
+    return value;
+  }
+
   // 暗号化されているかチェック
   if (secrets.isEncrypted(value)) {
     try {

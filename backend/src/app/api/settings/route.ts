@@ -48,13 +48,13 @@ const updateSettingsSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     return await withOwnerAuth(request, async () => {
-      let settings = await prisma.systemSettings.findUnique({
+      let settings = await prisma.system_settings.findUnique({
         where: { id: "default" },
       });
 
       // 設定がない場合は作成
       if (!settings) {
-        settings = await prisma.systemSettings.create({
+        settings = await prisma.system_settings.create({
           data: { id: "default" },
         });
       }
@@ -108,7 +108,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       // 設定を更新（なければ作成）
-      const settings = await prisma.systemSettings.upsert({
+      const settings = await prisma.system_settings.upsert({
         where: { id: "default" },
         update: cleanedData,
         create: {

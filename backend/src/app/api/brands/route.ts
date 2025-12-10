@@ -12,6 +12,7 @@ import {
 } from "@/lib/api-response";
 import { validateBody, commonSchemas } from "@/lib/validation";
 import { isAppError, handlePrismaError } from "@/lib/errors";
+import { randomUUID } from "crypto";
 
 // ブランド一覧取得
 export async function GET(request: NextRequest) {
@@ -20,10 +21,10 @@ export async function GET(request: NextRequest) {
       const { searchParams } = new URL(request.url);
       const { page, limit } = parsePaginationParams(searchParams);
 
-      const total = await prisma.brand.count();
+      const total = await prisma.brands.count();
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const brands = await prisma.brand.findMany({
+      const brands = await prisma.brands.findMany({
         skip,
         take,
         select: {
@@ -80,14 +81,15 @@ export async function POST(request: NextRequest) {
 
       // isDefault=trueの場合、他のブランドのisDefaultをfalseにする
       if (data.isDefault) {
-        await prisma.brand.updateMany({
+        await prisma.brands.updateMany({
           where: { isDefault: true },
           data: { isDefault: false },
         });
       }
 
-      const brand = await prisma.brand.create({
+      const brand = await prisma.brands.create({
         data: {
+          id: randomUUID(),
           name: data.name,
           slug: data.slug,
           description: data.description,
