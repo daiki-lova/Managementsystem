@@ -38,6 +38,8 @@ const createJobSchema = z.object({
     .optional()
     .default("DRAFT"),
   scheduledAt: z.string().datetime().optional(),
+  // 6ステージパイプラインを使用するかどうか（デフォルト: true）
+  usePipeline: z.boolean().optional().default(true),
 });
 
 // GET /api/generation-jobs - ジョブ一覧取得
@@ -63,6 +65,17 @@ export async function GET(request: NextRequest) {
           authors: { select: { id: true, name: true } },
           articles: {
             select: { id: true, title: true, slug: true, status: true },
+          },
+          generation_stages: {
+            select: {
+              stage: true,
+              stageName: true,
+              status: true,
+              tokensUsed: true,
+              startedAt: true,
+              completedAt: true,
+            },
+            orderBy: { stage: "asc" },
           },
           _count: {
             select: { articles: true },
@@ -181,8 +194,13 @@ export async function POST(request: NextRequest) {
         });
 
         // Inngestイベントを発火
+        // usePipelineがtrueの場合は6ステージパイプラインを使用
+        const eventName = validated.usePipeline
+          ? "article/generate-pipeline"
+          : "article/generate";
+
         await inngest.send({
-          name: "article/generate",
+          name: eventName,
           data: {
             jobId: job.id,
             keyword: keywordData.keyword,

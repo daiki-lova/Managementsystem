@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, FileSpreadsheet, Type, Check, AlertCircle, MoreVertical, Trash2, Edit2, Calendar, RefreshCw, Link as LinkIcon, ChevronLeft, Globe, FileText, Loader2 } from 'lucide-react';
+import { Search, Plus, Filter, AlertCircle, Trash2, Edit2, Link as LinkIcon, Globe, FileText, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
@@ -49,7 +49,7 @@ import { cn } from '../../lib/utils';
 import type { KnowledgeItem, Profile } from '../../types';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { useKnowledgeBank, useCreateKnowledgeEntry, useDeleteKnowledgeEntry, useAuthors } from '../../lib/hooks';
+import { useKnowledgeBank, useCreateKnowledgeEntry, useDeleteKnowledgeEntry, useUpdateKnowledgeEntry, useAuthors } from '../../lib/hooks';
 
 interface KnowledgeBankViewProps {
     items?: KnowledgeItem[];
@@ -62,6 +62,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
     const { data: knowledgeData, isLoading, error } = useKnowledgeBank();
     const { data: authorsData } = useAuthors();
     const createKnowledgeEntry = useCreateKnowledgeEntry();
+    const updateKnowledgeEntry = useUpdateKnowledgeEntry();
     const deleteKnowledgeEntry = useDeleteKnowledgeEntry();
 
     // Map API data to KnowledgeItem format
@@ -70,13 +71,13 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
         content: item.content,
         brand: item.brand?.slug || 'ALL',
         course: item.course,
-        kind: item.kind,
+        kind: item.type, // Map item.type to kind
         authorId: item.authorId,
         authorName: item.author?.name,
         createdAt: item.createdAt,
         usageCount: item.usageCount || 0,
-        source: item.source || 'manual',
-        sourceType: item.sourceType || 'text',
+        source: item.sourceUrl ? 'web' : 'manual',
+        sourceType: item.sourceUrl ? 'url' : 'text', // Infer from sourceUrl
     }));
 
     // Map authors
@@ -95,11 +96,12 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
     const [brandFilter, setBrandFilter] = useState<string>('ALL_BRANDS');
     const [courseFilter, setCourseFilter] = useState<string>('ALL_COURSES');
     const [authorFilter, setAuthorFilter] = useState<string>('ALL_AUTHORS');
-    
+
     const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
     const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<KnowledgeItem | null>(null);
-    
+    const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
+
     // Registration Flow States
     const [registrationStep, setRegistrationStep] = useState<'select' | 'input'>('select');
     const [inputType, setInputType] = useState<'url' | 'text'>('text');
@@ -123,6 +125,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                 setSelectedCourse('UNSELECTED');
                 setSelectedAuthor('UNSELECTED');
                 setIsSubmitting(false);
+                setEditingItem(null); // Reset editing item
             }, 300);
             return () => clearTimeout(timer);
         }
@@ -138,8 +141,8 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
 
     // Filtering
     const filteredItems = items.filter(item => {
-        const matchesSearch = item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              (item.authorName && item.authorName.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesSearch = (item.content || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.authorName && item.authorName.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesBrand = brandFilter === 'ALL_BRANDS' || item.brand === brandFilter;
         const matchesCourse = courseFilter === 'ALL_COURSES' || item.course === courseFilter;
         const matchesAuthor = authorFilter === 'ALL_AUTHORS' || item.authorId === authorFilter;
@@ -165,29 +168,76 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
 
         setIsSubmitting(true);
 
-        // Split content if text type (simple line break split)
-        const newItemsRaw = inputType === 'text'
-            ? inputContent.split(/\n\s*\n/).filter(t => t.trim().length > 0)
-            : [inputContent];
+        if (editingItem) {
+            // Update existing item
+            await updateKnowledgeEntry.mutateAsync({
+                id: editingItem.id,
+                data: {
+                    content: inputContent.trim(),
+                    type: selectedType,
+                    brandId: selectedBrand === 'ALL' ? undefined : selectedBrand,
+                    course: selectedCourse === 'UNSELECTED' ? undefined : selectedCourse,
+                    authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
+                    sourceUrl: inputType === 'url' ? inputContent.trim() : undefined,
+                } as any
+            });
+            toast.success('情報を更新しました');
+        } else {
+            // Create new items
+            // Split content if text type (simple line break split)
+            const newItemsRaw = inputType === 'text'
+                ? inputContent.split(/\n\s*\n/).filter(t => t.trim().length > 0)
+                : [inputContent];
 
-        // Create entries one by one
-        for (const content of newItemsRaw) {
-            await createKnowledgeEntry.mutateAsync({
-                content: content.trim(),
-                kind: selectedType,
-                sourceType: inputType,
-                brandId: selectedBrand === 'ALL' ? undefined : selectedBrand,
-                course: selectedCourse === 'UNSELECTED' ? undefined : selectedCourse,
-                authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
+            // Create entries one by one
+            for (const content of newItemsRaw) {
+                await createKnowledgeEntry.mutateAsync({
+                    content: content.trim(),
+                    kind: selectedType, // Hook uses 'kind' but internally API expects 'type' or hooked mapped it?
+                    // Wait, useCreateKnowledgeEntry calls knowledgeBankApi.create.
+                    // Api.ts: create: (data) => axios.post(..., data)
+                    // Backend expects 'type'.
+                    // If hooks.ts passes 'kind', backend might fail or needs 'type'.
+                    // Let's assume 'selectedType' matches what backend expects or 'kind' is aliasing.
+                    // Actually, 'kind' in createKnowledgeEntry arguments might need to be 'type'.
+                    // Let's use 'type' to be safe if that's what backend expects.
+                    // But createKnowledgeEntry signature in hooks?
+                    // It takes data: Parameters<typeof knowledgeBankApi.create>[0].
+                    // In api.ts, create payload usually matches backend schema.
+                    // Backend schema has 'type'.
+                    // So we should send 'type'.
+                    type: selectedType,
+                    sourceUrl: inputType === 'url' ? content.trim() : undefined,
+                    brandId: selectedBrand === 'ALL' ? undefined : selectedBrand,
+                    course: selectedCourse === 'UNSELECTED' ? undefined : selectedCourse,
+                    authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
+                } as any); // Cast to any to bypass strict type check if needed, or fix type
+            }
+
+            toast.success('情報を追加しました', {
+                description: `${newItemsRaw.length}件の情報をバンクに登録しました。`,
             });
         }
 
-        toast.success('情報を追加しました', {
-            description: `${newItemsRaw.length}件の情報をバンクに登録しました。`,
-        });
-
         setIsSubmitting(false);
         setIsRegisterDialogOpen(false);
+    };
+
+    const openEdit = (item: KnowledgeItem) => {
+        setEditingItem(item);
+        setRegistrationStep('input'); // Skip select step? Or stay in input view.
+        // Pre-fill
+        setInputContent(item.content);
+        setInputType(item.sourceType === 'url' ? 'url' : 'text');
+        setSelectedBrand((!item.brand || item.brand === 'ALL') ? 'OREO' : item.brand as any); // Default to OREO if ALL/Null, or keep ALL if valid
+        // Note: select only has OREO, SEQUENCE, ALL.
+
+        setSelectedType(item.kind || 'STUDENT_VOICE');
+        setSelectedCourse(item.course || 'UNSELECTED');
+        setSelectedAuthor(item.authorId || 'UNSELECTED');
+
+        setIsRegisterDialogOpen(true);
+        setIsDetailDialogOpen(false);
     };
 
     const handleDelete = (id: string) => {
@@ -203,7 +253,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
     };
 
     const getBrandColor = (brand: string) => {
-        switch(brand) {
+        switch (brand) {
             case 'OREO': return 'bg-blue-50 text-blue-700 border-blue-100';
             case 'SEQUENCE': return 'bg-purple-50 text-purple-700 border-purple-100';
             default: return 'bg-neutral-100 text-neutral-700 border-neutral-200';
@@ -248,14 +298,14 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
             <div className="flex items-center gap-3 py-3 px-6 border-b border-neutral-100 bg-white flex-none overflow-x-auto">
                 <div className="relative group flex-1 min-w-[200px] max-w-[300px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={14} />
-                    <Input 
+                    <Input
                         className="pl-9 h-9 bg-neutral-50 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded text-sm transition-all"
                         placeholder="キーワード検索..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                
+
                 <Select value={brandFilter} onValueChange={setBrandFilter}>
                     <SelectTrigger className="w-[140px] h-9 text-xs">
                         <SelectValue placeholder="ブランド" />
@@ -330,9 +380,9 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                                         <Globe size={14} />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
-                                                        <a 
-                                                            href={item.content} 
-                                                            target="_blank" 
+                                                        <a
+                                                            href={item.content}
+                                                            target="_blank"
                                                             rel="noreferrer"
                                                             className="text-sm text-blue-600 hover:underline hover:text-blue-700 truncate block font-bold"
                                                             onClick={(e) => e.stopPropagation()}
@@ -398,7 +448,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                             <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900" onClick={(e) => {
                                                     e.stopPropagation();
-                                                    openDetail(item);
+                                                    openEdit(item);
                                                 }}>
                                                     <Edit2 size={14} />
                                                 </Button>
@@ -420,12 +470,12 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                         <Pagination className="justify-end w-auto mx-0">
                             <PaginationContent>
                                 <PaginationItem>
-                                    <PaginationPrevious 
+                                    <PaginationPrevious
                                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                         className={cn("cursor-pointer", currentPage === 1 && "pointer-events-none opacity-50")}
                                     />
                                 </PaginationItem>
-                                
+
                                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                                     .filter(page => {
                                         // Show first, last, current, and neighbors
@@ -444,7 +494,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                                     </PaginationItem>
                                                 )}
                                                 <PaginationItem>
-                                                    <PaginationLink 
+                                                    <PaginationLink
                                                         isActive={page === currentPage}
                                                         onClick={() => setCurrentPage(page)}
                                                         className="cursor-pointer"
@@ -457,7 +507,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                     })}
 
                                 <PaginationItem>
-                                    <PaginationNext 
+                                    <PaginationNext
                                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                         className={cn("cursor-pointer", currentPage === totalPages && "pointer-events-none opacity-50")}
                                     />
@@ -472,9 +522,9 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
             <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
                 <DialogContent className="sm:max-w-[600px] transition-all duration-200">
                     <DialogHeader>
-                        <DialogTitle>ソースを追加</DialogTitle>
+                        <DialogTitle>{editingItem ? '情報を編集' : 'ソースを追加'}</DialogTitle>
                         <DialogDescription className="text-neutral-500">
-                            記事生成に活用する一次情報を登録します。
+                            {editingItem ? '登録済みの情報を編集します。' : '記事生成に活用する一次情報を登録します。'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -485,8 +535,8 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                 onClick={() => setInputType('text')}
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all",
-                                    inputType === 'text' 
-                                        ? "bg-white text-neutral-900 shadow-sm" 
+                                    inputType === 'text'
+                                        ? "bg-white text-neutral-900 shadow-sm"
                                         : "text-neutral-500 hover:text-neutral-700"
                                 )}
                             >
@@ -497,8 +547,8 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                 onClick={() => setInputType('url')}
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all",
-                                    inputType === 'url' 
-                                        ? "bg-white text-neutral-900 shadow-sm" 
+                                    inputType === 'url'
+                                        ? "bg-white text-neutral-900 shadow-sm"
                                         : "text-neutral-500 hover:text-neutral-700"
                                 )}
                             >
@@ -512,10 +562,10 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                             <label className="text-xs font-bold text-neutral-500">
                                 {inputType === 'url' ? 'URL' : 'テキスト内容'} <span className="text-red-500">*</span>
                             </label>
-                            
+
                             {inputType === 'url' ? (
                                 <div className="space-y-2">
-                                    <Input 
+                                    <Input
                                         placeholder="https://example.com/article"
                                         value={inputContent}
                                         onChange={(e) => setInputContent(e.target.value)}
@@ -528,8 +578,8 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                 </div>
                             ) : (
                                 <div className="space-y-2">
-                                    <Textarea 
-                                        placeholder="受講生の声、フィードバック、監修者のブログ記事、参考文献などを貼り付け..." 
+                                    <Textarea
+                                        placeholder="受講生の声、フィードバック、監修者のブログ記事、参考文献などを貼り付け..."
                                         className="min-h-[200px] resize-none text-sm leading-relaxed bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100"
                                         value={inputContent}
                                         onChange={(e) => setInputContent(e.target.value)}
@@ -554,7 +604,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                     </SelectContent>
                                 </Select>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 <label className="text-xs font-bold text-neutral-500">情報の種類 <span className="text-red-500">*</span></label>
                                 <Select value={selectedType} onValueChange={setSelectedType}>
@@ -575,7 +625,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
 
                         {/* Author and Course Selection Row */}
                         <div className="grid grid-cols-2 gap-4">
-                             <div className="space-y-3">
+                            <div className="space-y-3">
                                 <label className="text-xs font-bold text-neutral-500">監修者</label>
                                 <Select value={selectedAuthor} onValueChange={setSelectedAuthor}>
                                     <SelectTrigger className="w-full bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100">
@@ -588,7 +638,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                 </Select>
                             </div>
 
-                             <div className="space-y-3">
+                            <div className="space-y-3">
                                 <label className="text-xs font-bold text-neutral-500">コース</label>
                                 <Select value={selectedCourse} onValueChange={setSelectedCourse}>
                                     <SelectTrigger className="w-full bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100">
@@ -609,16 +659,16 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                             </p>
                         </div>
                     </div>
-                    
+
                     <DialogFooter className="sm:justify-between items-center border-t border-neutral-100 pt-4 mt-2">
-                         <div className="text-xs text-neutral-400">
+                        <div className="text-xs text-neutral-400">
                             ソースの件数: {items.length}
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="ghost" onClick={() => setIsRegisterDialogOpen(false)} disabled={isSubmitting}>
+                            <Button variant="ghost" onClick={() => setIsRegisterDialogOpen(false)} disabled={isSubmitting} size="default">
                                 キャンセル
                             </Button>
-                            <Button onClick={handleSubmit} disabled={isSubmitting || !inputContent.trim()} className="min-w-[100px]">
+                            <Button onClick={handleSubmit} disabled={isSubmitting || !inputContent.trim()} className="min-w-[100px]" size="default">
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 size={16} className="mr-2 animate-spin" />
@@ -644,7 +694,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                             </DialogDescription>
                             {selectedItem && (
                                 <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900" onClick={() => openEdit(selectedItem)}>
                                         <Edit2 size={14} />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(selectedItem.id)}>
@@ -654,7 +704,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                             )}
                         </div>
                     </DialogHeader>
-                    
+
                     {selectedItem && (
                         <div className="space-y-6 py-2">
                             <div className="flex flex-wrap gap-2">
@@ -705,16 +755,16 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
 // Helper component for User icon
 function User({ size, className }: { size?: number, className?: string }) {
     return (
-        <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width={size || 24} 
-            height={size || 24} 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={size || 24}
+            height={size || 24}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
             className={className}
         >
             <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />

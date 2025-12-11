@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
           socialLinks: true,
           categories: true, // Explicit categories
           tags: true,       // Explicit tags
+          systemPrompt: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -140,6 +141,7 @@ export async function POST(request: NextRequest) {
         data: {
           id: randomUUID(),
           name: data.name,
+          slug: randomUUID(), // TODO: generate valid slug from name if possible, or distinct uuid
           role: data.role,
           qualifications: data.qualifications,
           categories: data.categories,

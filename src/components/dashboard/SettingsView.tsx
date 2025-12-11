@@ -382,13 +382,9 @@ export function SettingsView() {
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
                                     <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        defaultValue={`あなたはWebメディアの編集長であり、SEOストラテジストです。
-与えられたテーマに基づき、検索ユーザーの深層心理（インサイト）まで踏み込んだ企画を立案してください。
-
-【分析・企画のルール】
-- **検索意図の深掘り**: 表面的な悩みだけでなく、その裏にある「感情的な痛み」や「理想の未来」を特定すること。
-- **競合との差別化**: 単なる情報の羅列ではなく、一次情報、体験談、専門家の見解など「独自性（Originality）」を加えるポイントを明記すること。
-- **SEO構造**: メインキーワードだけでなく、共起語や関連クエリ（LSIキーワード）を網羅し、トピッククラスターとしての網羅性を担保すること。`}
+                                        value={formData.keywordPrompt}
+                                        onChange={(e) => setFormData({...formData, keywordPrompt: e.target.value})}
+                                        placeholder="キーワード分析・企画用のプロンプトを入力..."
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-400 pl-1">キーワードの検索意図分析と記事企画の作成時に使用されます</p>
@@ -403,14 +399,9 @@ export function SettingsView() {
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
                                     <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        defaultValue={`あなたは熟練のWebライター兼コンテンツディレクターです。
-企画案に基づき、読者がスムーズに読み進められ、かつ検索エンジンに評価される論理的な記事構成（H2, H3）を作成してください。
-
-【構成作成のルール】
-- **PREP法の徹底**: 各セクションは結論から述べ、理由・具体例で補強する流れを作ること。
-- **スキャナブルな見出し**: 読み飛ばされても内容が伝わるよう、見出し自体に具体的なベネフィットや答えを含めること（例：「ヨガの効果」→「ヨガが自律神経を整える3つの科学的理由」）。
-- **ユーザー体験（UX）**: 文字ばかりにならず、箇条書き、図解の挿入箇所、内部リンクの提案などを構成案に含めること。
-- **CVへの導線**: 記事のゴール（コンバージョン）に向けて、自然な流れで誘導ポイントを作ること。`}
+                                        value={formData.structurePrompt}
+                                        onChange={(e) => setFormData({...formData, structurePrompt: e.target.value})}
+                                        placeholder="構成案生成用のプロンプトを入力..."
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-400 pl-1">H2・H3見出しの階層構造を作成する際に使用されます</p>
@@ -425,14 +416,9 @@ export function SettingsView() {
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
                                     <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        defaultValue={`あなたはプロの校正者であり、厳しいファクトチェッカーです。
-執筆された文章に対し、以下の観点から厳格なチェックと修正を行ってください。
-
-【校正・推敲のルール】
-- **信頼性の担保**: 断定表現を使う場合はその根拠が明確か確認し、曖昧な表現（〜だと言われています等）を排除すること。
-- **読みやすさ（Readability）**: 一文は60文字以内を目安とし、冗長な表現を削ぎ落とすこと。専門用語には必ず平易な解説を加えること。
-- **表記ゆれ・誤字脱字**: 徹底的に修正すること。
-- **トンマナの統一**: ブランドイメージに合致した、「親しみやすく、かつ専門性のある」文体に整えること。`}
+                                        value={formData.proofreadingPrompt}
+                                        onChange={(e) => setFormData({...formData, proofreadingPrompt: e.target.value})}
+                                        placeholder="校正・推敲用のプロンプトを入力..."
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-400 pl-1">誤字脱字、表記ゆれ、ファクトチェックの基準として使用されます</p>
@@ -447,14 +433,9 @@ export function SettingsView() {
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
                                     <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        defaultValue={`あなたはテクニカルSEOのスペシャリストです。
-記事全体を検索エンジンが正しく理解し、上位表示されるよう最適化してください。
-
-【SEO最適化のルール】
-- **メタデータの最適化**: クリック率（CTR）を最大化する魅力的なタイトル（32文字以内）とメタディスクリプション（120文字以内）を作成すること。キーワードは左側に配置すること。
-- **内部リンク戦略**: サイト内の関連性の高い記事へのリンクを提案し、滞在回遊率を高めること。
-- **強調スニペット対策**: ユーザーの疑問に対する簡潔な回答パラグラフを作成すること。
-- **画像Alt属性**: 記事内で使用する画像のAltテキストをSEO観点から提案すること。`}
+                                        value={formData.seoPrompt}
+                                        onChange={(e) => setFormData({...formData, seoPrompt: e.target.value})}
+                                        placeholder="SEO最適化用のプロンプトを入力..."
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-400 pl-1">メタ情報の生成、キーワード配置、内部リンク提案に使用されます</p>

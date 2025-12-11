@@ -65,14 +65,14 @@ export interface ConversionItem {
 export interface KnowledgeItem {
   id: string;
   content: string;
-  brand: 'OREO' | 'SEQUENCE' | 'ALL';
-  kind?: 'STUDENT_VOICE' | 'AUTHOR_ARTICLE' | 'EXTERNAL';
+  brand: string; // 'OREO' | 'SEQUENCE' | 'ALL' etc
+  kind?: string; // 'STUDENT_VOICE' | 'AUTHOR_ARTICLE' | 'EXTERNAL' etc
   course?: string;
   authorId?: string;
   authorName?: string;
   createdAt: string;
   usageCount: number;
-  source: 'manual' | 'spreadsheet';
-  sourceType?: 'url' | 'text' | 'file';
+  source: string; // 'manual' | 'spreadsheet' | 'web'
+  sourceType?: string; // 'url' | 'text' | 'file'
   relevanceScore?: number; // For search results
 }

@@ -11,6 +11,14 @@ export interface SystemSettings {
   searchVolumeApiKey: string | null;
   openRouterApiKey: string | null;
   aiModel: string | null;
+  imageModel: string | null;
+  articleModel: string | null;
+  analysisModel: string | null;
+  // プロンプト
+  keywordPrompt: string | null;
+  structurePrompt: string | null;
+  proofreadingPrompt: string | null;
+  seoPrompt: string | null;
   minSearchVolume: number;
   maxSearchVolume: number;
   volumeZones: unknown;
