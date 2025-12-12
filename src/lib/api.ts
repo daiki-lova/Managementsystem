@@ -737,6 +737,29 @@ export const generationJobsApi = {
 };
 
 // Keywords
+export interface KeywordSuggestion {
+  keyword: string;
+  searchVolume: number;
+  competition: number;
+  cpc: number;
+  trend: number[];
+  score: number;
+  reasoning: string;
+  isRecommended: boolean;
+}
+
+export interface KeywordSuggestResponse {
+  keywords: KeywordSuggestion[];
+  context: {
+    category: { id: string; name: string; description: string | null };
+    conversion: { id: string; name: string; context: string };
+    author: { id: string; name: string; role: string };
+  };
+  volumeRange: { min: number; max: number };
+  generatedCount: number;
+  tokensUsed?: number;
+}
+
 export const keywordsApi = {
   search: (keyword: string) =>
     api.get<{
@@ -749,6 +772,14 @@ export const keywordsApi = {
         volume: number | null;
       }>;
     }>('/api/keywords', { keyword }),
+
+  suggest: (data: {
+    categoryId: string;
+    conversionId: string;
+    authorId: string;
+    seedKeywords?: string[];
+    candidateCount?: number;
+  }) => api.post<KeywordSuggestResponse>('/api/keywords/suggest', data),
 };
 
 // Analytics

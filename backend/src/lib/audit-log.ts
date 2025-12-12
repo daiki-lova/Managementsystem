@@ -28,6 +28,10 @@ export type AuditAction =
   | "CATEGORY_CREATE"
   | "CATEGORY_UPDATE"
   | "CATEGORY_DELETE"
+  // タグ
+  | "TAG_CREATE"
+  | "TAG_UPDATE"
+  | "TAG_DELETE"
   // 監修者
   | "AUTHOR_CREATE"
   | "AUTHOR_UPDATE"
@@ -43,6 +47,7 @@ export type AuditAction =
   // メディア
   | "MEDIA_UPLOAD"
   | "MEDIA_DELETE"
+  | "MEDIA_AI_GENERATE"
   // 設定
   | "SETTINGS_UPDATE"
   // 生成ジョブ

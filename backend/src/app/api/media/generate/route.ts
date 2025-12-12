@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         { prompt: prompt.substring(0, 200) }
       );
 
-      return successResponse(media, "画像を生成しました", 201);
+      return successResponse(media, undefined, 201);
     });
   } catch (error) {
     if (isAppError(error)) {

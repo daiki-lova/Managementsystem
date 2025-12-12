@@ -25,7 +25,9 @@ import {
     useKnowledgeBank,
     useCreateGenerationJob,
     useGenerationJobs,
+    useKeywordSuggestions,
 } from '../../lib/hooks';
+import type { KeywordSuggestResponse } from '../../lib/api';
 
 export type GeneratedArticleData = {
     title: string;
@@ -40,16 +42,11 @@ type KeywordCandidate = {
     keyword: string;
     volume: number;
     difficulty: number;
+    reasoning?: string;
+    score?: number;
+    isRecommended?: boolean;
+    cpc?: number;
 };
-
-const MOCK_KEYWORDS: KeywordCandidate[] = [
-    { id: 'kw1', keyword: '体が硬い ヨガ', volume: 1200, difficulty: 45 },
-    { id: 'kw2', keyword: 'ヨガ 初心者 始め方', volume: 980, difficulty: 38 },
-    { id: 'kw3', keyword: 'ヨガ 効果 いつから', volume: 720, difficulty: 52 },
-    { id: 'kw4', keyword: '自宅 ヨガ マットなし', volume: 540, difficulty: 30 },
-    { id: 'kw5', keyword: '寝る前 ヨガ ポーズ', volume: 880, difficulty: 42 },
-    { id: 'kw6', keyword: '朝ヨガ 5分', volume: 650, difficulty: 35 },
-];
 
 export function StrategyView({
     onGenerate,
@@ -100,8 +97,9 @@ export function StrategyView({
         kind: item.kind,
     }));
 
-    // Generation job mutation
+    // Mutations
     const createGenerationJob = useCreateGenerationJob();
+    const keywordSuggestions = useKeywordSuggestions();
 
     // Selection state
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
@@ -111,11 +109,15 @@ export function StrategyView({
 
     // Keyword State
     const [showKeywords, setShowKeywords] = useState(false);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [selectedKeywordIds, setSelectedKeywordIds] = useState<Set<string>>(new Set());
     const [keywordCandidates, setKeywordCandidates] = useState<KeywordCandidate[]>([]);
     const [customKeyword, setCustomKeyword] = useState('');
     const [customKeywords, setCustomKeywords] = useState<KeywordCandidate[]>([]);
+    const [suggestionContext, setSuggestionContext] = useState<KeywordSuggestResponse['context'] | null>(null);
+    const [suggestionError, setSuggestionError] = useState<string | null>(null);
+
+    // AI分析中かどうか
+    const isAnalyzing = keywordSuggestions.isPending;
 
     // Modal State
     const [progressModalOpen, setProgressModalOpen] = useState(false);
@@ -204,14 +206,47 @@ export function StrategyView({
     const selectedKeywordsList = allKeywords.filter(k => selectedKeywordIds.has(k.id));
     const selectedAuthor = authors.find(a => a.id === selectedAuthorId);
 
-    const handleAnalyzeKeywords = () => {
-        setIsAnalyzing(true);
-        // Simulate API call
-        setTimeout(() => {
-            setKeywordCandidates(MOCK_KEYWORDS);
-            setShowKeywords(true);
-            setIsAnalyzing(false);
-        }, 1500);
+    const handleAnalyzeKeywords = async () => {
+        // カテゴリ・コンバージョン・監修者が必要
+        const categoryId = Array.from(selectedCategoryIds)[0];
+        const conversionId = Array.from(selectedConversionIds)[0];
+
+        if (!categoryId || !conversionId || !selectedAuthorId) {
+            setSuggestionError('カテゴリ、コンバージョン、監修者を選択してください');
+            return;
+        }
+
+        setSuggestionError(null);
+
+        try {
+            const result = await keywordSuggestions.mutateAsync({
+                categoryId,
+                conversionId,
+                authorId: selectedAuthorId,
+                candidateCount: 20,
+            });
+
+            if (result.data) {
+                // APIレスポンスをKeywordCandidate型に変換
+                const candidates: KeywordCandidate[] = result.data.keywords.map((kw, index) => ({
+                    id: `ai-${index}`,
+                    keyword: kw.keyword,
+                    volume: kw.searchVolume,
+                    difficulty: Math.round(kw.competition * 100),
+                    reasoning: kw.reasoning,
+                    score: kw.score,
+                    isRecommended: kw.isRecommended,
+                    cpc: kw.cpc,
+                }));
+
+                setKeywordCandidates(candidates);
+                setSuggestionContext(result.data.context);
+                setShowKeywords(true);
+            }
+        } catch (error) {
+            console.error('Keyword suggestion failed:', error);
+            setSuggestionError('キーワード提案の取得に失敗しました。もう一度お試しください。');
+        }
     };
 
     const handleGenerate = async () => {
@@ -563,24 +598,51 @@ export function StrategyView({
                                 >
                                     <Button
                                         variant="outline"
-                                        className="w-full h-16 border-dashed border-2 text-neutral-500 hover:text-neutral-900 hover:border-neutral-900 hover:bg-neutral-50 transition-all group"
+                                        className={cn(
+                                            "w-full h-20 border-2 transition-all group relative overflow-hidden",
+                                            isStep123Complete
+                                                ? "border-violet-300 bg-gradient-to-r from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 hover:border-violet-400 text-violet-700"
+                                                : "border-dashed border-neutral-200 text-neutral-400 bg-white"
+                                        )}
                                         disabled={!isStep123Complete || isAnalyzing}
                                         onClick={handleAnalyzeKeywords}
                                     >
                                         {isAnalyzing ? (
-                                            <div className="flex items-center gap-2">
-                                                <Loader2 className="animate-spin" size={18} />
-                                                <span>トレンドを分析中...</span>
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative">
+                                                    <Sparkles size={20} className="text-violet-500 animate-pulse" />
+                                                    <div className="absolute inset-0 animate-ping">
+                                                        <Sparkles size={20} className="text-violet-300" />
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-start">
+                                                    <span className="font-bold">AIがキーワードを分析中...</span>
+                                                    <span className="text-xs font-normal opacity-70">カテゴリ・CV・監修者の情報を総合分析しています</span>
+                                                </div>
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col items-center gap-1">
-                                                <span className="flex items-center gap-2 font-bold">
-                                                    <Search size={16} />
-                                                    キーワードを選定する
-                                                </span>
-                                                <span className="text-xs font-normal opacity-70">
-                                                    {isStep123Complete ? '構成要素から最適なキーワードを分析します' : 'カテゴリー・CV・監修者を選択してください'}
-                                                </span>
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
+                                                    isStep123Complete
+                                                        ? "bg-violet-100 group-hover:bg-violet-200"
+                                                        : "bg-neutral-100"
+                                                )}>
+                                                    <Sparkles size={18} className={isStep123Complete ? "text-violet-600" : "text-neutral-400"} />
+                                                </div>
+                                                <div className="flex flex-col items-start">
+                                                    <span className="font-bold flex items-center gap-1.5">
+                                                        AIキーワード分析
+                                                        {isStep123Complete && (
+                                                            <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs font-normal opacity-70">
+                                                        {isStep123Complete
+                                                            ? '選択したカテゴリ・CV・監修者から最適なキーワードを提案'
+                                                            : 'カテゴリー・CV・監修者を選択してください'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         )}
                                     </Button>
@@ -665,9 +727,50 @@ export function StrategyView({
                                             </div>
                                         )}
 
+                                        {/* Context Info */}
+                                        {suggestionContext && (
+                                            <div className="bg-gradient-to-r from-violet-50 to-indigo-50 p-3 rounded-lg border border-violet-100/50">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Lightbulb size={12} className="text-violet-600" />
+                                                    <span className="text-[10px] font-bold text-violet-700">分析コンテキスト</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 text-[10px]">
+                                                    <span className="bg-white/80 px-2 py-1 rounded border border-violet-200/50 text-violet-700">
+                                                        {suggestionContext.category.name}
+                                                    </span>
+                                                    <span className="bg-white/80 px-2 py-1 rounded border border-violet-200/50 text-violet-700">
+                                                        {suggestionContext.conversion.name}
+                                                    </span>
+                                                    <span className="bg-white/80 px-2 py-1 rounded border border-violet-200/50 text-violet-700">
+                                                        {suggestionContext.author.name}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Error Display */}
+                                        {suggestionError && (
+                                            <div className="bg-red-50 p-3 rounded-lg border border-red-200 flex items-start gap-2">
+                                                <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <p className="text-xs font-medium text-red-700">{suggestionError}</p>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Suggested Keywords List */}
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-neutral-500">AIおすすめ</Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-xs font-bold text-neutral-500 flex items-center gap-1.5">
+                                                    <Sparkles size={12} className="text-amber-500" />
+                                                    AIおすすめ
+                                                </Label>
+                                                {keywordCandidates.length > 0 && (
+                                                    <span className="text-[10px] text-neutral-400">
+                                                        {keywordCandidates.length}件の候補
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="space-y-2">
                                                 {keywordCandidates.map((kw) => {
                                                     const isSelected = selectedKeywordIds.has(kw.id);
@@ -679,28 +782,57 @@ export function StrategyView({
                                                             onClick={() => toggleKeyword(kw.id)}
                                                             disabled={isDisabled}
                                                             className={cn(
-                                                                "w-full p-3 rounded-lg border text-left transition-all flex items-center gap-3 bg-white hover:border-neutral-300",
+                                                                "w-full p-3 rounded-lg border text-left transition-all bg-white hover:border-neutral-300 group",
                                                                 isSelected
                                                                     ? "border-neutral-900 ring-1 ring-neutral-900 z-10"
                                                                     : "border-neutral-200",
                                                                 isDisabled && "opacity-50 cursor-not-allowed hover:border-neutral-200"
                                                             )}
                                                         >
-                                                            <div className={cn(
-                                                                "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
-                                                                isSelected ? "border-neutral-900 bg-neutral-900" : "border-neutral-300"
-                                                            )}>
-                                                                {isSelected && <Check size={10} className="text-white" />}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-bold text-neutral-900 mb-0.5">
-                                                                    {kw.keyword}
-                                                                </p>
-                                                                <p className="text-[10px] text-neutral-500 flex items-center gap-3">
-                                                                    <span>月間検索 {kw.volume.toLocaleString()}</span>
-                                                                    <span className="w-px h-2 bg-neutral-300" />
-                                                                    <span>難易度 {kw.difficulty}</span>
-                                                                </p>
+                                                            <div className="flex items-start gap-3">
+                                                                <div className={cn(
+                                                                    "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors mt-0.5",
+                                                                    isSelected ? "border-neutral-900 bg-neutral-900" : "border-neutral-300"
+                                                                )}>
+                                                                    {isSelected && <Check size={10} className="text-white" />}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <p className="text-sm font-bold text-neutral-900">
+                                                                            {kw.keyword}
+                                                                        </p>
+                                                                        {kw.isRecommended && (
+                                                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm">
+                                                                                推奨
+                                                                            </span>
+                                                                        )}
+                                                                        {kw.score !== undefined && kw.score > 70 && (
+                                                                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                                                                スコア {kw.score}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 text-[10px] text-neutral-500 mb-1.5">
+                                                                        <span className="flex items-center gap-1">
+                                                                            <Search size={9} />
+                                                                            {kw.volume.toLocaleString()}/月
+                                                                        </span>
+                                                                        <span className="w-px h-2 bg-neutral-300" />
+                                                                        <span>難易度 {kw.difficulty}</span>
+                                                                        {kw.cpc !== undefined && kw.cpc > 0 && (
+                                                                            <>
+                                                                                <span className="w-px h-2 bg-neutral-300" />
+                                                                                <span>¥{kw.cpc.toLocaleString()}/クリック</span>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                    {kw.reasoning && (
+                                                                        <p className="text-[10px] text-neutral-500 leading-relaxed bg-neutral-50 p-2 rounded border border-neutral-100 group-hover:bg-neutral-100/50 transition-colors">
+                                                                            <span className="text-violet-600 font-medium">AI分析: </span>
+                                                                            {kw.reasoning}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </button>
                                                     );
@@ -713,10 +845,20 @@ export function StrategyView({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={handleAnalyzeKeywords}
+                                                disabled={isAnalyzing}
                                                 className="text-xs text-neutral-500 hover:text-neutral-900 h-8"
                                             >
-                                                <RefreshCw size={12} className="mr-1.5" />
-                                                おすすめを再取得
+                                                {isAnalyzing ? (
+                                                    <>
+                                                        <Loader2 size={12} className="mr-1.5 animate-spin" />
+                                                        分析中...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <RefreshCw size={12} className="mr-1.5" />
+                                                        AIで再分析
+                                                    </>
+                                                )}
                                             </Button>
                                         </div>
                                     </div>

@@ -161,8 +161,8 @@ export function validateStage4Output(
   }
 
   // optimized_blocksがない場合、blocksで代替
-  if (!data.optimized_blocks && (data as Record<string, unknown>).blocks) {
-    data.optimized_blocks = (data as Record<string, unknown>).blocks as Stage4Output["optimized_blocks"];
+  if (!data.optimized_blocks && (data as unknown as Record<string, unknown>).blocks) {
+    data.optimized_blocks = (data as unknown as Record<string, unknown>).blocks as Stage4Output["optimized_blocks"];
   }
 
   // optimized_blocksの検証（各ブロックの必須キーもチェック）

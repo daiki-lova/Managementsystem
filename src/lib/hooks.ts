@@ -9,6 +9,7 @@ import {
   mediaApi,
   knowledgeBankApi,
   generationJobsApi,
+  keywordsApi,
   analyticsApi,
   notificationsApi,
   settingsApi,
@@ -511,6 +512,26 @@ export function useCancelGenerationJob() {
     },
     onError: (error: ApiError) => {
       toast.error(error.message || 'キャンセルに失敗しました');
+    },
+  });
+}
+
+// ============================================
+// Keyword Suggestions
+// ============================================
+
+export function useKeywordSuggestions() {
+  return useMutation({
+    mutationFn: keywordsApi.suggest,
+    onSuccess: () => {
+      toast.success('キーワード候補を生成しました');
+    },
+    onError: (error: ApiError) => {
+      if (error.code === 'RATE_LIMITED') {
+        toast.error('生成回数の制限に達しました。しばらく待ってから再試行してください');
+      } else {
+        toast.error(error.message || 'キーワード提案の生成に失敗しました');
+      }
     },
   });
 }

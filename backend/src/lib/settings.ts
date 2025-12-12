@@ -18,8 +18,10 @@ export interface SystemSettings {
   // プロンプト
   keywordPrompt: string | null;
   structurePrompt: string | null;
+  draftPrompt: string | null;
   proofreadingPrompt: string | null;
   seoPrompt: string | null;
+  imagePrompt: string | null;
   minSearchVolume: number;
   maxSearchVolume: number;
   volumeZones: unknown;

@@ -144,21 +144,23 @@ export async function POST(request: NextRequest) {
       }
 
       // コンバージョンの存在確認
-      if (validated.conversionIds.length > 0) {
+      const conversionIds = validated.conversionIds ?? [];
+      if (conversionIds.length > 0) {
         const conversions = await prisma.conversions.findMany({
-          where: { id: { in: validated.conversionIds } },
+          where: { id: { in: conversionIds } },
         });
-        if (conversions.length !== validated.conversionIds.length) {
+        if (conversions.length !== conversionIds.length) {
           return errorResponse("NOT_FOUND", "一部のコンバージョンが見つかりません", 404);
         }
       }
 
       // 情報バンクの存在確認
-      if (validated.knowledgeItemIds.length > 0) {
+      const knowledgeItemIds = validated.knowledgeItemIds ?? [];
+      if (knowledgeItemIds.length > 0) {
         const knowledgeItems = await prisma.knowledge_items.findMany({
-          where: { id: { in: validated.knowledgeItemIds } },
+          where: { id: { in: knowledgeItemIds } },
         });
-        if (knowledgeItems.length !== validated.knowledgeItemIds.length) {
+        if (knowledgeItems.length !== knowledgeItemIds.length) {
           return errorResponse("NOT_FOUND", "一部の情報バンクが見つかりません", 404);
         }
       }
@@ -181,12 +183,12 @@ export async function POST(request: NextRequest) {
               ? new Date(validated.scheduledAt)
               : null,
             generation_job_conversions: {
-              create: validated.conversionIds.map((conversionId: string) => ({
+              create: conversionIds.map((conversionId: string) => ({
                 conversionId,
               })),
             },
             generation_job_knowledge_items: {
-              create: validated.knowledgeItemIds.map((knowledgeItemId: string) => ({
+              create: knowledgeItemIds.map((knowledgeItemId: string) => ({
                 knowledgeItemId,
               })),
             },
@@ -207,8 +209,8 @@ export async function POST(request: NextRequest) {
             categoryId: validated.categoryId,
             authorId: validated.authorId,
             brandId: validated.brandId,
-            conversionIds: validated.conversionIds,
-            knowledgeItemIds: validated.knowledgeItemIds,
+            conversionIds,
+            knowledgeItemIds,
             userId: user.id,
           },
         });
