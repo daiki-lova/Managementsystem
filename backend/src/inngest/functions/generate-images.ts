@@ -76,11 +76,16 @@ export const generateImages = inngest.createFunction(
       return { skipped: true };
     }
 
+    // システムプロンプトを取得
+    const systemPrompt = settings.imagePrompt || "ヨガやウェルネスに関連する、落ち着いた色調でプロフェッショナルな雰囲気の画像を生成してください。";
+
     // アイキャッチ画像を生成
     const thumbnailUrl = await step.run("generate-thumbnail", async () => {
+      const userPrompt = `ブログ記事のアイキャッチ画像。タイトル: "${article.title}"。カテゴリ: ${article.categories.name}。`;
       return generateImage({
-        prompt: `ヨガに関するブログ記事のアイキャッチ画像。タイトル: "${article.title}"。カテゴリ: ${article.categories.name}。落ち着いた色調、プロフェッショナルな雰囲気、テキストなし。`,
+        prompt: `${systemPrompt}\n\n${userPrompt}`,
         apiKey: settings.openRouterApiKey!,
+        model: settings.imageModel || "google/gemini-3-pro-image-preview",
       });
     });
 
@@ -106,9 +111,11 @@ export const generateImages = inngest.createFunction(
 
     // 差し込み画像1を生成
     const insertedImage1Url = await step.run("generate-inserted-1", async () => {
+      const userPrompt = `記事の本文中に挿入するイメージ画像。記事タイトル: "${article.title}"。記事序盤に配置。`;
       return generateImage({
-        prompt: `ヨガのポーズや瞑想のイメージ画像。記事: "${article.title}"。落ち着いた色調、自然な雰囲気。`,
+        prompt: `${systemPrompt}\n\n${userPrompt}`,
         apiKey: settings.openRouterApiKey!,
+        model: settings.imageModel || "google/gemini-3-pro-image-preview",
       });
     });
 
@@ -138,9 +145,11 @@ export const generateImages = inngest.createFunction(
 
     // 差し込み画像2を生成
     const insertedImage2Url = await step.run("generate-inserted-2", async () => {
+      const userPrompt = `記事の本文中に挿入するイメージ画像。記事タイトル: "${article.title}"。記事中盤に配置。明るく前向きな雰囲気。`;
       return generateImage({
-        prompt: `ヨガの効果やリラクゼーションを表現するイメージ画像。記事: "${article.title}"。明るく前向きな雰囲気。`,
+        prompt: `${systemPrompt}\n\n${userPrompt}`,
         apiKey: settings.openRouterApiKey!,
+        model: settings.imageModel || "google/gemini-3-pro-image-preview",
       });
     });
 
@@ -181,14 +190,15 @@ export const generateImages = inngest.createFunction(
 interface GenerateImageParams {
   prompt: string;
   apiKey: string;
+  model: string;
 }
 
 async function generateImage(params: GenerateImageParams): Promise<string | null> {
-  const { prompt, apiKey } = params;
+  const { prompt, apiKey, model } = params;
 
   try {
-    // OpenRouter経由でDALL-E 3を使用
-    const response = await fetch("https://openrouter.ai/api/v1/images/generations", {
+    // OpenRouter経由で画像生成（chat completions APIを使用）
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -196,29 +206,72 @@ async function generateImage(params: GenerateImageParams): Promise<string | null
         "HTTP-Referer": process.env.NEXTAUTH_URL || "http://localhost:3001",
       },
       body: JSON.stringify({
-        model: "openai/dall-e-3",
-        prompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
+        model: model || "google/gemini-2.5-flash-image-preview",
+        modalities: ["image", "text"],
+        messages: [
+          {
+            role: "user",
+            content: `Generate an image: ${prompt}`,
+          },
+        ],
       }),
     });
 
     if (!response.ok) {
-      console.error("Image generation failed:", await response.text());
+      const errorText = await response.text();
+      console.error("Image generation failed:", errorText);
       return null;
     }
 
     const data = await response.json();
-    const imageUrl = data.data?.[0]?.url;
+    console.log("Image API response:", JSON.stringify(data, null, 2));
 
-    if (!imageUrl) {
+    // OpenRouterはbase64エンコードされた画像をimages配列で返す
+    // 形式はモデルによって異なる場合がある
+    const imageData = data.choices?.[0]?.message?.images?.[0];
+
+    if (!imageData) {
+      console.error("No image data in response:", JSON.stringify(data));
       return null;
     }
 
-    // 画像をダウンロードしてSupabase Storageにアップロード
-    const imageResponse = await fetch(imageUrl);
-    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+    let imageBuffer: Buffer;
+
+    // imageDataがオブジェクトの場合（複数の形式に対応）
+    if (typeof imageData === "object" && imageData.b64_json) {
+      // OpenAI形式: {b64_json: "..."}
+      imageBuffer = Buffer.from(imageData.b64_json, "base64");
+    } else if (typeof imageData === "object" && imageData.image_url?.url) {
+      // Gemini/OpenRouter形式: {type: "image_url", image_url: {url: "data:image/png;base64,..."}}
+      const dataUrl = imageData.image_url.url;
+      const base64Match = dataUrl.match(/^data:image\/\w+;base64,(.+)$/);
+      if (base64Match) {
+        imageBuffer = Buffer.from(base64Match[1], "base64");
+      } else if (dataUrl.startsWith("http")) {
+        // 外部URLの場合はダウンロード
+        const imageResponse = await fetch(dataUrl);
+        imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+      } else {
+        console.error("Unknown image_url format:", dataUrl.substring(0, 100));
+        return null;
+      }
+    } else if (typeof imageData === "object" && imageData.url) {
+      // URLが返された場合はダウンロード
+      const imageResponse = await fetch(imageData.url);
+      imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+    } else if (typeof imageData === "string") {
+      // 文字列の場合（data URLまたは純粋なbase64）
+      const base64Match = imageData.match(/^data:image\/\w+;base64,(.+)$/);
+      if (base64Match) {
+        imageBuffer = Buffer.from(base64Match[1], "base64");
+      } else {
+        // 純粋なbase64の場合
+        imageBuffer = Buffer.from(imageData, "base64");
+      }
+    } else {
+      console.error("Unknown image data format:", typeof imageData, JSON.stringify(imageData).substring(0, 200));
+      return null;
+    }
 
     const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
     const { url } = await uploadImage(

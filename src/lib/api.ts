@@ -638,6 +638,9 @@ export const mediaApi = {
 
   update: (id: string, data: { altText?: string }) =>
     api.patch<{ id: string }>(`/api/media/${id}`, data),
+
+  generate: (prompt: string) =>
+    api.post<MediaAsset>('/api/media/generate', { prompt }),
 };
 
 // Knowledge Bank
@@ -803,9 +806,21 @@ export interface SystemSettings {
   defaultBrandId: string | null;
   openRouterApiKey: string | null;
   gaPropertyId: string | null;
+  gscSiteUrl: string | null;
   gaApiKey: string | null;
   searchConsoleApiKey: string | null;
   searchVolumeApiKey: string | null;
+  // AI Models
+  imageModel: string | null;
+  articleModel: string | null;
+  analysisModel: string | null;
+  // System Prompts
+  keywordPrompt: string | null;
+  structurePrompt: string | null;
+  draftPrompt: string | null;
+  proofreadingPrompt: string | null;
+  seoPrompt: string | null;
+  imagePrompt: string | null;
   updatedAt: string;
 }
 
@@ -816,9 +831,21 @@ export const settingsApi = {
     defaultBrandId?: string;
     openRouterApiKey?: string;
     gaPropertyId?: string;
+    gscSiteUrl?: string;
     gaApiKey?: string;
     searchConsoleApiKey?: string;
     searchVolumeApiKey?: string;
+    // AI Models
+    imageModel?: string;
+    articleModel?: string;
+    analysisModel?: string;
+    // System Prompts
+    keywordPrompt?: string;
+    structurePrompt?: string;
+    draftPrompt?: string;
+    proofreadingPrompt?: string;
+    seoPrompt?: string;
+    imagePrompt?: string;
   }) => api.patch<SystemSettings>('/api/settings', data),
 };
 

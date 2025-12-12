@@ -46,10 +46,10 @@ export async function executeStage3(
       throw new Error("OpenRouter API key is not configured");
     }
 
-    // システムプロンプトを構築（執筆用は内蔵）
+    // システムプロンプトを構築（設定があれば使用、なければデフォルト）
     const systemPrompt = `${COMMON_RULES}
 
-${getDraftPrompt(input)}`;
+${settings.draftPrompt || getDefaultDraftPrompt(input)}`;
 
     // ユーザープロンプトを構築
     const userPrompt = buildStage3UserPrompt(input);
@@ -61,7 +61,7 @@ ${getDraftPrompt(input)}`;
       userPrompt,
       {
         apiKey: settings.openRouterApiKey,
-        model: settings.aiModel || modelConfig.model,
+        model: settings.articleModel || modelConfig.model,
         maxTokens: modelConfig.maxTokens,
         temperature: modelConfig.temperature,
       }
@@ -126,9 +126,9 @@ function ensureBlockIds(output: Stage3Output): Stage3Output {
 }
 
 /**
- * 記事執筆プロンプト
+ * デフォルトの記事執筆プロンプト（settings.draftPromptがない場合）
  */
-function getDraftPrompt(input: Stage3Input): string {
+function getDefaultDraftPrompt(input: Stage3Input): string {
   const { reviewerProfile, brandRules } = input;
 
   return `【記事執筆プロンプト】

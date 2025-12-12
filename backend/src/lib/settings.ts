@@ -10,6 +10,7 @@ export interface SystemSettings {
   searchConsoleSiteUrl: string | null;
   searchVolumeApiKey: string | null;
   openRouterApiKey: string | null;
+  openaiApiKey: string | null;
   aiModel: string | null;
   imageModel: string | null;
   articleModel: string | null;
@@ -28,12 +29,13 @@ export interface SystemSettings {
 
 // 復号済み設定の型
 export interface DecryptedSettings extends Omit<SystemSettings,
-  "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "openRouterApiKey"
+  "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "openRouterApiKey" | "openaiApiKey"
 > {
   gaApiKey: string | null;
   searchConsoleApiKey: string | null;
   searchVolumeApiKey: string | null;
   openRouterApiKey: string | null;
+  openaiApiKey: string | null;
 }
 
 /**
@@ -61,6 +63,9 @@ export async function getDecryptedSettings(): Promise<DecryptedSettings | null> 
     openRouterApiKey: settings.openRouterApiKey
       ? safeDecrypt(settings.openRouterApiKey)
       : null,
+    openaiApiKey: settings.openaiApiKey
+      ? safeDecrypt(settings.openaiApiKey)
+      : null,
   };
 }
 
@@ -68,7 +73,7 @@ export async function getDecryptedSettings(): Promise<DecryptedSettings | null> 
  * 特定のAPIキーのみを取得（復号済み）
  */
 export async function getApiKey(
-  keyName: "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "openRouterApiKey"
+  keyName: "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "openRouterApiKey" | "openaiApiKey"
 ): Promise<string | null> {
   const settings = await prisma.system_settings.findUnique({
     where: { id: "default" },

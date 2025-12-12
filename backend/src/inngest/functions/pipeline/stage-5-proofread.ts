@@ -61,7 +61,7 @@ ${settings.proofreadingPrompt || getDefaultProofreadingPrompt()}`;
       userPrompt,
       {
         apiKey: settings.openRouterApiKey,
-        model: settings.aiModel || modelConfig.model,
+        model: settings.articleModel || modelConfig.model,
         maxTokens: modelConfig.maxTokens,
         temperature: modelConfig.temperature,
       }

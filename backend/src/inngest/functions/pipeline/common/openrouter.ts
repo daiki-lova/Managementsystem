@@ -49,7 +49,9 @@ export async function callOpenRouter<T>(
         ],
         max_tokens: maxTokens,
         temperature,
-        response_format: { type: "json_object" },
+        // response_format is only supported by OpenAI models
+        // For other models, we rely on the system prompt to enforce JSON output
+        ...(model.startsWith("openai/") ? { response_format: { type: "json_object" } } : {}),
       }),
     });
 
@@ -74,7 +76,19 @@ export async function callOpenRouter<T>(
     }
 
     try {
-      const parsed = JSON.parse(content) as T;
+      // Markdownコードブロックを除去（```json ... ``` や ``` ... ```）
+      let cleanContent = content.trim();
+      if (cleanContent.startsWith("```json")) {
+        cleanContent = cleanContent.slice(7);
+      } else if (cleanContent.startsWith("```")) {
+        cleanContent = cleanContent.slice(3);
+      }
+      if (cleanContent.endsWith("```")) {
+        cleanContent = cleanContent.slice(0, -3);
+      }
+      cleanContent = cleanContent.trim();
+
+      const parsed = JSON.parse(cleanContent) as T;
       return {
         success: true,
         data: parsed,
@@ -82,7 +96,7 @@ export async function callOpenRouter<T>(
       };
     } catch (parseError) {
       console.error("JSON parse error:", parseError);
-      console.error("Raw content:", content);
+      console.error("Raw content:", content.substring(0, 500));
       return {
         success: false,
         error: "Failed to parse JSON response",

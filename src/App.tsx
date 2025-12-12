@@ -73,8 +73,54 @@ export default function App() {
   useEffect(() => {
     if (currentArticleId && articleData) {
       setTitle(articleData.title);
-      setBlocks((articleData.blocks as BlockData[]) || []);
-      setThumbnail(articleData.media_assets?.[0]?.url || articleData.thumbnail?.url);
+
+      // Merge inserted images into blocks
+      const baseBlocks = (articleData.blocks as BlockData[]) || [];
+      const insertedImages = articleData.images || [];
+
+      if (insertedImages.length > 0) {
+        // Create a mutable copy of blocks
+        const mergedBlocks = [...baseBlocks];
+
+        // Get unique images by type (use the latest one for each type)
+        const inserted1 = insertedImages.filter((img: any) => img.type === 'INSERTED_1').pop();
+        const inserted2 = insertedImages.filter((img: any) => img.type === 'INSERTED_2').pop();
+
+        // Calculate insertion positions based on article structure
+        // INSERTED_1: After block 4 (after intro and first section)
+        // INSERTED_2: After block 8 (middle of article)
+        const totalBlocks = mergedBlocks.length;
+        const pos1 = Math.min(4, totalBlocks);
+        const pos2 = Math.min(9, totalBlocks + (inserted1 ? 1 : 0));
+
+        // Insert INSERTED_2 first (higher index) to avoid position shift
+        if (inserted2) {
+          const imageBlock2: BlockData = {
+            id: `img-inserted-2-${inserted2.id}`,
+            type: 'image',
+            content: inserted2.url,
+            metadata: { altText: inserted2.altText || '', source: 'AI_GENERATED', imageType: 'INSERTED_2' }
+          };
+          mergedBlocks.splice(pos2, 0, imageBlock2);
+        }
+
+        // Insert INSERTED_1
+        if (inserted1) {
+          const imageBlock1: BlockData = {
+            id: `img-inserted-1-${inserted1.id}`,
+            type: 'image',
+            content: inserted1.url,
+            metadata: { altText: inserted1.altText || '', source: 'AI_GENERATED', imageType: 'INSERTED_1' }
+          };
+          mergedBlocks.splice(pos1, 0, imageBlock1);
+        }
+
+        setBlocks(mergedBlocks);
+      } else {
+        setBlocks(baseBlocks);
+      }
+
+      setThumbnail(articleData.media_assets?.url || articleData.thumbnail?.url);
       setCategory(articleData.category?.name || "");
       setTags(articleData.article_tags?.map(at => at.tags.name) || []);
       setSlug(articleData.slug);

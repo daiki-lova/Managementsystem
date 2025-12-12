@@ -61,8 +61,8 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
             slug: author.slug,
             role: author.role || (author as any).title || '', // Fallback for API mismatch
             qualifications: qualificationsStr,
-            categories: author.computedCategories || author.categories || [],
-            tags: author.computedTags || author.tags || [],
+            categories: (author.categories && author.categories.length > 0) ? author.categories : (author.computedCategories || []),
+            tags: (author.tags && author.tags.length > 0) ? author.tags : (author.computedTags || []),
             instagram: socialLinks.instagram,
             facebook: socialLinks.facebook,
             twitter: socialLinks.twitter,

@@ -26,7 +26,7 @@ import {
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 import { ScrollArea } from '../ui/scroll-area';
-import { useMedia, useUploadMedia, useDeleteMedia } from '../../lib/hooks';
+import { useMedia, useUploadMedia, useDeleteMedia, useGenerateMedia } from '../../lib/hooks';
 
 // Media item type
 interface MediaItem {
@@ -57,6 +57,7 @@ export function MediaLibraryView() {
     const { data: mediaData, isLoading, error } = useMedia();
     const uploadMedia = useUploadMedia();
     const deleteMediaMutation = useDeleteMedia();
+    const generateMedia = useGenerateMedia();
 
     // Map API data to local format
     const media: MediaItem[] = (mediaData?.data || []).map((item: any) => ({
@@ -118,31 +119,23 @@ export function MediaLibraryView() {
     const handleGenerate = () => {
         if (!generatePrompt) return;
         setIsGenerating(true);
-        setTimeout(() => {
-            const mockUrl = `https://source.unsplash.com/random/800x600/?${encodeURIComponent(generatePrompt)}&sig=${Date.now()}`;
-            setGeneratedResult(mockUrl);
-            setIsGenerating(false);
-        }, 2000);
+        generateMedia.mutate(generatePrompt, {
+            onSuccess: (response) => {
+                // Show the generated result for preview
+                setGeneratedResult(response.data?.url || null);
+                setIsGenerating(false);
+            },
+            onError: () => {
+                setIsGenerating(false);
+            },
+        });
     };
 
     const saveGeneratedImage = () => {
-        if (generatedResult) {
-            const newItem = {
-                id: `gen-${Date.now()}`,
-                url: generatedResult,
-                name: `generated-${Date.now()}.jpg`,
-                type: 'image/jpeg',
-                size: '1.0MB',
-                uploadedAt: new Date().toISOString().split('T')[0],
-                dimensions: '800x600',
-                source: 'nanobanana',
-                folder: 'all'
-            };
-            setMedia([newItem, ...media]);
-            setGeneratedResult(null);
-            setGeneratePrompt('');
-            setIsGenerateDialogOpen(false);
-        }
+        // Image is already saved by the API, just close the dialog
+        setGeneratedResult(null);
+        setGeneratePrompt('');
+        setIsGenerateDialogOpen(false);
     };
 
     const handleDelete = (id: string) => {

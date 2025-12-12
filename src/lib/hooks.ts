@@ -367,6 +367,20 @@ export function useDeleteMedia() {
   });
 }
 
+export function useGenerateMedia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (prompt: string) => mediaApi.generate(prompt),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] });
+      toast.success('AI画像を生成しました');
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.message || 'AI画像の生成に失敗しました');
+    },
+  });
+}
+
 // ============================================
 // Knowledge Bank
 // ============================================

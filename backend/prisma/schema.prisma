@@ -385,14 +385,17 @@ model system_settings {
   searchConsoleSiteUrl String?
   searchVolumeApiKey   String?
   openRouterApiKey     String?
+  openaiApiKey         String?
   aiModel              String?  @default("openai/gpt-4-turbo")
   imageModel           String?  @default("pro")
   articleModel         String?  @default("pro")
   analysisModel        String?  @default("banana")
   keywordPrompt        String?  @db.Text
   structurePrompt      String?  @db.Text
+  draftPrompt          String?  @db.Text
   proofreadingPrompt   String?  @db.Text
   seoPrompt            String?  @db.Text
+  imagePrompt          String?  @db.Text
   minSearchVolume      Int      @default(300)
   maxSearchVolume      Int      @default(2000)
   volumeZones          Json?

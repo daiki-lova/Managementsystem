@@ -27,14 +27,20 @@ export function SettingsView() {
         openRouterApiKey: '',
         gaPropertyId: '',
         gscSiteUrl: '',
-        imageModel: 'pro',
-        articleModel: 'pro',
-        analysisModel: 'banana',
+        imageModel: 'google/gemini-3-pro-image-preview',
+        articleModel: 'anthropic/claude-sonnet-4',
+        analysisModel: 'anthropic/claude-3.5-haiku',
         keywordPrompt: '',
         structurePrompt: '',
+        draftPrompt: '',
         proofreadingPrompt: '',
         seoPrompt: '',
+        imagePrompt: '',
     });
+
+    // API key editing state
+    const [isEditingApiKey, setIsEditingApiKey] = useState(false);
+    const [newApiKey, setNewApiKey] = useState('');
 
     // Initialize form with API data
     useEffect(() => {
@@ -43,13 +49,15 @@ export function SettingsView() {
                 openRouterApiKey: settings.openRouterApiKey || '',
                 gaPropertyId: settings.gaPropertyId || '',
                 gscSiteUrl: settings.gscSiteUrl || '',
-                imageModel: settings.imageModel || 'pro',
-                articleModel: settings.articleModel || 'pro',
-                analysisModel: settings.analysisModel || 'banana',
+                imageModel: settings.imageModel || 'google/gemini-3-pro-image-preview',
+                articleModel: settings.articleModel || 'anthropic/claude-sonnet-4',
+                analysisModel: settings.analysisModel || 'anthropic/claude-3.5-haiku',
                 keywordPrompt: settings.keywordPrompt || '',
                 structurePrompt: settings.structurePrompt || '',
+                draftPrompt: settings.draftPrompt || '',
                 proofreadingPrompt: settings.proofreadingPrompt || '',
                 seoPrompt: settings.seoPrompt || '',
+                imagePrompt: settings.imagePrompt || '',
             });
         }
     }, [settings]);
@@ -256,31 +264,77 @@ export function SettingsView() {
                                         <h3 className="font-bold">OpenRouter API Configuration</h3>
                                     </div>
                                     <div className="flex gap-2">
-                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 text-[10px] font-bold">
-                                            残高: $14.20
-                                        </div>
-                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 text-[10px] font-bold">
-                                            Usage Tier 2
-                                        </div>
+                                        {formData.openRouterApiKey && (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-[10px] font-bold text-emerald-400">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                                                設定済み
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="relative">
-                                    <Input
-                                        type="password"
-                                        value="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                        readOnly
-                                        className="h-12 bg-white/10 border-transparent rounded-xl font-mono text-sm pl-4 text-white placeholder:text-white/30 focus:bg-white/20 transition-all"
-                                        placeholder="OpenRouter API Key (sk-or-...)"
-                                    />
-                                    <Button
-                                        size="sm"
-                                        className="absolute right-2 top-2 h-8 bg-white text-neutral-900 hover:bg-neutral-200 font-bold text-xs"
-                                    >
-                                        変更
-                                    </Button>
+                                    {isEditingApiKey ? (
+                                        <>
+                                            <Input
+                                                type="text"
+                                                value={newApiKey}
+                                                onChange={(e) => setNewApiKey(e.target.value)}
+                                                className="h-12 bg-white/10 border-white/20 rounded-xl font-mono text-sm pl-4 pr-28 text-white placeholder:text-white/30 focus:bg-white/20 focus:border-emerald-400 transition-all"
+                                                placeholder="sk-or-v1-..."
+                                                autoFocus
+                                            />
+                                            <div className="absolute right-2 top-2 flex gap-1">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        if (newApiKey.trim()) {
+                                                            setFormData({...formData, openRouterApiKey: newApiKey.trim()});
+                                                        }
+                                                        setIsEditingApiKey(false);
+                                                        setNewApiKey('');
+                                                    }}
+                                                    disabled={!newApiKey.trim()}
+                                                    className="h-8 bg-emerald-500 text-white hover:bg-emerald-600 font-bold text-xs disabled:opacity-50"
+                                                >
+                                                    保存
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => {
+                                                        setIsEditingApiKey(false);
+                                                        setNewApiKey('');
+                                                    }}
+                                                    className="h-8 text-white/70 hover:text-white hover:bg-white/10 font-bold text-xs"
+                                                >
+                                                    キャンセル
+                                                </Button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Input
+                                                type="password"
+                                                value={formData.openRouterApiKey ? '●'.repeat(Math.min(formData.openRouterApiKey.length, 40)) : ''}
+                                                readOnly
+                                                className="h-12 bg-white/10 border-transparent rounded-xl font-mono text-sm pl-4 text-white placeholder:text-white/30 cursor-default"
+                                                placeholder="APIキーが設定されていません"
+                                            />
+                                            <Button
+                                                size="sm"
+                                                onClick={() => {
+                                                    setIsEditingApiKey(true);
+                                                    setNewApiKey('');
+                                                }}
+                                                className="absolute right-2 top-2 h-8 bg-white text-neutral-900 hover:bg-neutral-200 font-bold text-xs"
+                                            >
+                                                {formData.openRouterApiKey ? '変更' : '設定'}
+                                            </Button>
+                                        </>
+                                    )}
                                 </div>
                                 <p className="text-[10px] text-white/50 mt-2 pl-1">
-                                    ※ OpenRouterのAPIキーは安全に暗号化されて保存されます
+                                    ※ OpenRouterのAPIキーは安全に暗号化されて保存されます。変更後は「変更を保存」ボタンで確定してください。
                                 </p>
                             </div>
 
@@ -296,17 +350,30 @@ export function SettingsView() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-bold text-neutral-400">使用モデル</Label>
-                                        <Select defaultValue="pro">
+                                        <Select
+                                            value={formData.imageModel}
+                                            onValueChange={(value) => setFormData({...formData, imageModel: value})}
+                                        >
                                             <SelectTrigger className="h-10 text-xs font-bold">
-                                                <SelectValue />
+                                                <SelectValue placeholder="モデルを選択" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="latest">最新モデル (Auto)</SelectItem>
-                                                <SelectItem value="pro">Pro (DALL-E 3 / Midjourney)</SelectItem>
-                                                <SelectItem value="banana">Banana (Stable Diffusion XL)</SelectItem>
-                                                <SelectItem value="nano">Nano (Fast Generate)</SelectItem>
+                                                <SelectItem value="google/gemini-3-pro-image-preview">Nano Banana Pro (推奨)</SelectItem>
+                                                <SelectItem value="google/gemini-2.5-flash-image-preview">Gemini 2.5 Flash</SelectItem>
+                                                <SelectItem value="openai/dall-e-3">DALL-E 3 (OpenAI)</SelectItem>
+                                                <SelectItem value="black-forest-labs/flux-1.1-pro">FLUX 1.1 Pro</SelectItem>
                                             </SelectContent>
                                         </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold text-neutral-400">システムプロンプト</Label>
+                                        <Textarea
+                                            value={formData.imagePrompt}
+                                            onChange={(e) => setFormData({...formData, imagePrompt: e.target.value})}
+                                            placeholder="AI画像生成時に適用されるシステムプロンプトを入力..."
+                                            className="min-h-[80px] text-xs resize-none"
+                                        />
+                                        <p className="text-[10px] text-neutral-400">ユーザーのプロンプトと組み合わせて使用されます</p>
                                     </div>
                                 </div>
 
@@ -320,15 +387,24 @@ export function SettingsView() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-bold text-neutral-400">使用モデル</Label>
-                                        <Select defaultValue="pro">
+                                        <Select
+                                            value={formData.articleModel}
+                                            onValueChange={(value) => setFormData({...formData, articleModel: value})}
+                                        >
                                             <SelectTrigger className="h-10 text-xs font-bold">
-                                                <SelectValue />
+                                                <SelectValue placeholder="モデルを選択" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="latest">最新モデル (Auto)</SelectItem>
-                                                <SelectItem value="pro">Pro (GPT-4o / Claude 3.5)</SelectItem>
-                                                <SelectItem value="banana">Banana (Llama 3 70B)</SelectItem>
-                                                <SelectItem value="nano">Nano (Gemini Flash)</SelectItem>
+                                                <SelectItem value="anthropic/claude-opus-4">Claude Opus 4 (最高性能)</SelectItem>
+                                                <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet 4 (推奨)</SelectItem>
+                                                <SelectItem value="openai/gpt-4.1">GPT-4.1 (最新)</SelectItem>
+                                                <SelectItem value="openai/o3">o3 (推論特化)</SelectItem>
+                                                <SelectItem value="openai/o1">o1 (推論)</SelectItem>
+                                                <SelectItem value="openai/gpt-4o">GPT-4o</SelectItem>
+                                                <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                                                <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                                                <SelectItem value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</SelectItem>
+                                                <SelectItem value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -344,15 +420,22 @@ export function SettingsView() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-bold text-neutral-400">使用モデル</Label>
-                                        <Select defaultValue="banana">
+                                        <Select
+                                            value={formData.analysisModel}
+                                            onValueChange={(value) => setFormData({...formData, analysisModel: value})}
+                                        >
                                             <SelectTrigger className="h-10 text-xs font-bold">
-                                                <SelectValue />
+                                                <SelectValue placeholder="モデルを選択" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="latest">最新モデル (Auto)</SelectItem>
-                                                <SelectItem value="pro">Pro (GPT-4o / Opus)</SelectItem>
-                                                <SelectItem value="banana">Banana (Haiku / Turbo)</SelectItem>
-                                                <SelectItem value="nano">Nano (Local / Small)</SelectItem>
+                                                <SelectItem value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku (推奨・高速)</SelectItem>
+                                                <SelectItem value="openai/gpt-4.1-mini">GPT-4.1 mini (最新・高速)</SelectItem>
+                                                <SelectItem value="openai/gpt-4o-mini">GPT-4o mini</SelectItem>
+                                                <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                                                <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet 4</SelectItem>
+                                                <SelectItem value="anthropic/claude-opus-4">Claude Opus 4</SelectItem>
+                                                <SelectItem value="openai/gpt-4.1">GPT-4.1</SelectItem>
+                                                <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -407,7 +490,24 @@ export function SettingsView() {
                                 <p className="text-[10px] text-neutral-400 pl-1">H2・H3見出しの階層構造を作成する際に使用されます</p>
                             </div>
 
-                            {/* 2行目左：校正・推敲 */}
+                            {/* 2行目左：記事執筆 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-sm font-bold text-neutral-900">記事執筆</Label>
+                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
+                                </div>
+                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
+                                    <Textarea
+                                        className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
+                                        value={formData.draftPrompt}
+                                        onChange={(e) => setFormData({...formData, draftPrompt: e.target.value})}
+                                        placeholder="記事執筆用のプロンプトを入力..."
+                                    />
+                                </div>
+                                <p className="text-[10px] text-neutral-400 pl-1">構成案に基づいて本文を執筆する際に使用されます</p>
+                            </div>
+
+                            {/* 2行目右：校正・推敲 */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-sm font-bold text-neutral-900">校正・推敲</Label>

@@ -136,7 +136,7 @@ export const generateArticle = inngest.createFunction(
           content: k.content,
         })),
         apiKey: settings.openRouterApiKey,
-        model: settings.aiModel || "openai/gpt-4-turbo",
+        model: settings.articleModel || "openai/gpt-4o",
       });
     });
 

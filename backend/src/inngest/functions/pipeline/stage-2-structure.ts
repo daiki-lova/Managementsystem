@@ -61,7 +61,7 @@ ${settings.structurePrompt || getDefaultStructurePrompt()}`;
       userPrompt,
       {
         apiKey: settings.openRouterApiKey,
-        model: settings.aiModel || modelConfig.model,
+        model: settings.analysisModel || modelConfig.model,
         maxTokens: modelConfig.maxTokens,
         temperature: modelConfig.temperature,
       }

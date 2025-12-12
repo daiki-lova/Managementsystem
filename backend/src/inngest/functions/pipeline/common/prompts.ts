@@ -70,6 +70,7 @@ ${ga4Data.slice(0, 10).map((d) => `- ${d.pagePath}: ${d.pageViews}PV, 平均${d.
 `;
   }
 
+  prompt += `\n**重要**: 必ずJSON形式のみで出力してください。説明文やMarkdownは不要です。`;
   return prompt;
 }
 
@@ -102,7 +103,8 @@ ${contentIndex.slice(0, 20).map((a) => `- ${a.slug}: ${a.title}`).join("\n")}
 ${brandRules.description}
 ${brandRules.tone ? `トーン: ${brandRules.tone}` : ""}
 ${brandRules.prohibitedExpressions ? `禁止表現: ${brandRules.prohibitedExpressions.join(", ")}` : ""}
-`;
+
+**重要**: 必ずJSON形式のみで出力してください。説明文やMarkdownは不要です。`;
 }
 
 /**
@@ -145,7 +147,8 @@ ${infoBank.map((item) => `- [${item.id}] ${item.title}: ${item.content.slice(0, 
 
 【ブランドルール】
 ${brandRules.name}: ${brandRules.description}
-`;
+
+**重要**: 必ずJSON形式のみで出力してください。説明文やMarkdownは不要です。`;
 }
 
 /**
@@ -186,7 +189,8 @@ ${outlinePackage.risk_level}
 
 【ブランドルール】
 ${brandRules.name}: ${brandRules.description}
-`;
+
+**重要**: 必ずJSON形式のみで出力してください。説明文やMarkdownは不要です。`;
 }
 
 /**
@@ -229,5 +233,6 @@ ${brandRules.name}: ${brandRules.description}
 
 【コンバージョン目標】
 ${conversionGoal}
-`;
+
+**重要**: 必ずJSON形式のみで出力してください。説明文やMarkdownは不要です。`;
 }
