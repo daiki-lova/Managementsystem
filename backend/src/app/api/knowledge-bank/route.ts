@@ -88,13 +88,16 @@ export async function GET(request: NextRequest) {
 
 // 情報バンク作成スキーマ
 const createKnowledgeItemSchema = z.object({
-  title: z.string().min(1).max(200),
-  type: z.string().min(1).max(50), // お客様の声、体験談、事例、講座情報など
+  title: z.string().max(200).optional(),
+  type: z.string().max(50).optional(), // お客様の声、体験談、事例、講座情報など
+  kind: z.string().max(50).optional(), // typeのエイリアス（フロントエンド互換）
   brandId: commonSchemas.id.optional(),
   course: z.string().max(100).optional(),
   authorId: commonSchemas.id.optional(),
   content: z.string().min(1),
   sourceUrl: commonSchemas.url.optional(),
+  url: commonSchemas.url.optional(), // sourceUrlのエイリアス（フロントエンド互換）
+  sourceType: z.string().max(50).optional(),
 });
 
 // 情報バンク作成
@@ -103,17 +106,39 @@ export async function POST(request: NextRequest) {
     return await withAuth(request, async () => {
       const data = await validateBody(request, createKnowledgeItemSchema);
 
+      // フィールド名のエイリアス解決
+      const resolvedType = data.type || data.kind || "その他";
+      const resolvedSourceUrl = data.sourceUrl || data.url;
+
+      // brandIdが存在するか確認（存在しない場合はnull）
+      let resolvedBrandId: string | null = null;
+      if (data.brandId) {
+        const brand = await prisma.brands.findUnique({ where: { id: data.brandId } });
+        if (brand) {
+          resolvedBrandId = data.brandId;
+        }
+      }
+
+      // authorIdが存在するか確認（存在しない場合はnull）
+      let resolvedAuthorId: string | null = null;
+      if (data.authorId) {
+        const author = await prisma.authors.findUnique({ where: { id: data.authorId } });
+        if (author) {
+          resolvedAuthorId = data.authorId;
+        }
+      }
+
       const item = await prisma.knowledge_items.create({
         data: {
           id: randomUUID(),
-          title: data.title,
-          type: data.type,
-          brandId: data.brandId,
+          title: data.title || "無題",
+          type: resolvedType,
+          brandId: resolvedBrandId,
           course: data.course,
-          authorId: data.authorId,
+          authorId: resolvedAuthorId,
           content: data.content,
-          sourceUrl: data.sourceUrl,
-          sourceScrapedAt: data.sourceUrl ? new Date() : null,
+          sourceUrl: resolvedSourceUrl,
+          sourceScrapedAt: resolvedSourceUrl ? new Date() : null,
         },
         select: {
           id: true,

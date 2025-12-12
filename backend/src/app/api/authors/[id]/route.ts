@@ -66,20 +66,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // 監修者更新スキーマ（ライター用）
 const updateAuthorSchemaWriter = z.object({
   name: z.string().min(1).max(100).optional(),
-  role: z.string().min(1).max(100).optional(),
+  slug: commonSchemas.slug.optional(),
+  role: z.string().max(100).optional(),
   qualifications: z.array(z.string()).optional(),
-  categories: z.array(z.string()).optional(), // New
-  tags: z.array(z.string()).optional(),       // New
-  bio: z.string().min(1).optional(),
+  categories: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  bio: z.string().optional(),
   imageUrl: commonSchemas.url.optional().nullable(),
-  socialLinks: z
-    .object({
-      twitter: z.string().optional(),
-      instagram: z.string().optional(),
-      website: z.string().optional(),
-    })
-    .optional()
-    .nullable(),
+  avatarUrl: commonSchemas.url.optional().nullable(), // imageUrlのエイリアス
+  socialLinks: z.record(z.string()).optional().nullable(),
 });
 
 // 監修者更新スキーマ（オーナー用）
@@ -112,17 +107,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
       // systemPromptフィールドの取得（オーナースキーマのみに存在）
       const systemPromptValue = "systemPrompt" in data ? data.systemPrompt as string | undefined : undefined;
+      // フィールド名のエイリアス解決
+      const resolvedImageUrl = data.imageUrl !== undefined ? data.imageUrl : data.avatarUrl;
 
       const author = await prisma.authors.update({
         where: { id },
         data: {
           name: data.name,
+          slug: data.slug,
           role: data.role,
           qualifications: data.qualifications,
           categories: data.categories,
           tags: data.tags,
           bio: data.bio,
-          imageUrl: data.imageUrl,
+          imageUrl: resolvedImageUrl,
           socialLinks: data.socialLinks === null
             ? Prisma.JsonNull
             : data.socialLinks as unknown as Prisma.InputJsonValue | undefined,

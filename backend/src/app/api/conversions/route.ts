@@ -80,13 +80,17 @@ export async function GET(request: NextRequest) {
 // コンバージョン作成スキーマ
 const createConversionSchema = z.object({
   name: z.string().min(1).max(100),
-  type: z.nativeEnum(ConversionType),
-  status: z.nativeEnum(ConversionStatus).default(ConversionStatus.ACTIVE),
+  type: z.string().min(1).max(50), // フロントエンド互換（文字列）
+  status: z.string().max(20).optional(), // フロントエンド互換（文字列）
   url: commonSchemas.url,
   thumbnailUrl: commonSchemas.url.optional(),
-  context: z.string().min(1), // AI生成用コンテキスト
-  periodStart: z.string().datetime().optional(),
-  periodEnd: z.string().datetime().optional(),
+  context: z.string().optional(), // AI生成用コンテキスト（オプショナル化）
+  description: z.string().optional(), // contextのエイリアス（フロントエンド互換）
+  period: z.string().optional(), // フロントエンド互換（未使用だが受け入れる）
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+  startDate: z.string().optional(), // periodStartのエイリアス（フロントエンド互換）
+  endDate: z.string().optional(), // periodEndのエイリアス（フロントエンド互換）
 });
 
 // コンバージョン作成（オーナーのみ）
@@ -95,17 +99,36 @@ export async function POST(request: NextRequest) {
     return await withOwnerAuth(request, async (user) => {
       const data = await validateBody(request, createConversionSchema);
 
+      // フィールド名のエイリアス解決
+      const resolvedContext = data.context || data.description || "";
+      const resolvedPeriodStart = data.periodStart || data.startDate;
+      const resolvedPeriodEnd = data.periodEnd || data.endDate;
+
+      // typeの変換（文字列からEnum）- 有効な値のみ許可
+      const typeUpper = data.type?.toUpperCase() || "TEXT";
+      const validTypes = ["BANNER", "TEXT", "INLINE"] as const;
+      const typeValue: ConversionType = validTypes.includes(typeUpper as typeof validTypes[number])
+        ? (typeUpper as ConversionType)
+        : ConversionType.TEXT;
+
+      // statusの変換（文字列からEnum）- 有効な値のみ許可
+      const statusUpper = data.status?.toUpperCase() || "ACTIVE";
+      const validStatuses = ["ACTIVE", "INACTIVE", "PAUSED"] as const;
+      const statusValue: ConversionStatus = validStatuses.includes(statusUpper as typeof validStatuses[number])
+        ? (statusUpper as ConversionStatus)
+        : ConversionStatus.ACTIVE;
+
       const conversion = await prisma.conversions.create({
         data: {
           id: randomUUID(),
           name: data.name,
-          type: data.type,
-          status: data.status,
+          type: typeValue,
+          status: statusValue,
           url: data.url,
           thumbnailUrl: data.thumbnailUrl,
-          context: data.context,
-          periodStart: data.periodStart ? new Date(data.periodStart) : null,
-          periodEnd: data.periodEnd ? new Date(data.periodEnd) : null,
+          context: resolvedContext,
+          periodStart: resolvedPeriodStart ? new Date(resolvedPeriodStart) : null,
+          periodEnd: resolvedPeriodEnd ? new Date(resolvedPeriodEnd) : null,
         },
         select: {
           id: true,

@@ -70,13 +70,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // 情報バンク更新スキーマ
 const updateKnowledgeItemSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  type: z.string().min(1).max(50).optional(),
+  title: z.string().max(200).optional(),
+  type: z.string().max(50).optional(),
+  kind: z.string().max(50).optional(), // typeのエイリアス（フロントエンド互換）
   brandId: commonSchemas.id.optional().nullable(),
   course: z.string().max(100).optional().nullable(),
   authorId: commonSchemas.id.optional().nullable(),
   content: z.string().min(1).optional(),
   sourceUrl: commonSchemas.url.optional().nullable(),
+  url: commonSchemas.url.optional().nullable(), // sourceUrlのエイリアス（フロントエンド互換）
 });
 
 // 情報バンク更新
@@ -95,16 +97,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         throw new NotFoundError("情報バンク項目");
       }
 
+      // フィールド名のエイリアス解決
+      const resolvedType = data.type || data.kind;
+      const resolvedSourceUrl = data.sourceUrl !== undefined ? data.sourceUrl : data.url;
+
       const item = await prisma.knowledge_items.update({
         where: { id },
         data: {
           title: data.title,
-          type: data.type,
+          type: resolvedType,
           brandId: data.brandId,
           course: data.course,
           authorId: data.authorId,
           content: data.content,
-          sourceUrl: data.sourceUrl,
+          sourceUrl: resolvedSourceUrl,
         },
         select: {
           id: true,

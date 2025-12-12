@@ -15,34 +15,59 @@ import { isAppError, handlePrismaError } from "@/lib/errors";
 import { auditLog } from "@/lib/audit-log";
 import { randomUUID } from "crypto";
 
-// カテゴリ一覧取得
+// タグ一覧取得
 export async function GET(request: NextRequest) {
   try {
     return await withAuth(request, async () => {
       const { searchParams } = new URL(request.url);
       const { page, limit } = parsePaginationParams(searchParams);
+      const search = searchParams.get("search") || undefined;
 
-      const total = await prisma.categories.count();
+      const where = search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { slug: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {};
+
+      const total = await prisma.tags.count({ where });
       const { skip, take, totalPages } = calculatePagination(total, page, limit);
 
-      const categories = await prisma.categories.findMany({
+      const tags = await prisma.tags.findMany({
+        where,
         skip,
         take,
         select: {
           id: true,
           name: true,
           slug: true,
-          description: true,
-          color: true,
           articlesCount: true,
           createdAt: true,
           updatedAt: true,
+          _count: {
+            select: { article_tags: true },
+          },
         },
         orderBy: { name: "asc" },
       });
 
+      // フォーマット
+      const formattedTags = tags.map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+        slug: tag.slug,
+        articlesCount: tag.articlesCount,
+        createdAt: tag.createdAt,
+        updatedAt: tag.updatedAt,
+        _count: {
+          articles: tag._count.article_tags,
+        },
+      }));
+
       return paginatedResponse({
-        items: categories,
+        items: formattedTags,
         total,
         page,
         limit,
@@ -53,39 +78,42 @@ export async function GET(request: NextRequest) {
     if (isAppError(error)) {
       return errorResponse(error.code, error.message, error.statusCode);
     }
-    console.error("Get categories error:", error);
+    console.error("Get tags error:", error);
     return ApiErrors.internalError();
   }
 }
 
-// カテゴリ作成スキーマ
-const createCategorySchema = z.object({
+// タグ作成スキーマ
+const createTagSchema = z.object({
   name: z.string().min(1).max(100),
   slug: commonSchemas.slug,
-  description: z.string().max(500).optional(),
-  color: z.string().max(100).optional(), // HEXカラーまたはTailwindクラス名を受け入れる
 });
 
-// カテゴリ作成（オーナーのみ）
+// タグ作成（オーナーのみ）
 export async function POST(request: NextRequest) {
   try {
     return await withOwnerAuth(request, async (user) => {
-      const data = await validateBody(request, createCategorySchema);
+      const data = await validateBody(request, createTagSchema);
 
-      const category = await prisma.categories.create({
+      // 重複チェック
+      const existingTag = await prisma.tags.findUnique({
+        where: { slug: data.slug },
+      });
+
+      if (existingTag) {
+        return errorResponse("DUPLICATE_SLUG", "このスラッグは既に使用されています", 400);
+      }
+
+      const tag = await prisma.tags.create({
         data: {
           id: randomUUID(),
           name: data.name,
           slug: data.slug,
-          description: data.description,
-          color: data.color,
         },
         select: {
           id: true,
           name: true,
           slug: true,
-          description: true,
-          color: true,
           articlesCount: true,
           createdAt: true,
         },
@@ -94,14 +122,14 @@ export async function POST(request: NextRequest) {
       // 監査ログ
       await auditLog.masterDataChange(
         request,
-        "CATEGORY_CREATE",
+        "TAG_CREATE",
         user.id,
-        "category",
-        category.id,
-        { name: category.name }
+        "tag",
+        tag.id,
+        { name: tag.name }
       );
 
-      return successResponse(category, undefined, 201);
+      return successResponse(tag, undefined, 201);
     });
   } catch (error) {
     if (isAppError(error)) {

@@ -64,13 +64,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // コンバージョン更新スキーマ
 const updateConversionSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  type: z.nativeEnum(ConversionType).optional(),
-  status: z.nativeEnum(ConversionStatus).optional(),
+  type: z.string().max(50).optional(), // フロントエンド互換（文字列）
+  status: z.string().max(20).optional(), // フロントエンド互換（文字列）
   url: commonSchemas.url.optional(),
   thumbnailUrl: commonSchemas.url.optional().nullable(),
-  context: z.string().min(1).optional(),
-  periodStart: z.string().datetime().optional().nullable(),
-  periodEnd: z.string().datetime().optional().nullable(),
+  context: z.string().optional(),
+  description: z.string().optional(), // contextのエイリアス（フロントエンド互換）
+  periodStart: z.string().optional().nullable(),
+  periodEnd: z.string().optional().nullable(),
+  startDate: z.string().optional().nullable(), // periodStartのエイリアス
+  endDate: z.string().optional().nullable(), // periodEndのエイリアス
 });
 
 // コンバージョン更新（オーナーのみ）
@@ -89,23 +92,48 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         throw new NotFoundError("コンバージョン");
       }
 
+      // フィールド名のエイリアス解決
+      const resolvedContext = data.context !== undefined ? data.context : data.description;
+      const resolvedPeriodStart = data.periodStart !== undefined ? data.periodStart : data.startDate;
+      const resolvedPeriodEnd = data.periodEnd !== undefined ? data.periodEnd : data.endDate;
+
+      // typeの変換（文字列からEnum）- 有効な値のみ許可
+      let resolvedType: ConversionType | undefined = undefined;
+      if (data.type) {
+        const typeUpper = data.type.toUpperCase();
+        const validTypes = ["BANNER", "TEXT", "INLINE"] as const;
+        if (validTypes.includes(typeUpper as typeof validTypes[number])) {
+          resolvedType = typeUpper as ConversionType;
+        }
+      }
+
+      // statusの変換
+      let resolvedStatus: ConversionStatus | undefined = undefined;
+      if (data.status) {
+        const statusUpper = data.status.toUpperCase();
+        const validStatuses = ["ACTIVE", "INACTIVE", "PAUSED"] as const;
+        if (validStatuses.includes(statusUpper as typeof validStatuses[number])) {
+          resolvedStatus = statusUpper as ConversionStatus;
+        }
+      }
+
       const conversion = await prisma.conversions.update({
         where: { id },
         data: {
           name: data.name,
-          type: data.type,
-          status: data.status,
+          type: resolvedType,
+          status: resolvedStatus,
           url: data.url,
           thumbnailUrl: data.thumbnailUrl,
-          context: data.context,
-          periodStart: data.periodStart
-            ? new Date(data.periodStart)
-            : data.periodStart === null
+          context: resolvedContext,
+          periodStart: resolvedPeriodStart
+            ? new Date(resolvedPeriodStart)
+            : resolvedPeriodStart === null
             ? null
             : undefined,
-          periodEnd: data.periodEnd
-            ? new Date(data.periodEnd)
-            : data.periodEnd === null
+          periodEnd: resolvedPeriodEnd
+            ? new Date(resolvedPeriodEnd)
+            : resolvedPeriodEnd === null
             ? null
             : undefined,
         },

@@ -10,7 +10,7 @@ import {
   parsePaginationParams,
   calculatePagination,
 } from "@/lib/api-response";
-import { validateBody, commonSchemas } from "@/lib/validation";
+import { validateBody } from "@/lib/validation";
 import { isAppError, handlePrismaError } from "@/lib/errors";
 import { auditLog } from "@/lib/audit-log";
 import { randomUUID } from "crypto";
@@ -115,20 +115,18 @@ export async function GET(request: NextRequest) {
 // 監修者作成スキーマ
 const createAuthorSchema = z.object({
   name: z.string().min(1).max(100),
-  role: z.string().min(1).max(100), // 肩書き
+  slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "小文字英数字とハイフンのみ使用できます").optional(),
+  role: z.string().max(100).optional(), // 肩書き（オプショナル化）
   qualifications: z.array(z.string()).default([]),
-  categories: z.array(z.string()).default([]), // New
-  tags: z.array(z.string()).default([]),       // New
-  bio: z.string().min(1),
-  imageUrl: commonSchemas.url.optional(),
+  categories: z.array(z.string()).default([]),
+  tags: z.array(z.string()).default([]),
+  bio: z.string().optional(), // オプショナル化
+  avatarUrl: z.string().optional(), // 空文字列も受け入れる
+  imageUrl: z.string().optional(), // 空文字列も受け入れる
   socialLinks: z
-    .object({
-      twitter: z.string().optional(),
-      instagram: z.string().optional(),
-      website: z.string().optional(),
-    })
+    .record(z.string())
     .optional(),
-  systemPrompt: z.string().min(1), // オーナーのみ設定可
+  systemPrompt: z.string().optional(), // オプショナル化
 });
 
 // 監修者作成（オーナーのみ）
@@ -137,19 +135,25 @@ export async function POST(request: NextRequest) {
     return await withOwnerAuth(request, async (user) => {
       const data = await validateBody(request, createAuthorSchema);
 
+      // フィールド名のエイリアス解決
+      const resolvedSlug = data.slug || randomUUID();
+      // 空文字列の場合はnullに変換
+      const rawImageUrl = data.imageUrl || data.avatarUrl;
+      const resolvedImageUrl = rawImageUrl && rawImageUrl.trim() !== "" ? rawImageUrl : null;
+
       const author = await prisma.authors.create({
         data: {
           id: randomUUID(),
           name: data.name,
-          slug: randomUUID(), // TODO: generate valid slug from name if possible, or distinct uuid
-          role: data.role,
+          slug: resolvedSlug,
+          role: data.role || "ライター",
           qualifications: data.qualifications,
           categories: data.categories,
           tags: data.tags,
-          bio: data.bio,
-          imageUrl: data.imageUrl,
+          bio: data.bio || "",
+          imageUrl: resolvedImageUrl,
           socialLinks: data.socialLinks,
-          systemPrompt: data.systemPrompt,
+          systemPrompt: data.systemPrompt || "あなたは専門家として、正確で有益な記事を執筆してください。",
         },
         select: {
           id: true,

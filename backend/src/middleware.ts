@@ -14,8 +14,9 @@ const CSRF_SKIP_PATHS = [
 
 // 許可するオリジン（環境変数から設定）
 const ALLOWED_ORIGINS = [
-  process.env.NEXTAUTH_URL || "http://localhost:3001",
+  process.env.NEXTAUTH_URL || "http://localhost:3000",
   process.env.FRONTEND_URL || "http://localhost:5173",
+  "http://localhost:3000", // バックエンド自身（プロキシ経由のリクエスト用）
 ].filter(Boolean);
 
 export function middleware(request: NextRequest) {

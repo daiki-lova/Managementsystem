@@ -55,7 +55,7 @@ const updateCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
   slug: commonSchemas.slug.optional(),
   description: z.string().max(500).optional().nullable(),
-  color: commonSchemas.hexColor.optional().nullable(),
+  color: z.string().max(100).optional().nullable(), // HEXカラーまたはTailwindクラス名を受け入れる
 });
 
 // カテゴリ更新（オーナーのみ）
