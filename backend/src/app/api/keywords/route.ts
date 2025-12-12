@@ -7,7 +7,8 @@ import {
   KeywordsEverywhereClient,
   isInRecommendedRange,
   scoreKeyword,
-  RECOMMENDED_VOLUME_RANGE,
+  DEFAULT_VOLUME_RANGE,
+  type VolumeRange,
 } from "@/lib/keywords-everywhere";
 import { z } from "zod";
 import { isAppError } from "@/lib/errors";
@@ -37,6 +38,12 @@ export async function POST(request: NextRequest) {
         settings.searchVolumeApiKey
       );
 
+      // 設定から検索ボリューム範囲を取得
+      const volumeRange: VolumeRange = {
+        min: settings.minSearchVolume ?? DEFAULT_VOLUME_RANGE.min,
+        max: settings.maxSearchVolume ?? DEFAULT_VOLUME_RANGE.max,
+      };
+
       let data;
 
       if (validated.type === "volume") {
@@ -56,11 +63,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // スコアリングと推奨フラグを追加
+      // スコアリングと推奨フラグを追加（設定の範囲を使用）
       const enrichedData = data.map((keyword) => ({
         ...keyword,
-        score: scoreKeyword(keyword),
-        isRecommended: isInRecommendedRange(keyword.volume),
+        score: scoreKeyword(keyword, volumeRange),
+        isRecommended: isInRecommendedRange(keyword.volume, volumeRange),
       }));
 
       // スコア順でソート
@@ -68,7 +75,7 @@ export async function POST(request: NextRequest) {
 
       return successResponse({
         keywords: enrichedData,
-        recommendedRange: RECOMMENDED_VOLUME_RANGE,
+        recommendedRange: volumeRange,
       });
     });
   } catch (error) {
@@ -108,14 +115,20 @@ export async function GET(request: NextRequest) {
         settings.searchVolumeApiKey
       );
 
+      // 設定から検索ボリューム範囲を取得
+      const volumeRange: VolumeRange = {
+        min: settings.minSearchVolume ?? DEFAULT_VOLUME_RANGE.min,
+        max: settings.maxSearchVolume ?? DEFAULT_VOLUME_RANGE.max,
+      };
+
       // 関連キーワードを取得
       const relatedKeywords = await client.getRelatedKeywords(keyword);
 
-      // 推奨範囲内のキーワードを優先
+      // 推奨範囲内のキーワードを優先（設定の範囲を使用）
       const enrichedData = relatedKeywords.map((kw) => ({
         ...kw,
-        score: scoreKeyword(kw),
-        isRecommended: isInRecommendedRange(kw.volume),
+        score: scoreKeyword(kw, volumeRange),
+        isRecommended: isInRecommendedRange(kw.volume, volumeRange),
       }));
 
       // スコア順でソート、上位20件
@@ -124,7 +137,7 @@ export async function GET(request: NextRequest) {
 
       return successResponse({
         keywords: topKeywords,
-        recommendedRange: RECOMMENDED_VOLUME_RANGE,
+        recommendedRange: volumeRange,
       });
     });
   } catch (error) {

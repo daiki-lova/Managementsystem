@@ -118,30 +118,42 @@ export class KeywordsEverywhereClient {
   }
 }
 
-// 推奨検索ボリュームゾーン
-export const RECOMMENDED_VOLUME_RANGE = {
+// デフォルト推奨検索ボリュームゾーン
+export const DEFAULT_VOLUME_RANGE = {
   min: 300,
   max: 2000,
 };
 
+// 推奨検索ボリュームゾーン（後方互換性のため残す）
+export const RECOMMENDED_VOLUME_RANGE = DEFAULT_VOLUME_RANGE;
+
+// 検索ボリューム範囲の型
+export interface VolumeRange {
+  min: number;
+  max: number;
+}
+
 // キーワードが推奨ゾーン内かチェック
-export function isInRecommendedRange(volume: number): boolean {
-  return (
-    volume >= RECOMMENDED_VOLUME_RANGE.min &&
-    volume <= RECOMMENDED_VOLUME_RANGE.max
-  );
+export function isInRecommendedRange(
+  volume: number,
+  range: VolumeRange = DEFAULT_VOLUME_RANGE
+): boolean {
+  return volume >= range.min && volume <= range.max;
 }
 
 // キーワードデータをスコアリング
-export function scoreKeyword(keyword: KeywordData): number {
+export function scoreKeyword(
+  keyword: KeywordData,
+  range: VolumeRange = DEFAULT_VOLUME_RANGE
+): number {
   let score = 0;
 
   // ボリュームスコア（推奨範囲内で高得点）
-  if (isInRecommendedRange(keyword.volume)) {
+  if (isInRecommendedRange(keyword.volume, range)) {
     score += 50;
-  } else if (keyword.volume > 0 && keyword.volume < RECOMMENDED_VOLUME_RANGE.min) {
+  } else if (keyword.volume > 0 && keyword.volume < range.min) {
     score += 20;
-  } else if (keyword.volume > RECOMMENDED_VOLUME_RANGE.max) {
+  } else if (keyword.volume > range.max) {
     score += 30;
   }
 

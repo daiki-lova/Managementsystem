@@ -810,6 +810,9 @@ export interface SystemSettings {
   gaApiKey: string | null;
   searchConsoleApiKey: string | null;
   searchVolumeApiKey: string | null;
+  // Search Volume Settings
+  minSearchVolume: number;
+  maxSearchVolume: number;
   // AI Models
   imageModel: string | null;
   articleModel: string | null;
@@ -835,6 +838,9 @@ export const settingsApi = {
     gaApiKey?: string;
     searchConsoleApiKey?: string;
     searchVolumeApiKey?: string;
+    // Search Volume Settings
+    minSearchVolume?: number;
+    maxSearchVolume?: number;
     // AI Models
     imageModel?: string;
     articleModel?: string;

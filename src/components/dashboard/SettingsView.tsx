@@ -25,6 +25,9 @@ export function SettingsView() {
     // Local state for form
     const [formData, setFormData] = useState({
         openRouterApiKey: '',
+        searchVolumeApiKey: '',
+        minSearchVolume: 300,
+        maxSearchVolume: 2000,
         gaPropertyId: '',
         gscSiteUrl: '',
         imageModel: 'google/gemini-3-pro-image-preview',
@@ -41,12 +44,17 @@ export function SettingsView() {
     // API key editing state
     const [isEditingApiKey, setIsEditingApiKey] = useState(false);
     const [newApiKey, setNewApiKey] = useState('');
+    const [isEditingSearchVolumeKey, setIsEditingSearchVolumeKey] = useState(false);
+    const [newSearchVolumeKey, setNewSearchVolumeKey] = useState('');
 
     // Initialize form with API data
     useEffect(() => {
         if (settings) {
             setFormData({
                 openRouterApiKey: settings.openRouterApiKey || '',
+                searchVolumeApiKey: settings.searchVolumeApiKey || '',
+                minSearchVolume: settings.minSearchVolume ?? 300,
+                maxSearchVolume: settings.maxSearchVolume ?? 2000,
                 gaPropertyId: settings.gaPropertyId || '',
                 gscSiteUrl: settings.gscSiteUrl || '',
                 imageModel: settings.imageModel || 'google/gemini-3-pro-image-preview',
@@ -239,6 +247,128 @@ export function SettingsView() {
                                             <span className="text-[10px] text-neutral-300">未設定</span>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Keywords Everywhere Card */}
+                        <div className="group p-6 rounded-3xl border border-neutral-200 hover:border-neutral-300 transition-all bg-white hover:shadow-sm">
+                            <div className="flex items-start justify-between mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-[#FEF3C7] flex items-center justify-center text-[#D97706]">
+                                        <Search size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-neutral-900">Keywords Everywhere</h3>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            {formData.searchVolumeApiKey ? (
+                                                <>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                                    <span className="text-xs font-bold text-emerald-600">API連携済み</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-xs font-bold text-neutral-400">未設定</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* API Key Input */}
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider ml-1">APIキー</Label>
+                                    <div className="relative">
+                                        {isEditingSearchVolumeKey ? (
+                                            <>
+                                                <Input
+                                                    type="text"
+                                                    value={newSearchVolumeKey}
+                                                    onChange={(e) => setNewSearchVolumeKey(e.target.value)}
+                                                    className="h-10 bg-white border-neutral-200 rounded-xl font-mono text-xs pr-24"
+                                                    placeholder="APIキーを入力..."
+                                                    autoFocus
+                                                />
+                                                <div className="absolute right-1 top-1 flex gap-1">
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            if (newSearchVolumeKey.trim()) {
+                                                                setFormData({...formData, searchVolumeApiKey: newSearchVolumeKey.trim()});
+                                                            }
+                                                            setIsEditingSearchVolumeKey(false);
+                                                            setNewSearchVolumeKey('');
+                                                        }}
+                                                        disabled={!newSearchVolumeKey.trim()}
+                                                        className="h-8 bg-neutral-900 text-white hover:bg-neutral-800 font-bold text-[10px] px-2"
+                                                    >
+                                                        保存
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => {
+                                                            setIsEditingSearchVolumeKey(false);
+                                                            setNewSearchVolumeKey('');
+                                                        }}
+                                                        className="h-8 text-neutral-400 hover:text-neutral-900 font-bold text-[10px] px-2"
+                                                    >
+                                                        取消
+                                                    </Button>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Input
+                                                    type="password"
+                                                    value={formData.searchVolumeApiKey ? '●'.repeat(Math.min(formData.searchVolumeApiKey.length, 20)) : ''}
+                                                    readOnly
+                                                    className="h-10 bg-neutral-50 border-neutral-200 rounded-xl font-mono text-xs cursor-default"
+                                                    placeholder="未設定"
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setIsEditingSearchVolumeKey(true);
+                                                        setNewSearchVolumeKey('');
+                                                    }}
+                                                    className="absolute right-1 top-1 h-8 bg-neutral-900 text-white hover:bg-neutral-800 font-bold text-[10px]"
+                                                >
+                                                    {formData.searchVolumeApiKey ? '変更' : '設定'}
+                                                </Button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Search Volume Range */}
+                                <div className="space-y-3 pt-3 border-t border-neutral-100">
+                                    <Label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider ml-1">推奨検索ボリューム範囲</Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] text-neutral-500 ml-1">最小</Label>
+                                            <Input
+                                                type="number"
+                                                value={formData.minSearchVolume}
+                                                onChange={(e) => setFormData({...formData, minSearchVolume: parseInt(e.target.value) || 0})}
+                                                className="h-10 bg-white border-neutral-200 rounded-xl text-sm font-bold"
+                                                min={0}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] text-neutral-500 ml-1">最大</Label>
+                                            <Input
+                                                type="number"
+                                                value={formData.maxSearchVolume}
+                                                onChange={(e) => setFormData({...formData, maxSearchVolume: parseInt(e.target.value) || 0})}
+                                                className="h-10 bg-white border-neutral-200 rounded-xl text-sm font-bold"
+                                                min={0}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-neutral-400 pl-1">
+                                        ※ キーワード選定時にこの範囲内の検索ボリュームを優先します
+                                    </p>
                                 </div>
                             </div>
                         </div>
