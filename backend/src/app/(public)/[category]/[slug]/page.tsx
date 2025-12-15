@@ -12,6 +12,7 @@ import {
 } from '@/lib/public-data';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import sanitizeHtmlLib from 'sanitize-html';
 
 // ISR: 60秒ごとに再検証
 export const revalidate = 60;
@@ -57,170 +58,75 @@ interface BlockData {
   metadata?: { altText?: string; slot?: string };
 }
 
-// HTMLサニタイズ（記事本文用：許可タグのホワイトリスト方式）
-// script/iframe/formなどの危険タグは除去、それ以外の記事構造タグは許可
+// 共通のサニタイズ設定（公開ページ・プレビュー共通で使用）
+// 公開ページではsanitize-html、プレビューではDOMPurifyを使用するが設定は統一
+// style属性は許可しない（CSSベースの攻撃を防ぐ）
+const SANITIZE_ALLOWED_TAGS: string[] = [
+  // 構造
+  'div', 'section', 'article', 'header', 'footer', 'main', 'aside', 'nav',
+  // 見出し
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  // テキスト
+  'p', 'span', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ins', 'mark', 'small', 'sub', 'sup',
+  // リンク
+  'a',
+  // リスト
+  'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+  // 画像・メディア
+  'figure', 'figcaption', 'img', 'picture', 'source',
+  // テーブル
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+  // 引用・コード
+  'blockquote', 'q', 'cite', 'code', 'pre', 'kbd', 'samp', 'var',
+  // その他
+  'br', 'hr', 'abbr', 'address', 'time', 'details', 'summary',
+];
+
+const SANITIZE_ALLOWED_ATTRIBUTES: Record<string, string[]> = {
+  '*': ['class', 'id'],
+  'a': ['href', 'target', 'rel', 'title'],
+  'img': ['src', 'alt', 'width', 'height', 'loading', 'data-image-slot'],
+  'figure': ['data-image-slot'],
+  'div': ['data-image-slot'],
+  'ol': ['start', 'type'],
+  'th': ['colspan', 'rowspan', 'scope'],
+  'td': ['colspan', 'rowspan'],
+  'blockquote': ['cite'],
+  'q': ['cite'],
+  'abbr': ['title'],
+  'time': ['datetime'],
+  'details': ['open'],
+  'source': ['srcset', 'media', 'type'],
+};
+
+// HTMLサニタイズ（記事本文用：sanitize-htmlライブラリ使用）
 function sanitizeHtml(html: string): string {
-  // 完全に除去するタグ（タグとその中身を削除）
-  const removeWithContent = ['script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'form', 'input', 'button', 'select', 'textarea', 'noscript'];
-
-  // これらのタグは中身ごと削除
-  for (const tag of removeWithContent) {
-    const regex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi');
-    html = html.replace(regex, '');
-    // 自己終了タグも削除
-    html = html.replace(new RegExp(`<${tag}[^>]*\\/?>`, 'gi'), '');
-  }
-
-  // 許可するタグとその属性
-  const allowedTags: Record<string, string[]> = {
-    // 構造
-    div: ['class', 'id', 'data-image-slot'],
-    section: ['class', 'id'],
-    article: ['class', 'id'],
-    header: ['class'],
-    footer: ['class'],
-    main: ['class'],
-    aside: ['class'],
-    nav: ['class'],
-    // 見出し
-    h1: ['class', 'id'],
-    h2: ['class', 'id'],
-    h3: ['class', 'id'],
-    h4: ['class', 'id'],
-    h5: ['class', 'id'],
-    h6: ['class', 'id'],
-    // テキスト
-    p: ['class'],
-    span: ['class'],
-    strong: ['class'],
-    b: ['class'],
-    em: ['class'],
-    i: ['class'],
-    u: ['class'],
-    s: ['class'],
-    del: ['class'],
-    ins: ['class'],
-    mark: ['class'],
-    small: ['class'],
-    sub: ['class'],
-    sup: ['class'],
-    // リンク
-    a: ['href', 'target', 'rel', 'class', 'title'],
-    // リスト
-    ul: ['class'],
-    ol: ['class', 'start', 'type'],
-    li: ['class'],
-    dl: ['class'],
-    dt: ['class'],
-    dd: ['class'],
-    // 画像・メディア
-    figure: ['class', 'data-image-slot'],
-    figcaption: ['class'],
-    img: ['src', 'alt', 'class', 'width', 'height', 'loading', 'data-image-slot'],
-    picture: ['class'],
-    source: ['srcset', 'media', 'type'],
-    // テーブル
-    table: ['class'],
-    thead: ['class'],
-    tbody: ['class'],
-    tfoot: ['class'],
-    tr: ['class'],
-    th: ['class', 'colspan', 'rowspan', 'scope'],
-    td: ['class', 'colspan', 'rowspan'],
-    // 引用・コード
-    blockquote: ['class', 'cite'],
-    q: ['class', 'cite'],
-    cite: ['class'],
-    code: ['class'],
-    pre: ['class'],
-    kbd: ['class'],
-    samp: ['class'],
-    var: ['class'],
-    // その他
-    br: [],
-    hr: ['class'],
-    abbr: ['class', 'title'],
-    address: ['class'],
-    time: ['class', 'datetime'],
-    details: ['class', 'open'],
-    summary: ['class'],
-  };
-
-  // 危険な属性値のパターン
-  const dangerousPatterns = [
-    /javascript:/i,
-    /vbscript:/i,
-    /^on\w+/i, // onclickなどのイベントハンドラ
-  ];
-
-  // タグをパースして処理
-  return html.replace(
-    /<\/?([a-zA-Z][a-zA-Z0-9]*)\s*([^>]*)>/g,
-    (match, tagName, attributes) => {
-      const lowerTag = tagName.toLowerCase();
-
-      // 許可されていないタグは除去（内容は残す）
-      if (!allowedTags[lowerTag]) {
-        return '';
-      }
-
-      // 終了タグの場合
-      if (match.startsWith('</')) {
-        return `</${lowerTag}>`;
-      }
-
-      // 許可された属性のみを保持
-      const allowedAttrs = allowedTags[lowerTag];
-      const cleanAttrs: string[] = [];
-
-      // 属性をパース
-      const attrRegex = /([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))/g;
-      let attrMatch;
-      while ((attrMatch = attrRegex.exec(attributes)) !== null) {
-        const [, attrName, val1, val2, val3] = attrMatch;
-        const attrValue = val1 ?? val2 ?? val3 ?? '';
-        const lowerAttr = attrName.toLowerCase();
-
-        // イベントハンドラは常に除外
-        if (lowerAttr.startsWith('on')) {
-          continue;
+  return sanitizeHtmlLib(html, {
+    allowedTags: SANITIZE_ALLOWED_TAGS,
+    allowedAttributes: SANITIZE_ALLOWED_ATTRIBUTES,
+    // 外部リンクにtarget="_blank"とrel="noopener noreferrer"を自動追加
+    transformTags: {
+      'a': (tagName, attribs) => {
+        const href = attribs.href || '';
+        // 外部リンク（http/httpsで始まる）の場合
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          return {
+            tagName: 'a',
+            attribs: {
+              ...attribs,
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
+          };
         }
-
-        // 許可された属性かチェック
-        if (allowedAttrs.includes(lowerAttr)) {
-          // 危険なパターンをチェック
-          const isDangerous = dangerousPatterns.some(p => p.test(attrValue));
-          if (!isDangerous) {
-            // hrefの場合は外部リンクにtarget="_blank"とrel="noopener noreferrer"を追加
-            if (lowerAttr === 'href' && attrValue.startsWith('http')) {
-              cleanAttrs.push(`href="${attrValue}"`);
-              // target と rel が未設定の場合は追加
-              if (!attributes.includes('target=')) {
-                cleanAttrs.push('target="_blank"');
-              }
-              if (!attributes.includes('rel=')) {
-                cleanAttrs.push('rel="noopener noreferrer"');
-              }
-            } else {
-              cleanAttrs.push(`${lowerAttr}="${attrValue}"`);
-            }
-          }
-        }
-      }
-
-      // 自己終了タグの処理
-      const selfClosing = ['br', 'hr', 'img', 'source'].includes(lowerTag);
-      if (selfClosing) {
-        return cleanAttrs.length > 0
-          ? `<${lowerTag} ${cleanAttrs.join(' ')} />`
-          : `<${lowerTag} />`;
-      }
-
-      return cleanAttrs.length > 0
-        ? `<${lowerTag} ${cleanAttrs.join(' ')}>`
-        : `<${lowerTag}>`;
-    }
-  );
+        return { tagName, attribs };
+      },
+    },
+    // javascript:などの危険なURLスキームを除去
+    allowedSchemes: ['http', 'https', 'mailto', 'tel'],
+    // 空タグは除去しない（brやhrなど）
+    allowVulnerableTags: false,
+  });
 }
 
 // リストアイテムを取得（itemsがない場合はcontentを行分割）
