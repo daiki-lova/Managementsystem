@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, UserCheck, ChevronRight, CheckCircle2, Check, Copy, CalendarDays, Globe, Lightbulb, Loader2, Zap, User, Search, RefreshCw, X, AlertCircle } from 'lucide-react';
+import { Sparkles, UserCheck, ChevronRight, CheckCircle2, Check, Copy, CalendarDays, Globe, Lightbulb, Loader2, Zap, User, Search, RefreshCw, X, AlertCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -15,6 +15,7 @@ import {
     SelectValue,
 } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import type { Category, ConversionItem, KnowledgeItem, Profile } from '../../types';
 import { GenerationProgressModal } from './GenerationProgressModal';
@@ -37,6 +38,15 @@ export type GeneratedArticleData = {
     author?: string;
 };
 
+// カニバリマッチの型
+type CannibalMatch = {
+    articleId: string;
+    title: string;
+    slug: string;
+    similarity: number;
+    matchType: "title" | "slug" | "keyword";
+};
+
 type KeywordCandidate = {
     id: string;
     keyword: string;
@@ -46,6 +56,9 @@ type KeywordCandidate = {
     score?: number;
     isRecommended?: boolean;
     cpc?: number;
+    // カニバリ判定
+    cannibalScore?: number;
+    cannibalMatches?: CannibalMatch[];
 };
 
 export function StrategyView({
@@ -237,6 +250,8 @@ export function StrategyView({
                     score: kw.score,
                     isRecommended: kw.isRecommended,
                     cpc: kw.cpc,
+                    cannibalScore: kw.cannibalScore,
+                    cannibalMatches: kw.cannibalMatches,
                 }));
 
                 setKeywordCandidates(candidates);
@@ -531,62 +546,6 @@ export function StrategyView({
                             </div>
                         </section>
 
-                        {/* Step 4: Knowledge Bank (New) */}
-                        <section className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">4</span>
-                                    <h2 className="text-sm font-bold text-neutral-900">情報バンク (参照ソース)</h2>
-                                </div>
-                                <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
-                                    {selectedKnowledgeIds.size} 選択中
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
-                                {knowledgeItems.map((item) => {
-                                    const isSelected = selectedKnowledgeIds.has(item.id);
-                                    return (
-                                        <button
-                                            key={item.id}
-                                            onClick={() => genStatus !== 'processing' && toggleKnowledge(item.id)}
-                                            disabled={genStatus === 'processing'}
-                                            className={cn(
-                                                "p-3 rounded-lg border text-left transition-all group flex flex-col gap-1",
-                                                isSelected
-                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
-                                                    : "border-neutral-200 bg-white hover:border-neutral-300"
-                                            )}
-                                        >
-                                            <div className="flex items-start justify-between w-full">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={cn(
-                                                        "text-[10px] px-1.5 py-0.5 rounded border font-medium",
-                                                        item.kind === 'fact' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                            item.kind === 'voice' ? "bg-green-50 text-green-700 border-green-200" :
-                                                                "bg-neutral-100 text-neutral-600 border-neutral-200"
-                                                    )}>
-                                                        {item.kind === 'fact' ? 'EVIDENCE' : item.kind === 'voice' ? 'VOICE' : 'INFO'}
-                                                    </span>
-                                                    <h3 className={cn("font-bold text-xs line-clamp-1", isSelected ? "text-neutral-900" : "text-neutral-700")}>
-                                                        {item.title}
-                                                    </h3>
-                                                </div>
-                                                {isSelected && (
-                                                    <div className="bg-neutral-900 text-white rounded-full p-0.5 shrink-0">
-                                                        <Check size={10} strokeWidth={3} />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <p className="text-[10px] text-neutral-500 line-clamp-2 leading-relaxed w-full">
-                                                {item.content}
-                                            </p>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </section>
-
                         {/* Keyword Selection Action */}
                         <AnimatePresence mode="wait">
                             {!showKeywords && (
@@ -658,7 +617,7 @@ export function StrategyView({
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">5</span>
+                                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">4</span>
                                             <h2 className="text-sm font-bold text-neutral-900">キーワード設定</h2>
                                         </div>
                                         <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
@@ -797,7 +756,7 @@ export function StrategyView({
                                                                     {isSelected && <Check size={10} className="text-white" />}
                                                                 </div>
                                                                 <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                                         <p className="text-sm font-bold text-neutral-900">
                                                                             {kw.keyword}
                                                                         </p>
@@ -810,6 +769,40 @@ export function StrategyView({
                                                                             <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                                                                                 スコア {kw.score}
                                                                             </span>
+                                                                        )}
+                                                                        {/* カニバリ警告 */}
+                                                                        {kw.cannibalScore !== undefined && kw.cannibalScore >= 50 && (
+                                                                            <TooltipProvider>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <span className={cn(
+                                                                                            "text-[9px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1 cursor-help",
+                                                                                            kw.cannibalScore >= 70
+                                                                                                ? "bg-red-100 text-red-700"
+                                                                                                : "bg-amber-100 text-amber-700"
+                                                                                        )}>
+                                                                                            <AlertTriangle size={9} />
+                                                                                            被り{kw.cannibalScore}%
+                                                                                        </span>
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent side="top" className="max-w-xs">
+                                                                                        <div className="text-xs">
+                                                                                            <p className="font-bold mb-1">類似記事あり</p>
+                                                                                            {kw.cannibalMatches && kw.cannibalMatches.length > 0 ? (
+                                                                                                <ul className="space-y-1">
+                                                                                                    {kw.cannibalMatches.map((match, i) => (
+                                                                                                        <li key={i} className="text-neutral-600">
+                                                                                                            • {match.title.slice(0, 30)}{match.title.length > 30 ? '...' : ''} ({match.similarity}%)
+                                                                                                        </li>
+                                                                                                    ))}
+                                                                                                </ul>
+                                                                                            ) : (
+                                                                                                <p className="text-neutral-600">既存記事と内容が重複する可能性があります</p>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TooltipContent>
+                                                                                </Tooltip>
+                                                                            </TooltipProvider>
                                                                         )}
                                                                     </div>
                                                                     <div className="flex items-center gap-3 text-[10px] text-neutral-500 mb-1.5">
@@ -873,7 +866,7 @@ export function StrategyView({
 
                     <div className={cn("p-6 space-y-6 flex-1 overflow-y-auto transition-opacity duration-300", genStatus === 'processing' ? "opacity-30 pointer-events-none" : "opacity-100")}>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">6</span>
+                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">5</span>
                             <h2 className="text-sm font-bold text-neutral-900">生成オプション</h2>
                         </div>
 

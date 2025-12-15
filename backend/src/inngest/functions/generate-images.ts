@@ -1,9 +1,32 @@
 import { inngest } from "../client";
 import prisma from "@/lib/prisma";
-import { MediaSource, ArticleImageType } from "@prisma/client";
+import { MediaSource, ArticleImageType, Prisma } from "@prisma/client";
 import { uploadImage } from "@/lib/supabase";
 import { randomUUID } from "crypto";
 import { getDecryptedSettings } from "@/lib/settings";
+
+// image_jobの型定義（パイプラインから渡される）
+interface ImageJob {
+  slot: string;   // "cover", "inserted_1", "inserted_2", etc.
+  prompt: string; // 画像生成プロンプト
+  alt: string;    // alt属性
+}
+
+// 生成結果の型
+interface GeneratedImage {
+  slot: string;
+  url: string;
+  alt: string;
+  mediaAssetId: string;
+}
+
+function getMetadataString(
+  metadata: Record<string, unknown> | undefined,
+  key: string
+): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === "string" ? value : undefined;
+}
 
 // 画像生成関数
 export const generateImages = inngest.createFunction(
@@ -50,7 +73,11 @@ export const generateImages = inngest.createFunction(
   },
   { event: "article/generate-images" },
   async ({ event, step }) => {
-    const { articleId, jobId } = event.data;
+    const { articleId, jobId, imageJobs } = event.data as {
+      articleId: string;
+      jobId: string;
+      imageJobs?: ImageJob[];
+    };
 
     // 記事データを取得
     const article = await step.run("fetch-article", async () => {
@@ -79,6 +106,169 @@ export const generateImages = inngest.createFunction(
     // システムプロンプトを取得
     const systemPrompt = settings.imagePrompt || "ヨガやウェルネスに関連する、落ち着いた色調でプロフェッショナルな雰囲気の画像を生成してください。";
 
+    // 生成結果を格納
+    const generatedImages: GeneratedImage[] = [];
+
+    // ========================================
+    // imageJobsベースの画像生成（パイプラインから渡された場合）
+    // ========================================
+    if (imageJobs && imageJobs.length > 0) {
+      console.log(`[ImageGeneration] Processing ${imageJobs.length} image jobs from pipeline`);
+
+      for (let i = 0; i < imageJobs.length; i++) {
+        const job = imageJobs[i];
+        const stepName = `generate-image-${job.slot}-${i}`;
+
+        const imageUrl = await step.run(stepName, async () => {
+          // パイプラインのプロンプトにシステムプロンプトを追加
+          const fullPrompt = `${systemPrompt}\n\n${job.prompt}`;
+          return generateImage({
+            prompt: fullPrompt,
+            apiKey: settings.openRouterApiKey!,
+            model: settings.imageModel || "google/gemini-3-pro-image-preview",
+          });
+        });
+
+        if (imageUrl) {
+          const saveStepName = `save-image-${job.slot}-${i}`;
+          const savedImage = await step.run(saveStepName, async () => {
+            // media_assetを作成
+            const mediaAsset = await prisma.media_assets.create({
+              data: {
+                id: randomUUID(),
+                url: imageUrl,
+                fileName: `${job.slot}-${articleId}.png`,
+                altText: job.alt,
+                source: MediaSource.AI_GENERATED,
+                showInLibrary: false,
+              },
+            });
+
+            // スロットに応じた処理
+            if (job.slot === "cover" || job.slot === "thumbnail") {
+              // カバー/サムネイルは記事のthumbnailIdに設定
+              await prisma.articles.update({
+                where: { id: articleId },
+                data: { thumbnailId: mediaAsset.id },
+              });
+            } else {
+              // それ以外はarticle_imagesに追加
+              // スロット名からArticleImageTypeを決定
+              let imageType: ArticleImageType;
+              if (job.slot === "inserted_1" || job.slot === "insert_1") {
+                imageType = ArticleImageType.INSERTED_1;
+              } else if (job.slot === "inserted_2" || job.slot === "insert_2") {
+                imageType = ArticleImageType.INSERTED_2;
+              } else {
+                // その他のスロットはINSERTED_1として扱う（拡張性のため）
+                imageType = ArticleImageType.INSERTED_1;
+              }
+
+              await prisma.article_images.create({
+                data: {
+                  id: randomUUID(),
+                  articleId,
+                  mediaAssetId: mediaAsset.id,
+                  type: imageType,
+                  position: i,
+                },
+              });
+            }
+
+            return {
+              slot: job.slot,
+              url: imageUrl,
+              alt: job.alt,
+              mediaAssetId: mediaAsset.id,
+            };
+          });
+
+          generatedImages.push(savedImage);
+        }
+      }
+
+      // 記事のブロックを更新（imageブロックに実際のURLを設定）
+      if (generatedImages.length > 0) {
+        await step.run("update-article-blocks", async () => {
+          const currentBlocks = article.blocks as { id: string; type: string; content: string; metadata?: Record<string, unknown>; src?: string; alt?: string }[];
+
+          // 使用済み画像を追跡（重複適用を防止）
+          const usedImageSlots = new Set<string>();
+
+          // 各画像ブロックのsrcを更新
+          const updatedBlocks = currentBlocks.map((block, blockIndex) => {
+            if (block.type === "image") {
+              // 1. metadata.slotでマッチング（優先）
+              const blockSlot = getMetadataString(block.metadata, "slot") || "";
+              let matchingImage = blockSlot
+                ? generatedImages.find((img) => img.slot === blockSlot && !usedImageSlots.has(img.slot))
+                : null;
+
+              // 2. slotがない場合、altテキストの部分一致でマッチング
+              const blockAlt =
+                block.alt
+                || getMetadataString(block.metadata, "alt")
+                || getMetadataString(block.metadata, "altText");
+              if (!matchingImage && blockAlt) {
+                const blockAltLower = blockAlt.toLowerCase();
+                matchingImage = generatedImages.find(
+                  (img) => !usedImageSlots.has(img.slot) && img.alt.toLowerCase().includes(blockAltLower.slice(0, 10))
+                );
+              }
+
+              // 3. それでもマッチしない場合、画像ブロックの出現順でマッチング
+              if (!matchingImage) {
+                const unusedImages = generatedImages.filter((img) => !usedImageSlots.has(img.slot));
+                if (unusedImages.length > 0) {
+                  matchingImage = unusedImages[0];
+                  console.log(
+                    `[ImageGeneration] Fallback matching: block[${blockIndex}] → ${matchingImage.slot} (by order)`
+                  );
+                }
+              }
+
+              if (matchingImage) {
+                usedImageSlots.add(matchingImage.slot);
+                return {
+                  ...block,
+                  src: matchingImage.url,
+                  alt: matchingImage.alt || block.alt || "",
+                  content: matchingImage.url, // contentにもURLを設定（フォールバック用）
+                  metadata: {
+                    ...block.metadata,
+                    slot: matchingImage.slot, // slotを保持/追加
+                  },
+                };
+              }
+            }
+            return block;
+          });
+
+          await prisma.articles.update({
+            where: { id: articleId },
+            data: {
+              blocks: updatedBlocks as unknown as Prisma.InputJsonValue,
+            },
+          });
+        });
+      }
+
+      return {
+        articleId,
+        generatedCount: generatedImages.length,
+        totalJobs: imageJobs.length,
+        generatedImages: generatedImages.map((img) => ({
+          slot: img.slot,
+          url: img.url,
+        })),
+      };
+    }
+
+    // ========================================
+    // フォールバック: imageJobsがない場合は従来のロジック
+    // ========================================
+    console.log("[ImageGeneration] No imageJobs provided, using fallback generation");
+
     // アイキャッチ画像を生成
     const thumbnailUrl = await step.run("generate-thumbnail", async () => {
       const userPrompt = `ブログ記事のアイキャッチ画像。タイトル: "${article.title}"。カテゴリ: ${article.categories.name}。`;
@@ -98,7 +288,7 @@ export const generateImages = inngest.createFunction(
             url: thumbnailUrl,
             fileName: `thumbnail-${articleId}.png`,
             source: MediaSource.AI_GENERATED,
-            showInLibrary: false, // AI生成画像はライブラリに表示しない
+            showInLibrary: false,
           },
         });
 

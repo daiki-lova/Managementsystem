@@ -392,6 +392,7 @@ model system_settings {
   articleModel         String?  @default("pro")
   analysisModel        String?  @default("banana")
   keywordPrompt        String?  @db.Text
+  keywordSuggestPrompt String?  @db.Text
   structurePrompt      String?  @db.Text
   draftPrompt          String?  @db.Text
   proofreadingPrompt   String?  @db.Text

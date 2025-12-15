@@ -737,6 +737,14 @@ export const generationJobsApi = {
 };
 
 // Keywords
+export interface CannibalMatch {
+  articleId: string;
+  title: string;
+  slug: string;
+  similarity: number;
+  matchType: "title" | "slug" | "keyword";
+}
+
 export interface KeywordSuggestion {
   keyword: string;
   searchVolume: number;
@@ -746,6 +754,9 @@ export interface KeywordSuggestion {
   score: number;
   reasoning: string;
   isRecommended: boolean;
+  // カニバリ判定
+  cannibalScore: number;
+  cannibalMatches: CannibalMatch[];
 }
 
 export interface KeywordSuggestResponse {
@@ -837,7 +848,7 @@ export interface SystemSettings {
   defaultBrandId: string | null;
   openRouterApiKey: string | null;
   gaPropertyId: string | null;
-  gscSiteUrl: string | null;
+  searchConsoleSiteUrl: string | null;
   gaApiKey: string | null;
   searchConsoleApiKey: string | null;
   searchVolumeApiKey: string | null;
@@ -851,6 +862,7 @@ export interface SystemSettings {
   analysisModel: string | null;
   // System Prompts
   keywordPrompt: string | null;
+  keywordSuggestPrompt: string | null;
   structurePrompt: string | null;
   draftPrompt: string | null;
   proofreadingPrompt: string | null;
@@ -866,7 +878,7 @@ export const settingsApi = {
     defaultBrandId?: string;
     openRouterApiKey?: string;
     gaPropertyId?: string;
-    gscSiteUrl?: string;
+    searchConsoleSiteUrl?: string;
     gaApiKey?: string;
     searchConsoleApiKey?: string;
     searchVolumeApiKey?: string;
@@ -880,6 +892,7 @@ export const settingsApi = {
     analysisModel?: string;
     // System Prompts
     keywordPrompt?: string;
+    keywordSuggestPrompt?: string;
     structurePrompt?: string;
     draftPrompt?: string;
     proofreadingPrompt?: string;

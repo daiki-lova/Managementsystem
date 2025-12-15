@@ -36,6 +36,15 @@ interface AIKeywordResponse {
   keywords: AIKeywordCandidate[];
 }
 
+// カニバリマッチの型
+interface CannibalMatch {
+  articleId: string;
+  title: string;
+  slug: string;
+  similarity: number; // 0-100
+  matchType: "title" | "slug" | "keyword";
+}
+
 // エンリッチ済みキーワードの型
 interface EnrichedKeyword {
   keyword: string;
@@ -46,6 +55,9 @@ interface EnrichedKeyword {
   trend: number[];
   score: number;
   isRecommended: boolean;
+  // カニバリ判定
+  cannibalScore: number; // 0-100 (高いほど被りリスク大)
+  cannibalMatches: CannibalMatch[];
 }
 
 // システムプロンプトを構築
@@ -149,6 +161,128 @@ function chunk<T>(array: T[], size: number): T[][] {
   return chunks;
 }
 
+// ===== カニバリ判定ロジック =====
+
+// テキストを正規化（小文字化、記号除去、空白正規化）
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[・、。！？!?（）()「」【】\[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// テキストをトークンに分割
+function tokenize(text: string): Set<string> {
+  const normalized = normalizeText(text);
+  // スペース区切り + 2-gram的な分割
+  const words = normalized.split(" ").filter((w) => w.length > 0);
+  const tokens = new Set<string>();
+
+  // 単語そのまま
+  for (const word of words) {
+    tokens.add(word);
+    // 2文字以上の単語は2-gramも追加（日本語対応）
+    if (word.length >= 2) {
+      for (let i = 0; i < word.length - 1; i++) {
+        tokens.add(word.slice(i, i + 2));
+      }
+    }
+  }
+  return tokens;
+}
+
+// Jaccard類似度を計算（0-100）
+function jaccardSimilarity(set1: Set<string>, set2: Set<string>): number {
+  if (set1.size === 0 && set2.size === 0) return 0;
+
+  const intersection = new Set([...set1].filter((x) => set2.has(x)));
+  const union = new Set([...set1, ...set2]);
+
+  if (union.size === 0) return 0;
+  return Math.round((intersection.size / union.size) * 100);
+}
+
+// キーワードが文字列に含まれるかチェック
+function containsKeyword(text: string, keyword: string): boolean {
+  const normalizedText = normalizeText(text);
+  const normalizedKeyword = normalizeText(keyword);
+  return normalizedText.includes(normalizedKeyword);
+}
+
+// 既存記事との類似度を計算
+interface ExistingArticle {
+  id: string;
+  title: string;
+  slug: string;
+}
+
+function calculateCannibalMatches(
+  keyword: string,
+  existingArticles: ExistingArticle[]
+): CannibalMatch[] {
+  const matches: CannibalMatch[] = [];
+  const keywordTokens = tokenize(keyword);
+
+  for (const article of existingArticles) {
+    let maxSimilarity = 0;
+    let matchType: CannibalMatch["matchType"] = "keyword";
+
+    // 1. タイトルとのJaccard類似度
+    const titleTokens = tokenize(article.title);
+    const titleSimilarity = jaccardSimilarity(keywordTokens, titleTokens);
+    if (titleSimilarity > maxSimilarity) {
+      maxSimilarity = titleSimilarity;
+      matchType = "title";
+    }
+
+    // 2. slugとの類似度（slugはハイフン区切りを考慮）
+    const slugNormalized = article.slug.replace(/-/g, " ");
+    const slugTokens = tokenize(slugNormalized);
+    const slugSimilarity = jaccardSimilarity(keywordTokens, slugTokens);
+    if (slugSimilarity > maxSimilarity) {
+      maxSimilarity = slugSimilarity;
+      matchType = "slug";
+    }
+
+    // 3. キーワードがタイトルに含まれるかチェック（完全一致に近いボーナス）
+    if (containsKeyword(article.title, keyword)) {
+      maxSimilarity = Math.max(maxSimilarity, 85);
+      matchType = "keyword";
+    }
+
+    // 類似度が30%以上の場合のみ記録
+    if (maxSimilarity >= 30) {
+      matches.push({
+        articleId: article.id,
+        title: article.title,
+        slug: article.slug,
+        similarity: maxSimilarity,
+        matchType,
+      });
+    }
+  }
+
+  // 類似度が高い順にソート
+  matches.sort((a, b) => b.similarity - a.similarity);
+
+  // 上位3件まで返す
+  return matches.slice(0, 3);
+}
+
+// カニバリスコアを計算（0-100）
+function calculateCannibalScore(matches: CannibalMatch[]): number {
+  if (matches.length === 0) return 0;
+
+  // 最も高い類似度をベースにスコア化
+  const maxSimilarity = matches[0].similarity;
+
+  // マッチ数に応じてボーナス/ペナルティ
+  const matchCountBonus = Math.min(matches.length * 5, 15);
+
+  return Math.min(100, maxSimilarity + matchCountBonus);
+}
+
 // POST /api/keywords/suggest - AIキーワード提案
 export async function POST(request: NextRequest) {
   try {
@@ -172,7 +306,7 @@ export async function POST(request: NextRequest) {
       const validated = await validateBody(request, suggestSchema);
 
       // コンテキスト情報を並行取得
-      const [category, conversion, author, settings] = await Promise.all([
+      const [category, conversion, author, settings, existingArticlesRaw] = await Promise.all([
         prisma.categories.findUnique({
           where: { id: validated.categoryId },
         }),
@@ -189,7 +323,25 @@ export async function POST(request: NextRequest) {
           },
         }),
         getDecryptedSettings(),
+        // カニバリ判定用: 同カテゴリの公開済み記事を取得
+        prisma.articles.findMany({
+          where: {
+            categoryId: validated.categoryId,
+            status: "PUBLISHED",
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+          },
+          orderBy: { publishedAt: "desc" },
+          take: 100, // 最新100件まで
+        }),
       ]);
+
+      // 既存記事の型変換
+      const existingArticles: ExistingArticle[] = existingArticlesRaw;
 
       // 存在確認
       if (!category) {
@@ -216,8 +368,11 @@ export async function POST(request: NextRequest) {
       };
 
       // AIでキーワード候補を生成
+      // 【重要】keywordSuggestPrompt を優先、なければ keywordPrompt にフォールバック
+      // Stage1のkeywordPromptとは分離して、候補生成の精度を保つ
       console.log("Generating keyword candidates with AI...");
-      const systemPrompt = buildSystemPrompt(settings.keywordPrompt);
+      const basePrompt = settings.keywordSuggestPrompt || settings.keywordPrompt || null;
+      const systemPrompt = buildSystemPrompt(basePrompt);
       const userPrompt = buildUserPrompt({
         category: {
           name: category.name,
@@ -268,16 +423,24 @@ export async function POST(request: NextRequest) {
       console.log(`AI generated ${aiKeywords.length} keyword candidates`);
 
       // Keywords Everywhere APIでボリューム取得
-      let enrichedKeywords: EnrichedKeyword[] = aiKeywords.map((kw) => ({
-        keyword: kw.keyword,
-        reasoning: kw.reasoning,
-        searchVolume: 0,
-        competition: 0,
-        cpc: 0,
-        trend: [],
-        score: 0,
-        isRecommended: false,
-      }));
+      let enrichedKeywords: EnrichedKeyword[] = aiKeywords.map((kw) => {
+        // カニバリ判定
+        const cannibalMatches = calculateCannibalMatches(kw.keyword, existingArticles);
+        const cannibalScore = calculateCannibalScore(cannibalMatches);
+
+        return {
+          keyword: kw.keyword,
+          reasoning: kw.reasoning,
+          searchVolume: 0,
+          competition: 0,
+          cpc: 0,
+          trend: [],
+          score: 0,
+          isRecommended: false,
+          cannibalScore,
+          cannibalMatches,
+        };
+      });
 
       if (settings.dataforSeoApiKey) {
         console.log("Fetching search volume data from DataForSEO...");
@@ -303,20 +466,17 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // AIキーワードとボリュームデータをマージ
-        enrichedKeywords = aiKeywords.map((aiKw) => {
+        // AIキーワードとボリュームデータをマージ（カニバリ情報を保持）
+        enrichedKeywords = enrichedKeywords.map((existingKw) => {
           const volumeData = allVolumeData.find(
-            (v) => v.keyword.toLowerCase() === aiKw.keyword.toLowerCase()
+            (v) => v.keyword.toLowerCase() === existingKw.keyword.toLowerCase()
           );
           return {
-            keyword: aiKw.keyword,
-            reasoning: aiKw.reasoning,
+            ...existingKw,
             searchVolume: volumeData?.volume ?? 0,
             competition: volumeData?.competition ?? 0,
             cpc: volumeData?.cpc ?? 0,
             trend: volumeData?.trend ?? [],
-            score: 0,
-            isRecommended: false,
           };
         });
       } else {
@@ -339,8 +499,18 @@ export async function POST(request: NextRequest) {
         isRecommended: isInRecommendedRange(kw.searchVolume, volumeRange),
       }));
 
-      // スコア順でソート
-      enrichedKeywords.sort((a, b) => b.score - a.score);
+      // ソート: スコアが良くてもカニバリ高いものは下げる
+      // 調整済みスコア = 基本スコア - (カニバリスコア * 0.5)
+      enrichedKeywords.sort((a, b) => {
+        const adjustedScoreA = a.score - a.cannibalScore * 0.5;
+        const adjustedScoreB = b.score - b.cannibalScore * 0.5;
+        return adjustedScoreB - adjustedScoreA;
+      });
+
+      console.log(
+        `Cannibalization check: ${existingArticles.length} existing articles, ` +
+          `${enrichedKeywords.filter((k) => k.cannibalScore > 50).length} high-risk keywords`
+      );
 
       // レスポンス
       return successResponse({

@@ -29,11 +29,12 @@ export function SettingsView() {
         minSearchVolume: 300,
         maxSearchVolume: 2000,
         gaPropertyId: '',
-        gscSiteUrl: '',
+        searchConsoleSiteUrl: '',
         imageModel: 'google/gemini-3-pro-image-preview',
         articleModel: 'anthropic/claude-sonnet-4',
         analysisModel: 'anthropic/claude-3.5-haiku',
         keywordPrompt: '',
+        keywordSuggestPrompt: '',
         structurePrompt: '',
         draftPrompt: '',
         proofreadingPrompt: '',
@@ -56,11 +57,12 @@ export function SettingsView() {
                 minSearchVolume: settings.minSearchVolume ?? 300,
                 maxSearchVolume: settings.maxSearchVolume ?? 2000,
                 gaPropertyId: settings.gaPropertyId || '',
-                gscSiteUrl: settings.gscSiteUrl || '',
+                searchConsoleSiteUrl: settings.searchConsoleSiteUrl || '',
                 imageModel: settings.imageModel || 'google/gemini-3-pro-image-preview',
                 articleModel: settings.articleModel || 'anthropic/claude-sonnet-4',
                 analysisModel: settings.analysisModel || 'anthropic/claude-3.5-haiku',
                 keywordPrompt: settings.keywordPrompt || '',
+                keywordSuggestPrompt: settings.keywordSuggestPrompt || '',
                 structurePrompt: settings.structurePrompt || '',
                 draftPrompt: settings.draftPrompt || '',
                 proofreadingPrompt: settings.proofreadingPrompt || '',
@@ -590,7 +592,7 @@ export function SettingsView() {
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* 1行目左：キーワード分析・企画 */}
+                            {/* キーワード分析・企画（パイプラインStage1用） */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-sm font-bold text-neutral-900">キーワード分析・企画</Label>
@@ -604,10 +606,27 @@ export function SettingsView() {
                                         placeholder="キーワード分析・企画用のプロンプトを入力..."
                                     />
                                 </div>
-                                <p className="text-[10px] text-neutral-400 pl-1">キーワードの検索意図分析と記事企画の作成時に使用されます</p>
+                                <p className="text-[10px] text-neutral-400 pl-1">人が選んだキーワードの検索意図分析と記事企画の作成時に使用されます（パイプラインStage1）</p>
                             </div>
 
-                            {/* 1行目右：構成案生成 */}
+                            {/* キーワード候補生成（AI提案用） */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-sm font-bold text-neutral-900">キーワード候補生成</Label>
+                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
+                                </div>
+                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
+                                    <Textarea
+                                        className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
+                                        value={formData.keywordSuggestPrompt}
+                                        onChange={(e) => setFormData({...formData, keywordSuggestPrompt: e.target.value})}
+                                        placeholder="キーワード候補生成用のプロンプトを入力..."
+                                    />
+                                </div>
+                                <p className="text-[10px] text-neutral-400 pl-1">AIがキーワード候補を提案する際に使用されます（戦略画面のAI提案）</p>
+                            </div>
+
+                            {/* 構成案生成 */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-sm font-bold text-neutral-900">構成案生成</Label>

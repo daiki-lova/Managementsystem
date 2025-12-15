@@ -14,7 +14,6 @@ import {
   buildStage1UserPrompt,
   COMMON_RULES,
   validateStage1Output,
-  StageValidationError,
 } from "./common";
 
 /**
@@ -72,8 +71,8 @@ ${settings.keywordPrompt || getDefaultKeywordPrompt()}`;
       throw new Error(result.error || "Stage 1 generation failed");
     }
 
-    // 出力をバリデーション
-    const validatedOutput = validateStage1Output(result.data);
+    // 出力をバリデーション（入力キーワードとの一致チェック含む）
+    const validatedOutput = validateStage1Output(result.data, input.keyword);
 
     // ステージを完了に更新
     await prisma.generation_stages.update({
@@ -113,18 +112,31 @@ ${settings.keywordPrompt || getDefaultKeywordPrompt()}`;
 
 /**
  * デフォルトのキーワード分析プロンプト（settings.keywordPromptがない場合）
+ *
+ * 【重要】このプロンプトは「人が選んだキーワードを固定で分析する」用途専用です。
+ * キーワード候補生成には使用しないでください（候補生成は keywordSuggestPrompt を使用）。
  */
 function getDefaultKeywordPrompt(): string {
-  return `【キーワード分析・企画プロンプト】
+  return `【キーワード分析プロンプト】
 あなたは「ヨガメディアの編集長 兼 企画責任者」です。目的はコンバージョン最大化です。
-以下の入力だけを根拠に、狙うべきテーマとタイトル案を決めてください。
 
-タスク：
-1) 候補KWを「既存記事でカバー済み」「薄い/ズレている」「未着手」に分類。
-2) 各候補に優先度スコアを付ける。
-3) 今日生成する「1テーマ」を決める（カテゴリも必ず割り当てる）。
-4) テーマについて、タイトル案を5つ、記事の切り口を定義。
-5) 既存記事から内部リンク候補を選ぶ。
+【絶対ルール】
+- 入力された「対象キーワード」は人が選定済みです。絶対に変更しないでください。
+- primary_keyword は入力された対象キーワードをそのまま使用してください。
+- 別のキーワードを提案したり、キーワードを言い換えたりしないでください。
+
+【タスク】
+1) 入力された対象キーワードの検索意図を分析する
+2) ターゲット読者像を推測する
+3) 記事の切り口（angle）を決める - 一次情報をどこで効かせるか
+4) タイトル案を5つ作成する - 対象キーワードを必ず含める
+5) 既存記事から内部リンク候補を選ぶ
+6) 記事化に必要だが情報バンクに見当たらない確認事項をリストアップ
+
+【出力仕様】
+- 必ずJSON形式のみで出力してください
+- primary_keyword は入力された対象キーワードと完全一致させてください
+- secondary_keywords は関連キーワードを補助的に追加してください
 
 出力（JSONのみ）：
 {
@@ -132,14 +144,14 @@ function getDefaultKeywordPrompt(): string {
   "conversion_goal": "...",
   "selected_topics": [
     {
-      "category": "...",
-      "primary_keyword": "...",
-      "secondary_keywords": ["..."],
+      "category": "入力されたカテゴリ名",
+      "primary_keyword": "入力された対象キーワード（絶対に変更しない）",
+      "secondary_keywords": ["関連キーワード1", "関連キーワード2"],
       "search_intent": "知りたい/やりたい/比較したい/不安を解消したい など",
       "angle": "一次情報をどこで効かせるか",
-      "title_candidates": ["...", "...", "...", "...", "..."],
-      "why_now": "データ根拠を短文で",
-      "priority_score": 0,
+      "title_candidates": ["タイトル案1", "タイトル案2", "タイトル案3", "タイトル案4", "タイトル案5"],
+      "why_now": "このキーワードで記事を書く理由",
+      "priority_score": 100,
       "internal_link_candidates": ["slug1", "slug2"],
       "missing_info_questions": ["記事化に必要だが情報バンクに見当たらない確認事項"]
     }

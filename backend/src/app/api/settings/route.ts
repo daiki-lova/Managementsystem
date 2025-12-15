@@ -42,6 +42,7 @@ const updateSettingsSchema = z.object({
 
   // System Prompts
   keywordPrompt: z.string().optional().nullable(),
+  keywordSuggestPrompt: z.string().optional().nullable(),
   structurePrompt: z.string().optional().nullable(),
   draftPrompt: z.string().optional().nullable(),
   proofreadingPrompt: z.string().optional().nullable(),

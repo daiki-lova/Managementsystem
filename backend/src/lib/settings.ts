@@ -18,6 +18,7 @@ export interface SystemSettings {
   analysisModel: string | null;
   // プロンプト
   keywordPrompt: string | null;
+  keywordSuggestPrompt: string | null;
   structurePrompt: string | null;
   draftPrompt: string | null;
   proofreadingPrompt: string | null;

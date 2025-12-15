@@ -24,8 +24,10 @@ export class StageValidationError extends Error {
 
 /**
  * Stage 1出力のバリデーション
+ * @param output - LLM出力
+ * @param inputKeyword - 入力されたキーワード（一致チェック用）
  */
-export function validateStage1Output(output: unknown): Stage1Output {
+export function validateStage1Output(output: unknown, inputKeyword?: string): Stage1Output {
   const data = output as Stage1Output;
   const missing: string[] = [];
 
@@ -39,6 +41,21 @@ export function validateStage1Output(output: unknown): Stage1Output {
     const topic = data.selected_topics[0];
     if (!topic.primary_keyword) missing.push("selected_topics[0].primary_keyword");
     if (!topic.title_candidates || topic.title_candidates.length === 0) missing.push("selected_topics[0].title_candidates");
+
+    // 【重要】入力キーワードとの一致チェック（再現性確保のため）
+    if (inputKeyword && topic.primary_keyword) {
+      const normalizedInput = inputKeyword.trim().toLowerCase();
+      const normalizedOutput = topic.primary_keyword.trim().toLowerCase();
+
+      if (normalizedInput !== normalizedOutput) {
+        // AIがキーワードを変更した場合は警告を出して強制補正
+        console.warn(
+          `[Stage1] キーワード不一致を検出: 入力="${inputKeyword}" → 出力="${topic.primary_keyword}". 入力値に強制補正します。`
+        );
+        // 強制補正：入力キーワードで上書き
+        data.selected_topics[0].primary_keyword = inputKeyword;
+      }
+    }
   }
 
   if (!data.conversion_goal) missing.push("conversion_goal");

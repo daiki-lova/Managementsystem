@@ -44,8 +44,46 @@ export async function generateMetadata({
   };
 }
 
+// ブロックデータの型（データ揺れに対応）
+interface BlockData {
+  type: string;
+  content?: string;
+  src?: string;
+  alt?: string;
+  level?: number;
+  items?: string[];
+  // データ揺れ対応: 異なるフォーマットのaltText格納場所
+  data?: { altText?: string };
+  metadata?: { altText?: string };
+}
+
+// リストアイテムを取得（itemsがない場合はcontentを行分割）
+function getListItems(block: BlockData): string[] {
+  if (block.items && block.items.length > 0) {
+    return block.items;
+  }
+  // itemsがない場合、contentを行分割してitemsとして扱う
+  if (block.content) {
+    return block.content
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }
+  return [];
+}
+
+// 画像のalt属性を取得（複数のパスからフォールバック）
+function getImageAlt(block: BlockData): string {
+  return block.alt ?? block.data?.altText ?? block.metadata?.altText ?? '';
+}
+
+// 画像のsrc属性を取得（srcがない場合はcontentを使用）
+function getImageSrc(block: BlockData): string {
+  return block.src ?? block.content ?? '';
+}
+
 // ブロックコンテンツのレンダリング
-function renderBlock(block: { type: string; content?: string; src?: string; alt?: string; level?: number; items?: string[] }) {
+function renderBlock(block: BlockData) {
   switch (block.type) {
     case 'paragraph':
     case 'p':
@@ -73,38 +111,47 @@ function renderBlock(block: { type: string; content?: string; src?: string; alt?
           {block.content}
         </h4>
       );
-    case 'image':
+    case 'image': {
+      const imgSrc = getImageSrc(block);
+      const imgAlt = getImageAlt(block);
       return (
         <figure className="mb-6">
           <ImageWithFallback
-            src={block.src || ''}
-            alt={block.alt || ''}
+            src={imgSrc}
+            alt={imgAlt}
             className="w-full h-auto object-cover"
           />
-          {block.alt && (
+          {imgAlt && (
             <figcaption className="font-[var(--font-noto-sans-jp)] font-[350] leading-[20.8px] text-[13px] text-black tracking-[0.16px] mt-3">
-              {block.alt}
+              {imgAlt}
             </figcaption>
           )}
         </figure>
       );
+    }
     case 'list':
-    case 'ul':
+    case 'ul': {
+      const ulItems = getListItems(block);
+      if (ulItems.length === 0) return null;
       return (
         <ul className="font-[var(--font-noto-sans-jp)] font-light leading-[1.8] text-[#1f1f1f] text-[16px] tracking-[0.4px] list-disc pl-6 space-y-2 mb-6">
-          {block.items?.map((item, i) => (
+          {ulItems.map((item, i) => (
             <li key={i}>{item}</li>
           ))}
         </ul>
       );
-    case 'ol':
+    }
+    case 'ol': {
+      const olItems = getListItems(block);
+      if (olItems.length === 0) return null;
       return (
         <ol className="font-[var(--font-noto-sans-jp)] font-light leading-[1.8] text-[#1f1f1f] text-[16px] tracking-[0.4px] list-decimal pl-6 space-y-2 mb-6">
-          {block.items?.map((item, i) => (
+          {olItems.map((item, i) => (
             <li key={i}>{item}</li>
           ))}
         </ol>
       );
+    }
     case 'blockquote':
       return (
         <blockquote className="border-l-4 border-black pl-4 italic font-[var(--font-noto-sans-jp)] font-light text-[#1f1f1f] text-[16px] mb-6">
@@ -303,7 +350,7 @@ export default async function ArticlePage({
   const { category: categorySlug, slug } = await params;
 
   // 記事取得
-  let article = await getArticleBySlug(slug);
+  const article = await getArticleBySlug(slug);
 
   // 記事が見つからない場合、旧Slugをチェック（301リダイレクト）
   if (!article) {
@@ -391,7 +438,7 @@ export default async function ArticlePage({
               <div className="space-y-0">
                 {blocks.map((block, index) => (
                   <div key={index}>
-                    {renderBlock(block as { type: string; content?: string; src?: string; alt?: string; level?: number; items?: string[] })}
+                    {renderBlock(block as BlockData)}
                   </div>
                 ))}
               </div>

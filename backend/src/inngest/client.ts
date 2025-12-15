@@ -43,6 +43,12 @@ export type Events = {
     data: {
       articleId: string;
       jobId: string;
+      // パイプラインから渡される画像生成ジョブ（省略時はフォールバック動作）
+      imageJobs?: {
+        slot: string;   // "cover", "inserted_1", "inserted_2", etc.
+        prompt: string; // 画像生成プロンプト
+        alt: string;    // alt属性
+      }[];
     };
   };
   // 予約公開イベント
