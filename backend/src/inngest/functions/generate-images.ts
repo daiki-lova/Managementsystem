@@ -140,7 +140,7 @@ export const generateImages = inngest.createFunction(
                 fileName: `${job.slot}-${articleId}.png`,
                 altText: job.alt,
                 source: MediaSource.AI_GENERATED,
-                showInLibrary: false,
+                showInLibrary: true, // ライブラリで差し替え可能にする
               },
             });
 
@@ -288,7 +288,7 @@ export const generateImages = inngest.createFunction(
             url: thumbnailUrl,
             fileName: `thumbnail-${articleId}.png`,
             source: MediaSource.AI_GENERATED,
-            showInLibrary: false,
+            showInLibrary: true, // ライブラリで差し替え可能にする
           },
         });
 
@@ -317,7 +317,7 @@ export const generateImages = inngest.createFunction(
             url: insertedImage1Url,
             fileName: `inserted1-${articleId}.png`,
             source: MediaSource.AI_GENERATED,
-            showInLibrary: false,
+            showInLibrary: true, // ライブラリで差し替え可能にする
           },
         });
 
@@ -351,7 +351,7 @@ export const generateImages = inngest.createFunction(
             url: insertedImage2Url,
             fileName: `inserted2-${articleId}.png`,
             source: MediaSource.AI_GENERATED,
-            showInLibrary: false,
+            showInLibrary: true, // ライブラリで差し替え可能にする
           },
         });
 

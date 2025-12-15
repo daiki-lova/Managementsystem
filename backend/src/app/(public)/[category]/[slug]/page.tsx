@@ -54,7 +54,173 @@ interface BlockData {
   items?: string[];
   // データ揺れ対応: 異なるフォーマットのaltText格納場所
   data?: { altText?: string };
-  metadata?: { altText?: string };
+  metadata?: { altText?: string; slot?: string };
+}
+
+// HTMLサニタイズ（記事本文用：許可タグのホワイトリスト方式）
+// script/iframe/formなどの危険タグは除去、それ以外の記事構造タグは許可
+function sanitizeHtml(html: string): string {
+  // 完全に除去するタグ（タグとその中身を削除）
+  const removeWithContent = ['script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'form', 'input', 'button', 'select', 'textarea', 'noscript'];
+
+  // これらのタグは中身ごと削除
+  for (const tag of removeWithContent) {
+    const regex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi');
+    html = html.replace(regex, '');
+    // 自己終了タグも削除
+    html = html.replace(new RegExp(`<${tag}[^>]*\\/?>`, 'gi'), '');
+  }
+
+  // 許可するタグとその属性
+  const allowedTags: Record<string, string[]> = {
+    // 構造
+    div: ['class', 'id', 'data-image-slot'],
+    section: ['class', 'id'],
+    article: ['class', 'id'],
+    header: ['class'],
+    footer: ['class'],
+    main: ['class'],
+    aside: ['class'],
+    nav: ['class'],
+    // 見出し
+    h1: ['class', 'id'],
+    h2: ['class', 'id'],
+    h3: ['class', 'id'],
+    h4: ['class', 'id'],
+    h5: ['class', 'id'],
+    h6: ['class', 'id'],
+    // テキスト
+    p: ['class'],
+    span: ['class'],
+    strong: ['class'],
+    b: ['class'],
+    em: ['class'],
+    i: ['class'],
+    u: ['class'],
+    s: ['class'],
+    del: ['class'],
+    ins: ['class'],
+    mark: ['class'],
+    small: ['class'],
+    sub: ['class'],
+    sup: ['class'],
+    // リンク
+    a: ['href', 'target', 'rel', 'class', 'title'],
+    // リスト
+    ul: ['class'],
+    ol: ['class', 'start', 'type'],
+    li: ['class'],
+    dl: ['class'],
+    dt: ['class'],
+    dd: ['class'],
+    // 画像・メディア
+    figure: ['class', 'data-image-slot'],
+    figcaption: ['class'],
+    img: ['src', 'alt', 'class', 'width', 'height', 'loading', 'data-image-slot'],
+    picture: ['class'],
+    source: ['srcset', 'media', 'type'],
+    // テーブル
+    table: ['class'],
+    thead: ['class'],
+    tbody: ['class'],
+    tfoot: ['class'],
+    tr: ['class'],
+    th: ['class', 'colspan', 'rowspan', 'scope'],
+    td: ['class', 'colspan', 'rowspan'],
+    // 引用・コード
+    blockquote: ['class', 'cite'],
+    q: ['class', 'cite'],
+    cite: ['class'],
+    code: ['class'],
+    pre: ['class'],
+    kbd: ['class'],
+    samp: ['class'],
+    var: ['class'],
+    // その他
+    br: [],
+    hr: ['class'],
+    abbr: ['class', 'title'],
+    address: ['class'],
+    time: ['class', 'datetime'],
+    details: ['class', 'open'],
+    summary: ['class'],
+  };
+
+  // 危険な属性値のパターン
+  const dangerousPatterns = [
+    /javascript:/i,
+    /vbscript:/i,
+    /^on\w+/i, // onclickなどのイベントハンドラ
+  ];
+
+  // タグをパースして処理
+  return html.replace(
+    /<\/?([a-zA-Z][a-zA-Z0-9]*)\s*([^>]*)>/g,
+    (match, tagName, attributes) => {
+      const lowerTag = tagName.toLowerCase();
+
+      // 許可されていないタグは除去（内容は残す）
+      if (!allowedTags[lowerTag]) {
+        return '';
+      }
+
+      // 終了タグの場合
+      if (match.startsWith('</')) {
+        return `</${lowerTag}>`;
+      }
+
+      // 許可された属性のみを保持
+      const allowedAttrs = allowedTags[lowerTag];
+      const cleanAttrs: string[] = [];
+
+      // 属性をパース
+      const attrRegex = /([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+      let attrMatch;
+      while ((attrMatch = attrRegex.exec(attributes)) !== null) {
+        const [, attrName, val1, val2, val3] = attrMatch;
+        const attrValue = val1 ?? val2 ?? val3 ?? '';
+        const lowerAttr = attrName.toLowerCase();
+
+        // イベントハンドラは常に除外
+        if (lowerAttr.startsWith('on')) {
+          continue;
+        }
+
+        // 許可された属性かチェック
+        if (allowedAttrs.includes(lowerAttr)) {
+          // 危険なパターンをチェック
+          const isDangerous = dangerousPatterns.some(p => p.test(attrValue));
+          if (!isDangerous) {
+            // hrefの場合は外部リンクにtarget="_blank"とrel="noopener noreferrer"を追加
+            if (lowerAttr === 'href' && attrValue.startsWith('http')) {
+              cleanAttrs.push(`href="${attrValue}"`);
+              // target と rel が未設定の場合は追加
+              if (!attributes.includes('target=')) {
+                cleanAttrs.push('target="_blank"');
+              }
+              if (!attributes.includes('rel=')) {
+                cleanAttrs.push('rel="noopener noreferrer"');
+              }
+            } else {
+              cleanAttrs.push(`${lowerAttr}="${attrValue}"`);
+            }
+          }
+        }
+      }
+
+      // 自己終了タグの処理
+      const selfClosing = ['br', 'hr', 'img', 'source'].includes(lowerTag);
+      if (selfClosing) {
+        return cleanAttrs.length > 0
+          ? `<${lowerTag} ${cleanAttrs.join(' ')} />`
+          : `<${lowerTag} />`;
+      }
+
+      return cleanAttrs.length > 0
+        ? `<${lowerTag} ${cleanAttrs.join(' ')}>`
+        : `<${lowerTag}>`;
+    }
+  );
 }
 
 // リストアイテムを取得（itemsがない場合はcontentを行分割）
@@ -160,6 +326,17 @@ function renderBlock(block: BlockData) {
       );
     case 'hr':
       return <hr className="border-t border-[#e0e0e0] my-8" />;
+    case 'html': {
+      // HTMLブロック: サニタイズしてレンダリング（内部リンク等に対応）
+      if (!block.content) return null;
+      const sanitized = sanitizeHtml(block.content);
+      return (
+        <div
+          className="font-[var(--font-noto-sans-jp)] font-light leading-[1.8] text-[#1f1f1f] text-[16px] tracking-[0.4px] mb-6 [&_a]:text-blue-600 [&_a]:underline [&_a:hover]:text-blue-800"
+          dangerouslySetInnerHTML={{ __html: sanitized }}
+        />
+      );
+    }
     default:
       return null;
   }
@@ -378,6 +555,15 @@ export default async function ArticlePage({
     ? format(new Date(article.publishedAt), 'yyyy年M月d日', { locale: ja })
     : '';
 
+  // htmlブロック正のロジック：htmlブロックがあればそれのみを描画
+  const htmlBlocks = blocks.filter((b: BlockData) => b.type === 'html');
+  const useHtmlBlockAsMain = htmlBlocks.length > 0;
+  // 複数ある場合は最初の1つを採用（警告ログ）
+  if (htmlBlocks.length > 1) {
+    console.warn(`[Article ${article.slug}] 複数のhtmlブロックがあります。最初の1つのみを使用します。`);
+  }
+  const primaryHtmlBlock = useHtmlBlockAsMain ? (htmlBlocks[0] as BlockData) : null;
+
   return (
     <div className="w-full bg-white overflow-x-hidden">
       <Header />
@@ -436,11 +622,36 @@ export default async function ArticlePage({
 
               {/* 記事本文 */}
               <div className="space-y-0">
-                {blocks.map((block, index) => (
-                  <div key={index}>
-                    {renderBlock(block as BlockData)}
-                  </div>
-                ))}
+                {useHtmlBlockAsMain && primaryHtmlBlock ? (
+                  // htmlブロック正：htmlブロックのみを描画
+                  <div
+                    className="article-content prose prose-lg max-w-none font-[var(--font-noto-sans-jp)]
+                      [&_h2]:font-bold [&_h2]:text-[24px] [&_h2]:text-black [&_h2]:tracking-[0.2px] [&_h2]:mb-4 [&_h2]:mt-10
+                      [&_h3]:font-bold [&_h3]:text-[20px] [&_h3]:text-black [&_h3]:tracking-[0.2px] [&_h3]:mb-3 [&_h3]:mt-8
+                      [&_h4]:font-bold [&_h4]:text-[18px] [&_h4]:text-black [&_h4]:tracking-[0.2px] [&_h4]:mb-2 [&_h4]:mt-6
+                      [&_p]:font-light [&_p]:leading-[1.8] [&_p]:text-[#1f1f1f] [&_p]:text-[16px] [&_p]:tracking-[0.4px] [&_p]:mb-6
+                      [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-2 [&_ul]:mb-6
+                      [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-2 [&_ol]:mb-6
+                      [&_li]:font-light [&_li]:leading-[1.8] [&_li]:text-[#1f1f1f] [&_li]:text-[16px] [&_li]:tracking-[0.4px]
+                      [&_a]:text-blue-600 [&_a]:underline [&_a:hover]:text-blue-800
+                      [&_blockquote]:border-l-4 [&_blockquote]:border-black [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:mb-6
+                      [&_figure]:mb-6 [&_figcaption]:text-[13px] [&_figcaption]:text-black [&_figcaption]:mt-3
+                      [&_img]:w-full [&_img]:h-auto [&_img]:object-cover
+                      [&_table]:w-full [&_table]:border-collapse [&_table]:mb-6
+                      [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_th]:bg-gray-50
+                      [&_td]:border [&_td]:border-gray-300 [&_td]:p-2
+                      [&_pre]:bg-gray-100 [&_pre]:p-4 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:mb-6
+                      [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded [&_code]:text-sm"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(primaryHtmlBlock.content || '') }}
+                  />
+                ) : (
+                  // 従来のブロック描画
+                  blocks.map((block, index) => (
+                    <div key={index}>
+                      {renderBlock(block as BlockData)}
+                    </div>
+                  ))
+                )}
               </div>
 
               {/* タグセクション */}

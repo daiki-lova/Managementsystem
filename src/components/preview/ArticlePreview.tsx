@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useEffect, useState } from 'react';
-import { X, Calendar, User, Share2, MessageCircle, Heart } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { X, Calendar, User, Share2, MessageCircle, Heart, Code, Eye } from 'lucide-react';
 import { BlockData } from '../../types';
 import { Dialog, DialogContent, DialogClose, DialogTitle, DialogDescription } from "../ui/dialog";
 import { ScrollArea } from "../ui/scroll-area";
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import DOMPurify from 'dompurify';
 
 interface ArticlePreviewProps {
   isOpen: boolean;
@@ -106,12 +107,39 @@ export function ArticlePreview({
                 {/* Article Body */}
                 <div className="px-8 md:px-12 max-w-3xl mx-auto">
                     <div className="prose prose-lg prose-neutral max-w-none">
-                        {blocks.map((block) => (
-                            <BlockRenderer key={block.id} block={block} />
-                        ))}
-                        {blocks.length === 0 && (
-                            <p className="text-neutral-300 italic text-center py-10">本文はまだありません</p>
-                        )}
+                        {(() => {
+                            // htmlブロック正のロジック：htmlブロックがあればそれのみを描画
+                            const htmlBlocks = blocks.filter((b) => b.type === 'html');
+                            const useHtmlBlockAsMain = htmlBlocks.length > 0;
+
+                            if (blocks.length === 0) {
+                                return <p className="text-neutral-300 italic text-center py-10">本文はまだありません</p>;
+                            }
+
+                            if (useHtmlBlockAsMain) {
+                                // htmlブロック正：最初のhtmlブロックのみを描画
+                                const primaryHtmlBlock = htmlBlocks[0];
+                                const sanitizedHtml = DOMPurify.sanitize(primaryHtmlBlock.content || '', {
+                                    ALLOWED_TAGS: ['div', 'span', 'p', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                                                  'ul', 'ol', 'li', 'figure', 'figcaption', 'img', 'strong', 'em',
+                                                  'b', 'i', 'u', 'br', 'hr', 'blockquote', 'pre', 'code',
+                                                  'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+                                    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel', 'style'],
+                                    ADD_ATTR: ['target', 'rel'],
+                                });
+                                return (
+                                    <div
+                                        className="article-html-content"
+                                        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                                    />
+                                );
+                            }
+
+                            // 従来のブロック描画
+                            return blocks.map((block) => (
+                                <BlockRenderer key={block.id} block={block} />
+                            ));
+                        })()}
                     </div>
 
                     {/* Tags */}
@@ -166,10 +194,20 @@ function BlockRenderer({ block }: { block: BlockData }) {
                  </figure>
             );
         case 'html':
+            // DOMPurifyでサニタイズしてHTMLをレンダリング
+            const sanitizedHtml = DOMPurify.sanitize(block.content || '', {
+                ALLOWED_TAGS: ['div', 'span', 'p', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                              'ul', 'ol', 'li', 'figure', 'figcaption', 'img', 'strong', 'em',
+                              'b', 'i', 'u', 'br', 'hr', 'blockquote', 'pre', 'code',
+                              'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+                ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel', 'style'],
+                ADD_ATTR: ['target', 'rel'],
+            });
             return (
-                <div className="my-8 p-4 bg-neutral-50 rounded border border-neutral-200 font-mono text-xs overflow-x-auto">
-                    {block.content || "<HTML Embed />"}
-                </div>
+                <div
+                    className="my-8 prose prose-neutral max-w-none"
+                    dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                />
             );
         default:
             return <p className="leading-loose mb-6 text-neutral-700">{block.content}</p>;
