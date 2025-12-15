@@ -17,6 +17,9 @@ const ALLOWED_ORIGINS = [
   process.env.NEXTAUTH_URL || "http://localhost:3000",
   process.env.FRONTEND_URL || "http://localhost:5173",
   "http://localhost:3000", // バックエンド自身（プロキシ経由のリクエスト用）
+  "http://localhost:5174", // Vite開発サーバー（代替ポート）
+  "http://localhost:5175", // Vite開発サーバー（代替ポート）
+  "http://localhost:5176", // Vite開発サーバー（代替ポート）
 ].filter(Boolean);
 
 export function middleware(request: NextRequest) {

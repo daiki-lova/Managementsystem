@@ -1,5 +1,7 @@
 # 記事生成フロー設計書
 
+> **Note**: このドキュメントは旧版です。最新の仕様は **[article-generation-orchestration-v1.md](./article-generation-orchestration-v1.md)** を参照してください。
+
 ## 概要
 
 本ドキュメントは、CMSにおける記事生成の全体フローを定義する。

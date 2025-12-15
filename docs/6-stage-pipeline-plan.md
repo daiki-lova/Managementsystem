@@ -1,5 +1,7 @@
 # 6ステージ記事生成パイプライン 実装計画
 
+> **Note**: このドキュメントは旧版です。最新の仕様は **[article-generation-orchestration-v1.md](./article-generation-orchestration-v1.md)** を参照してください。v1では6ステージから8ステップへ刷新されています。
+
 ## 現状分析
 
 ### 現在のアーキテクチャ

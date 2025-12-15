@@ -25,12 +25,22 @@ export class KeywordsEverywhereClient {
   private baseUrl = "https://api.keywordseverywhere.com/v1";
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey;
+    this.apiKey = apiKey.trim();
   }
 
   // キーワードのボリュームデータを取得
   async getKeywordData(params: SearchParams): Promise<KeywordData[]> {
     const { keywords, country = "jp", currency = "JPY" } = params;
+
+    const body = new URLSearchParams({
+      country: country.toLowerCase(),
+      currency: currency.toLowerCase(),
+      dataSource: "gkp", // Google Keyword Planner
+    });
+    // Keywords Everywhere APIは配列形式（kw[]）を期待する
+    for (const keyword of keywords) {
+      body.append("kw[]", keyword);
+    }
 
     const response = await fetch(`${this.baseUrl}/get_keyword_data`, {
       method: "POST",
@@ -39,18 +49,19 @@ export class KeywordsEverywhereClient {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        country,
-        currency,
-        dataSource: "gkp", // Google Keyword Planner
-        kw: JSON.stringify(keywords),
-      }),
+      body,
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error("Keywords Everywhere API error:", error);
-      throw new Error(`Keywords Everywhere API error: ${response.status}`);
+      const errorText = await response.text().catch(() => "");
+      console.error("Keywords Everywhere API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.slice(0, 500),
+      });
+      throw new Error(
+        `Keywords Everywhere API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.slice(0, 500)}` : ""}`
+      );
     }
 
     const data: KeywordsEverywhereResponse = await response.json();
@@ -70,17 +81,23 @@ export class KeywordsEverywhereClient {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        country,
-        currency: "JPY",
+        country: country.toLowerCase(),
+        currency: "jpy",
         dataSource: "gkp",
         kw: keyword,
       }),
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error("Keywords Everywhere API error:", error);
-      throw new Error(`Keywords Everywhere API error: ${response.status}`);
+      const errorText = await response.text().catch(() => "");
+      console.error("Keywords Everywhere API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.slice(0, 500),
+      });
+      throw new Error(
+        `Keywords Everywhere API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.slice(0, 500)}` : ""}`
+      );
     }
 
     const data: KeywordsEverywhereResponse = await response.json();
@@ -100,17 +117,23 @@ export class KeywordsEverywhereClient {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        country,
-        currency: "JPY",
+        country: country.toLowerCase(),
+        currency: "jpy",
         dataSource: "gkp",
         kw: keyword,
       }),
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error("Keywords Everywhere API error:", error);
-      throw new Error(`Keywords Everywhere API error: ${response.status}`);
+      const errorText = await response.text().catch(() => "");
+      console.error("Keywords Everywhere API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.slice(0, 500),
+      });
+      throw new Error(
+        `Keywords Everywhere API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.slice(0, 500)}` : ""}`
+      );
     }
 
     const data: KeywordsEverywhereResponse = await response.json();
