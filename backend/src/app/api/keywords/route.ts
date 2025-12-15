@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { successResponse, errorResponse, ApiErrors } from "@/lib/api-response";
 import { withAuth } from "@/lib/auth";
 import { validateBody } from "@/lib/validation";
-import prisma from "@/lib/prisma";
+import { getDecryptedSettings } from "@/lib/settings";
 import {
   KeywordsEverywhereClient,
   isInRecommendedRange,
@@ -26,9 +26,7 @@ export async function POST(request: NextRequest) {
       const validated = await validateBody(request, searchSchema);
 
       // 設定からAPIキーを取得
-      const settings = await prisma.system_settings.findUnique({
-        where: { id: "default" },
-      });
+      const settings = await getDecryptedSettings();
 
       if (!settings?.searchVolumeApiKey) {
         return errorResponse("BAD_REQUEST", "Keywords Everywhere APIキーが設定されていません", 400);
@@ -99,9 +97,7 @@ export async function GET(request: NextRequest) {
       }
 
       // 設定からAPIキーを取得
-      const settings = await prisma.system_settings.findUnique({
-        where: { id: "default" },
-      });
+      const settings = await getDecryptedSettings();
 
       if (!settings?.searchVolumeApiKey) {
         // APIキーがない場合は空の結果を返す

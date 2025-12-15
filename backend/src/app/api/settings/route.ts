@@ -13,6 +13,7 @@ const API_KEY_FIELDS = [
   "gaApiKey",
   "searchConsoleApiKey",
   "searchVolumeApiKey",
+  "dataforSeoApiKey",
   "openRouterApiKey",
 ] as const;
 
@@ -26,8 +27,11 @@ const updateSettingsSchema = z.object({
   searchConsoleApiKey: z.string().optional().nullable(),
   searchConsoleSiteUrl: z.string().optional().nullable(),
 
-  // Keywords Everywhere
+  // Keywords Everywhere (deprecated)
   searchVolumeApiKey: z.string().optional().nullable(),
+
+  // DataForSEO (検索ボリューム)
+  dataforSeoApiKey: z.string().optional().nullable(),
 
   // OpenRouter (AI)
   openRouterApiKey: z.string().optional().nullable(),
@@ -76,11 +80,13 @@ export async function GET(request: NextRequest) {
         gaApiKey: settings.gaApiKey ? "********" : null,
         searchConsoleApiKey: settings.searchConsoleApiKey ? "********" : null,
         searchVolumeApiKey: settings.searchVolumeApiKey ? "********" : null,
+        dataforSeoApiKey: settings.dataforSeoApiKey ? "********" : null,
         openRouterApiKey: settings.openRouterApiKey ? "********" : null,
         // 設定されているかどうかのフラグ
         hasGaApiKey: !!settings.gaApiKey,
         hasSearchConsoleApiKey: !!settings.searchConsoleApiKey,
         hasSearchVolumeApiKey: !!settings.searchVolumeApiKey,
+        hasDataforSeoApiKey: !!settings.dataforSeoApiKey,
         hasOpenRouterApiKey: !!settings.openRouterApiKey,
       };
 
@@ -110,6 +116,10 @@ export async function PATCH(request: NextRequest) {
         }
         // APIキーフィールドは暗号化して保存
         if (API_KEY_FIELDS.includes(key as typeof API_KEY_FIELDS[number]) && typeof value === "string") {
+          // マスク値（********）が送信された場合はスキップ（既存値を保持）
+          if (value === "********" || value.match(/^\*+$/)) {
+            continue;
+          }
           cleanedData[key] = secrets.encrypt(value);
         } else {
           cleanedData[key] = value;
@@ -137,10 +147,12 @@ export async function PATCH(request: NextRequest) {
         gaApiKey: settings.gaApiKey ? "********" : null,
         searchConsoleApiKey: settings.searchConsoleApiKey ? "********" : null,
         searchVolumeApiKey: settings.searchVolumeApiKey ? "********" : null,
+        dataforSeoApiKey: settings.dataforSeoApiKey ? "********" : null,
         openRouterApiKey: settings.openRouterApiKey ? "********" : null,
         hasGaApiKey: !!settings.gaApiKey,
         hasSearchConsoleApiKey: !!settings.searchConsoleApiKey,
         hasSearchVolumeApiKey: !!settings.searchVolumeApiKey,
+        hasDataforSeoApiKey: !!settings.dataforSeoApiKey,
         hasOpenRouterApiKey: !!settings.openRouterApiKey,
       };
 

@@ -384,6 +384,7 @@ model system_settings {
   searchConsoleApiKey  String?
   searchConsoleSiteUrl String?
   searchVolumeApiKey   String?
+  dataforSeoApiKey     String?
   openRouterApiKey     String?
   openaiApiKey         String?
   aiModel              String?  @default("openai/gpt-4-turbo")

@@ -9,6 +9,7 @@ export interface SystemSettings {
   searchConsoleApiKey: string | null;
   searchConsoleSiteUrl: string | null;
   searchVolumeApiKey: string | null;
+  dataforSeoApiKey: string | null;
   openRouterApiKey: string | null;
   openaiApiKey: string | null;
   aiModel: string | null;
@@ -31,11 +32,12 @@ export interface SystemSettings {
 
 // 復号済み設定の型
 export interface DecryptedSettings extends Omit<SystemSettings,
-  "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "openRouterApiKey" | "openaiApiKey"
+  "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "dataforSeoApiKey" | "openRouterApiKey" | "openaiApiKey"
 > {
   gaApiKey: string | null;
   searchConsoleApiKey: string | null;
   searchVolumeApiKey: string | null;
+  dataforSeoApiKey: string | null;
   openRouterApiKey: string | null;
   openaiApiKey: string | null;
 }
@@ -62,6 +64,9 @@ export async function getDecryptedSettings(): Promise<DecryptedSettings | null> 
     searchVolumeApiKey: settings.searchVolumeApiKey
       ? safeDecrypt(settings.searchVolumeApiKey)
       : null,
+    dataforSeoApiKey: settings.dataforSeoApiKey
+      ? safeDecrypt(settings.dataforSeoApiKey)
+      : null,
     openRouterApiKey: settings.openRouterApiKey
       ? safeDecrypt(settings.openRouterApiKey)
       : null,
@@ -75,7 +80,7 @@ export async function getDecryptedSettings(): Promise<DecryptedSettings | null> 
  * 特定のAPIキーのみを取得（復号済み）
  */
 export async function getApiKey(
-  keyName: "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "openRouterApiKey" | "openaiApiKey"
+  keyName: "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "dataforSeoApiKey" | "openRouterApiKey" | "openaiApiKey"
 ): Promise<string | null> {
   const settings = await prisma.system_settings.findUnique({
     where: { id: "default" },
@@ -107,10 +112,12 @@ function safeDecrypt(value: string): string {
   // 暗号化されているかチェック
   if (secrets.isEncrypted(value)) {
     try {
-      return secrets.decrypt(value);
+      const decrypted = secrets.decrypt(value);
+      return decrypted;
     } catch (error) {
-      console.error("Failed to decrypt value, returning as-is:", error);
-      return value;
+      console.error("safeDecrypt: Failed to decrypt value:", error);
+      // 復号失敗時は空文字を返す（無効なキーを使わないように）
+      return "";
     }
   }
   // 暗号化されていない古いデータ

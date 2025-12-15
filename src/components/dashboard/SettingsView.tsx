@@ -25,7 +25,7 @@ export function SettingsView() {
     // Local state for form
     const [formData, setFormData] = useState({
         openRouterApiKey: '',
-        searchVolumeApiKey: '',
+        dataforSeoApiKey: '',
         minSearchVolume: 300,
         maxSearchVolume: 2000,
         gaPropertyId: '',
@@ -44,15 +44,15 @@ export function SettingsView() {
     // API key editing state
     const [isEditingApiKey, setIsEditingApiKey] = useState(false);
     const [newApiKey, setNewApiKey] = useState('');
-    const [isEditingSearchVolumeKey, setIsEditingSearchVolumeKey] = useState(false);
-    const [newSearchVolumeKey, setNewSearchVolumeKey] = useState('');
+    const [isEditingDataforSeoKey, setIsEditingDataforSeoKey] = useState(false);
+    const [newDataforSeoKey, setNewDataforSeoKey] = useState('');
 
     // Initialize form with API data
     useEffect(() => {
         if (settings) {
             setFormData({
                 openRouterApiKey: settings.openRouterApiKey || '',
-                searchVolumeApiKey: settings.searchVolumeApiKey || '',
+                dataforSeoApiKey: settings.dataforSeoApiKey || '',
                 minSearchVolume: settings.minSearchVolume ?? 300,
                 maxSearchVolume: settings.maxSearchVolume ?? 2000,
                 gaPropertyId: settings.gaPropertyId || '',
@@ -251,17 +251,18 @@ export function SettingsView() {
                             </div>
                         </div>
 
-                        {/* Keywords Everywhere Card */}
+                        {/* DataForSEO Card */}
                         <div className="group p-6 rounded-3xl border border-neutral-200 hover:border-neutral-300 transition-all bg-white hover:shadow-sm">
                             <div className="flex items-start justify-between mb-6">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-[#FEF3C7] flex items-center justify-center text-[#D97706]">
+                                    <div className="w-12 h-12 rounded-2xl bg-[#DBEAFE] flex items-center justify-center text-[#2563EB]">
                                         <Search size={24} />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-neutral-900">Keywords Everywhere</h3>
+                                        <h3 className="font-bold text-neutral-900">DataForSEO</h3>
+                                        <p className="text-[10px] text-neutral-500">検索ボリューム取得API</p>
                                         <div className="flex items-center gap-1.5 mt-1">
-                                            {formData.searchVolumeApiKey ? (
+                                            {formData.dataforSeoApiKey ? (
                                                 <>
                                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                                                     <span className="text-xs font-bold text-emerald-600">API連携済み</span>
@@ -277,29 +278,29 @@ export function SettingsView() {
                             <div className="space-y-4">
                                 {/* API Key Input */}
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider ml-1">APIキー</Label>
+                                    <Label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider ml-1">APIキー（Base64形式）</Label>
                                     <div className="relative">
-                                        {isEditingSearchVolumeKey ? (
+                                        {isEditingDataforSeoKey ? (
                                             <>
                                                 <Input
                                                     type="text"
-                                                    value={newSearchVolumeKey}
-                                                    onChange={(e) => setNewSearchVolumeKey(e.target.value)}
+                                                    value={newDataforSeoKey}
+                                                    onChange={(e) => setNewDataforSeoKey(e.target.value)}
                                                     className="h-10 bg-white border-neutral-200 rounded-xl font-mono text-xs pr-24"
-                                                    placeholder="APIキーを入力..."
+                                                    placeholder="Base64エンコードされたAPIキーを入力..."
                                                     autoFocus
                                                 />
                                                 <div className="absolute right-1 top-1 flex gap-1">
                                                     <Button
                                                         size="sm"
                                                         onClick={() => {
-                                                            if (newSearchVolumeKey.trim()) {
-                                                                setFormData({...formData, searchVolumeApiKey: newSearchVolumeKey.trim()});
+                                                            if (newDataforSeoKey.trim()) {
+                                                                setFormData({...formData, dataforSeoApiKey: newDataforSeoKey.trim()});
                                                             }
-                                                            setIsEditingSearchVolumeKey(false);
-                                                            setNewSearchVolumeKey('');
+                                                            setIsEditingDataforSeoKey(false);
+                                                            setNewDataforSeoKey('');
                                                         }}
-                                                        disabled={!newSearchVolumeKey.trim()}
+                                                        disabled={!newDataforSeoKey.trim()}
                                                         className="h-8 bg-neutral-900 text-white hover:bg-neutral-800 font-bold text-[10px] px-2"
                                                     >
                                                         保存
@@ -308,8 +309,8 @@ export function SettingsView() {
                                                         size="sm"
                                                         variant="ghost"
                                                         onClick={() => {
-                                                            setIsEditingSearchVolumeKey(false);
-                                                            setNewSearchVolumeKey('');
+                                                            setIsEditingDataforSeoKey(false);
+                                                            setNewDataforSeoKey('');
                                                         }}
                                                         className="h-8 text-neutral-400 hover:text-neutral-900 font-bold text-[10px] px-2"
                                                     >
@@ -321,7 +322,7 @@ export function SettingsView() {
                                             <>
                                                 <Input
                                                     type="password"
-                                                    value={formData.searchVolumeApiKey ? '●'.repeat(Math.min(formData.searchVolumeApiKey.length, 20)) : ''}
+                                                    value={formData.dataforSeoApiKey ? '●'.repeat(Math.min(formData.dataforSeoApiKey.length, 20)) : ''}
                                                     readOnly
                                                     className="h-10 bg-neutral-50 border-neutral-200 rounded-xl font-mono text-xs cursor-default"
                                                     placeholder="未設定"
@@ -329,16 +330,19 @@ export function SettingsView() {
                                                 <Button
                                                     size="sm"
                                                     onClick={() => {
-                                                        setIsEditingSearchVolumeKey(true);
-                                                        setNewSearchVolumeKey('');
+                                                        setIsEditingDataforSeoKey(true);
+                                                        setNewDataforSeoKey('');
                                                     }}
                                                     className="absolute right-1 top-1 h-8 bg-neutral-900 text-white hover:bg-neutral-800 font-bold text-[10px]"
                                                 >
-                                                    {formData.searchVolumeApiKey ? '変更' : '設定'}
+                                                    {formData.dataforSeoApiKey ? '変更' : '設定'}
                                                 </Button>
                                             </>
                                         )}
                                     </div>
+                                    <p className="text-[10px] text-neutral-400 pl-1">
+                                        ※ DataForSEOダッシュボードからBase64形式のAPIキーを取得してください
+                                    </p>
                                 </div>
 
                                 {/* Search Volume Range */}

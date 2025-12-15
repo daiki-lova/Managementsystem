@@ -5,12 +5,12 @@ import { validateBody } from "@/lib/validation";
 import prisma from "@/lib/prisma";
 import { getDecryptedSettings } from "@/lib/settings";
 import {
-  KeywordsEverywhereClient,
+  DataForSEOClient,
   isInRecommendedRange,
   scoreKeyword,
   DEFAULT_VOLUME_RANGE,
   type VolumeRange,
-} from "@/lib/keywords-everywhere";
+} from "@/lib/dataforseo";
 import { callOpenRouter } from "@/inngest/functions/pipeline/common/openrouter";
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit";
 import { z } from "zod";
@@ -279,9 +279,9 @@ export async function POST(request: NextRequest) {
         isRecommended: false,
       }));
 
-      if (settings.searchVolumeApiKey) {
-        console.log("Fetching search volume data...");
-        const client = new KeywordsEverywhereClient(settings.searchVolumeApiKey);
+      if (settings.dataforSeoApiKey) {
+        console.log("Fetching search volume data from DataForSEO...");
+        const client = new DataForSEOClient(settings.dataforSeoApiKey);
         const keywordStrings = aiKeywords.map((k) => k.keyword);
         const batches = chunk(keywordStrings, 20);
 
@@ -298,7 +298,7 @@ export async function POST(request: NextRequest) {
             const data = await client.getKeywordData({ keywords: batch });
             allVolumeData.push(...data);
           } catch (error) {
-            console.error("Keywords Everywhere batch error:", error);
+            console.error("DataForSEO batch error:", error);
             // 失敗したバッチはスキップして続行
           }
         }
@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
           };
         });
       } else {
-        console.log("Keywords Everywhere API key not configured, skipping volume data");
+        console.log("DataForSEO API key not configured, skipping volume data");
       }
 
       // スコアリング
