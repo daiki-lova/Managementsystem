@@ -65,7 +65,8 @@ export interface ConversionItem {
 export interface KnowledgeItem {
   id: string;
   content: string;
-  brand: string; // 'OREO' | 'SEQUENCE' | 'ALL' etc
+  brand: string | null; // 'OREO' | 'SEQUENCE' | null
+  brandName?: string | null; // Display name of the brand
   kind?: string; // 'STUDENT_VOICE' | 'AUTHOR_ARTICLE' | 'EXTERNAL' etc
   course?: string;
   authorId?: string;

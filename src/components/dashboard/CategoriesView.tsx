@@ -25,8 +25,8 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '../ui/popover';
-import { BulkActionBar } from './BulkActionBar';
 import { cn } from '../../lib/utils';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/lib/hooks';
 
 interface CategoryFormData {
@@ -51,6 +51,20 @@ export function CategoriesView() {
         slug: '',
         description: '',
         color: 'bg-neutral-100 text-neutral-700',
+    });
+
+    // Confirm Dialog States
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant?: 'default' | 'destructive';
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
     });
 
     // API Hooks
@@ -79,9 +93,17 @@ export function CategoriesView() {
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm('このカテゴリーを削除してもよろしいですか？')) {
-            deleteCategory.mutate(id);
-        }
+        const category = categories.find(c => c.id === id);
+        setConfirmDialog({
+            open: true,
+            title: 'カテゴリーを削除',
+            description: `「${category?.name || ''}」を削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: () => {
+                deleteCategory.mutate(id);
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+            },
+        });
     };
 
     const handleSubmit = () => {
@@ -158,27 +180,23 @@ export function CategoriesView() {
         setSortConfig(direction ? { key, direction } : null);
     };
 
-    const handleClearSelection = () => {
-        setSelectedIds(new Set());
-    };
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
 
-    const handleBulkDelete = async () => {
-        if (!window.confirm(`${selectedIds.size}件のカテゴリーを削除してもよろしいですか？`)) return;
-
-        // 並列実行し、エラーは個別のHookのonErrorで表示させる
-        const promises = Array.from(selectedIds).map(id =>
-            deleteCategory.mutateAsync(id).catch(() => {
-                // 個別のエラーは表示済みなのでここでは無視
-                return null;
-            })
-        );
-
-        await Promise.all(promises);
-        setSelectedIds(new Set());
-    };
-
-    const handleBulkPublish = () => {
-        setSelectedIds(new Set());
+        setConfirmDialog({
+            open: true,
+            title: '一括削除',
+            description: `選択した${selectedIds.size}件のカテゴリーを削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                const promises = Array.from(selectedIds).map(id =>
+                    deleteCategory.mutateAsync(id).catch(() => null)
+                );
+                await Promise.all(promises);
+                setSelectedIds(new Set());
+            },
+        });
     };
 
     const renderHeaderCell = (label: string, key: string, width: number, filterOptions?: string[]) => {
@@ -246,16 +264,18 @@ export function CategoriesView() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                <p className="mt-2 text-sm text-neutral-500">読み込み中...</p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="flex items-center justify-center h-full">
-                <p className="text-red-500">データの読み込みに失敗しました</p>
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <p className="text-sm text-red-500">データの読み込みに失敗しました</p>
+                <p className="mt-1 text-xs text-neutral-400">{(error as Error).message}</p>
             </div>
         );
     }
@@ -301,7 +321,7 @@ export function CategoriesView() {
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200"
+                            className="h-7 text-xs border-red-300 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-400"
                             onClick={handleBulkDelete}
                         >
                             <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
@@ -348,10 +368,10 @@ export function CategoriesView() {
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-32">
-                                            <DropdownMenuItem onClick={() => handleOpenEdit(category)}>
+                                            <DropdownMenuItem onSelect={() => handleOpenEdit(category)}>
                                                 <PenTool size={14} className="mr-2" /> 編集
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDelete(category.id)}>
+                                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onSelect={() => handleDelete(category.id)}>
                                                 <Trash2 size={14} className="mr-2" /> 削除
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
@@ -397,13 +417,6 @@ export function CategoriesView() {
                         ))}
                     </tbody>
                 </table>
-
-                <BulkActionBar
-                    selectedCount={selectedIds.size}
-                    onClearSelection={handleClearSelection}
-                    onPublish={handleBulkPublish}
-                    onDelete={handleBulkDelete}
-                />
             </div>
 
             {/* Dialog */}
@@ -467,6 +480,18 @@ export function CategoriesView() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                open={confirmDialog.open}
+                onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+                title={confirmDialog.title}
+                description={confirmDialog.description}
+                variant={confirmDialog.variant}
+                confirmLabel="削除"
+                onConfirm={confirmDialog.onConfirm}
+                isLoading={deleteCategory.isPending}
+            />
         </div>
     );
 }

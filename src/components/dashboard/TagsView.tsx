@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Hash, PenTool, Plus, Trash2, Search, MoreVertical, Copy, ChevronDown, ArrowUpZA, ArrowDownAZ, X } from 'lucide-react';
-import { BulkActionBar } from './BulkActionBar';
+import { Hash, PenTool, Plus, Trash2, Search, MoreVertical, Copy, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import {
     Dialog,
     DialogContent,
@@ -43,7 +43,7 @@ export function TagsView() {
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
     // API Hooks
-    const { data: tagsData, isLoading } = useTags({ search: searchQuery });
+    const { data: tagsData, isLoading, error } = useTags({ search: searchQuery });
     const createTag = useCreateTag();
     const updateTag = useUpdateTag();
     const deleteTag = useDeleteTag();
@@ -58,6 +58,20 @@ export function TagsView() {
     // Form States
     const [formData, setFormData] = useState<Partial<TagData>>({});
 
+    // Confirm Dialog States
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant?: 'default' | 'destructive';
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+    });
+
     const handleOpenCreate = () => {
         setEditingTag(null);
         setFormData({ name: '', slug: '' });
@@ -71,9 +85,17 @@ export function TagsView() {
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm('このタグを削除してもよろしいですか？')) {
-            deleteTag.mutate(id);
-        }
+        const tag = tags.find(t => t.id === id);
+        setConfirmDialog({
+            open: true,
+            title: 'タグを削除',
+            description: `「${tag?.name || ''}」を削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: () => {
+                deleteTag.mutate(id);
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+            },
+        });
     };
 
     const handleSubmit = () => {
@@ -143,22 +165,23 @@ export function TagsView() {
         setSortConfig(direction ? { key, direction } : null);
     };
 
-    const handleClearSelection = () => {
-        setSelectedIds(new Set());
-    };
-
     const handleBulkDelete = () => {
         if (selectedIds.size === 0) return;
-        if (window.confirm(`${selectedIds.size}件のタグを削除してもよろしいですか？`)) {
-            // 並列で削除を実行
-            Promise.all(Array.from(selectedIds).map(id => deleteTag.mutateAsync(id)))
-                .then(() => setSelectedIds(new Set()));
-        }
-    };
 
-    const handleBulkPublish = () => {
-        // Tags don't have publish state usually
-        setSelectedIds(new Set());
+        setConfirmDialog({
+            open: true,
+            title: '一括削除',
+            description: `選択した${selectedIds.size}件のタグを削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                const promises = Array.from(selectedIds).map(id =>
+                    deleteTag.mutateAsync(id).catch(() => null)
+                );
+                await Promise.all(promises);
+                setSelectedIds(new Set());
+            },
+        });
     };
 
     const renderHeaderCell = (label: string, key: string, width: number, filterOptions?: string[]) => {
@@ -224,8 +247,24 @@ export function TagsView() {
         );
     };
 
+    // Loading state
     if (isLoading) {
-        return <div className="flex items-center justify-center h-full">読み込み中...</div>;
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                <p className="mt-2 text-sm text-neutral-500">読み込み中...</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col h-full bg-white items-center justify-center">
+                <p className="text-sm text-red-500">データの読み込みに失敗しました</p>
+                <p className="mt-1 text-xs text-neutral-400">{(error as Error).message}</p>
+            </div>
+        );
     }
 
     return (
@@ -261,6 +300,18 @@ export function TagsView() {
                     {(Object.keys(activeFilters).some(k => activeFilters[k].size > 0)) && (
                         <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setActiveFilters({})}>
                             <X size={12} className="mr-1" /> フィルタ解除
+                        </Button>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {selectedIds.size > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-red-300 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-400"
+                            onClick={handleBulkDelete}
+                        >
+                            <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
                         </Button>
                     )}
                 </div>
@@ -304,10 +355,10 @@ export function TagsView() {
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-32">
-                                            <DropdownMenuItem onClick={() => handleOpenEdit(tag)}>
+                                            <DropdownMenuItem onSelect={() => handleOpenEdit(tag)}>
                                                 <PenTool size={14} className="mr-2" /> 編集
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDelete(tag.id)}>
+                                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onSelect={() => handleDelete(tag.id)}>
                                                 <Trash2 size={14} className="mr-2" /> 削除
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
@@ -348,13 +399,6 @@ export function TagsView() {
                         ))}
                     </tbody>
                 </table>
-
-                <BulkActionBar
-                    selectedCount={selectedIds.size}
-                    onClearSelection={handleClearSelection}
-                    onPublish={handleBulkPublish}
-                    onDelete={handleBulkDelete}
-                />
             </div>
 
             {/* Dialog */}
@@ -401,6 +445,18 @@ export function TagsView() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                open={confirmDialog.open}
+                onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+                title={confirmDialog.title}
+                description={confirmDialog.description}
+                variant={confirmDialog.variant}
+                confirmLabel="削除"
+                onConfirm={confirmDialog.onConfirm}
+                isLoading={deleteTag.isPending}
+            />
         </div>
     );
 }

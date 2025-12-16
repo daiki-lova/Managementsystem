@@ -10,12 +10,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ヨガメディア管理システム - A CMS for managing AI-generated yoga/wellness content. The frontend was generated via Figma Make and currently uses mock data. Backend integration with Prisma/Supabase is planned.
 
+## プロジェクト構成
+
+このリポジトリには2つのアプリケーションがある：
+
+| 名称 | ディレクトリ | ポート | 説明 |
+|------|-------------|--------|------|
+| **CMS管理画面** | `/` (ルート) | 5173 | 記事・コンテンツ管理用の管理画面 (Vite + React) |
+| **メディアサイト** | `/backend` | 3000 | 公開用ウェブサイト (Next.js) |
+
+※「バックエンド」はSupabase等のデータベース/API層を指す。メディアサイトを「バックエンド」と呼ばないこと。
+
+### 開発用ログイン情報
+- **メール**: admin@radiance.jp
+- **パスワード**: dev123
+
+※開発環境限定。本番ではSupabase Authで認証。
+
 ## Development Commands
 
 ```bash
-npm install    # Install dependencies
-npm run dev    # Start dev server (http://localhost:3000)
-npm run build  # Production build
+# CMS管理画面
+npm install    # 依存関係インストール
+npm run dev    # 開発サーバー起動 (http://localhost:5173)
+npm run build  # 本番ビルド
+
+# メディアサイト
+npm run dev --prefix backend  # 開発サーバー起動 (http://localhost:3000)
 ```
 
 ## Architecture

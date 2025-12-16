@@ -45,6 +45,7 @@ import {
     DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Textarea } from '../ui/textarea';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import { cn } from '../../lib/utils';
 import type { KnowledgeItem, Profile } from '../../types';
 import { format } from 'date-fns';
@@ -69,11 +70,12 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
     const items: KnowledgeItem[] = (knowledgeData?.data || []).map((item: any) => ({
         id: item.id,
         content: item.content,
-        brand: item.brand?.slug || 'ALL',
+        brand: item.brands?.slug?.toUpperCase() || null, // slug to uppercase (sequence -> SEQUENCE)
+        brandName: item.brands?.name || null, // Keep actual brand name for display
         course: item.course,
         kind: item.type, // Map item.type to kind
         authorId: item.authorId,
-        authorName: item.author?.name,
+        authorName: item.authors?.name,
         createdAt: item.createdAt,
         usageCount: item.usageCount || 0,
         source: item.sourceUrl ? 'web' : 'manual',
@@ -97,10 +99,27 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
     const [courseFilter, setCourseFilter] = useState<string>('ALL_COURSES');
     const [authorFilter, setAuthorFilter] = useState<string>('ALL_AUTHORS');
 
+    // Selection for bulk actions
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
     const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
     const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<KnowledgeItem | null>(null);
     const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
+
+    // Confirm Dialog States
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant?: 'default' | 'destructive';
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+    });
 
     // Registration Flow States
     const [registrationStep, setRegistrationStep] = useState<'select' | 'input'>('select');
@@ -143,7 +162,9 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
     const filteredItems = items.filter(item => {
         const matchesSearch = (item.content || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.authorName && item.authorName.toLowerCase().includes(searchQuery.toLowerCase()));
-        const matchesBrand = brandFilter === 'ALL_BRANDS' || item.brand === brandFilter;
+        const matchesBrand = brandFilter === 'ALL_BRANDS' ||
+            (brandFilter === 'NONE' && !item.brand) ||
+            (item.brand && item.brand.toUpperCase() === brandFilter.toUpperCase());
         const matchesCourse = courseFilter === 'ALL_COURSES' || item.course === courseFilter;
         const matchesAuthor = authorFilter === 'ALL_AUTHORS' || item.authorId === authorFilter;
 
@@ -170,18 +191,21 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
 
         if (editingItem) {
             // Update existing item
-            await updateKnowledgeEntry.mutateAsync({
-                id: editingItem.id,
-                data: {
-                    content: inputContent.trim(),
-                    type: selectedType,
-                    brandId: selectedBrand === 'ALL' ? undefined : selectedBrand,
-                    course: selectedCourse === 'UNSELECTED' ? undefined : selectedCourse,
-                    authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
-                    sourceUrl: inputType === 'url' ? inputContent.trim() : undefined,
-                } as any
-            });
-            toast.success('情報を更新しました');
+            try {
+                await updateKnowledgeEntry.mutateAsync({
+                    id: editingItem.id,
+                    data: {
+                        content: inputContent.trim(),
+                        kind: selectedType,
+                        brandId: selectedBrand === 'ALL' ? undefined : selectedBrand.toLowerCase(),
+                        authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
+                        url: inputType === 'url' ? inputContent.trim() : undefined,
+                    } as any
+                });
+            } catch (e) {
+                setIsSubmitting(false);
+                return;
+            }
         } else {
             // Create new items
             // Split content if text type (simple line break split)
@@ -225,14 +249,24 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
 
     const openEdit = (item: KnowledgeItem) => {
         setEditingItem(item);
-        setRegistrationStep('input'); // Skip select step? Or stay in input view.
+        setRegistrationStep('input');
         // Pre-fill
+        // コンテンツがURL形式の場合のみURLタブを選択
+        const isUrl = /^https?:\/\//.test(item.content);
+        setInputType(isUrl ? 'url' : 'text');
         setInputContent(item.content);
-        setInputType(item.sourceType === 'url' ? 'url' : 'text');
-        setSelectedBrand((!item.brand || item.brand === 'ALL') ? 'OREO' : item.brand as any); // Default to OREO if ALL/Null, or keep ALL if valid
-        // Note: select only has OREO, SEQUENCE, ALL.
+        setSelectedBrand((!item.brand || item.brand === 'ALL') ? 'OREO' : item.brand as any);
 
-        setSelectedType(item.kind || 'STUDENT_VOICE');
+        // Map kind (日本語) to type ID
+        const kindToTypeMap: Record<string, string> = {
+            '受講生の声': 'STUDENT_VOICE',
+            'STUDENT_VOICE': 'STUDENT_VOICE',
+            '監修者記事': 'AUTHOR_ARTICLE',
+            'AUTHOR_ARTICLE': 'AUTHOR_ARTICLE',
+            '外部文献': 'EXTERNAL',
+            'EXTERNAL': 'EXTERNAL',
+        };
+        setSelectedType(kindToTypeMap[item.kind || ''] || 'STUDENT_VOICE');
         setSelectedCourse(item.course || 'UNSELECTED');
         setSelectedAuthor(item.authorId || 'UNSELECTED');
 
@@ -241,10 +275,49 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm('この情報を削除してもよろしいですか？')) {
-            deleteKnowledgeEntry.mutate(id);
-            setIsDetailDialogOpen(false);
-        }
+        const item = items.find(i => i.id === id);
+        setConfirmDialog({
+            open: true,
+            title: '情報を削除',
+            description: `この情報を削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: () => {
+                deleteKnowledgeEntry.mutate(id);
+                setIsDetailDialogOpen(false);
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+            },
+        });
+    };
+
+    // Selection handlers
+    const toggleSelection = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) newSelected.delete(id);
+        else newSelected.add(id);
+        setSelectedIds(newSelected);
+    };
+
+    const toggleSelectAll = (checked: boolean) => {
+        setSelectedIds(checked ? new Set(paginatedItems.map(i => i.id)) : new Set());
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+
+        setConfirmDialog({
+            open: true,
+            title: '一括削除',
+            description: `選択した${selectedIds.size}件の情報を削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                const promises = Array.from(selectedIds).map(id =>
+                    deleteKnowledgeEntry.mutateAsync(id).catch(() => null)
+                );
+                await Promise.all(promises);
+                setSelectedIds(new Set());
+            },
+        });
     };
 
     const openDetail = (item: KnowledgeItem) => {
@@ -252,8 +325,9 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
         setIsDetailDialogOpen(true);
     };
 
-    const getBrandColor = (brand: string) => {
-        switch (brand) {
+    const getBrandColor = (brand: string | null) => {
+        if (!brand) return 'bg-neutral-100 text-neutral-700 border-neutral-200';
+        switch (brand.toUpperCase()) {
             case 'OREO': return 'bg-blue-50 text-blue-700 border-blue-100';
             case 'SEQUENCE': return 'bg-purple-50 text-purple-700 border-purple-100';
             default: return 'bg-neutral-100 text-neutral-700 border-neutral-200';
@@ -295,16 +369,17 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
             </header>
 
             {/* Toolbar */}
-            <div className="flex items-center gap-3 py-3 px-6 border-b border-neutral-100 bg-white flex-none overflow-x-auto">
-                <div className="relative group flex-1 min-w-[200px] max-w-[300px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={14} />
-                    <Input
-                        className="pl-9 h-9 bg-neutral-50 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded text-sm transition-all"
-                        placeholder="キーワード検索..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
+            <div className="flex items-center justify-between py-3 px-6 border-b border-neutral-100 bg-white flex-none">
+                <div className="flex items-center gap-3 overflow-x-auto">
+                    <div className="relative group min-w-[200px] max-w-[300px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={14} />
+                        <Input
+                            className="pl-9 h-9 bg-neutral-50 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded text-sm transition-all"
+                            placeholder="キーワード検索..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
 
                 <Select value={brandFilter} onValueChange={setBrandFilter}>
                     <SelectTrigger className="w-[140px] h-9 text-xs">
@@ -314,7 +389,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                         <SelectItem value="ALL_BRANDS">全てのブランド</SelectItem>
                         <SelectItem value="OREO">OREO</SelectItem>
                         <SelectItem value="SEQUENCE">SEQUENCE</SelectItem>
-                        <SelectItem value="ALL">共通</SelectItem>
+                        <SelectItem value="NONE">未設定</SelectItem>
                     </SelectContent>
                 </Select>
 
@@ -337,30 +412,50 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                         {authors.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                    {selectedIds.size > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-red-300 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-400"
+                            onClick={handleBulkDelete}
+                        >
+                            <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
+                        </Button>
+                    )}
+                </div>
             </div>
 
-            {/* Content Area */}
-            <div className="flex-1 overflow-hidden flex flex-col bg-white">
-                <div className="flex-1 overflow-auto">
-                    {filteredItems.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-neutral-400 gap-4 p-8">
-                            <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center">
-                                <Filter size={32} className="opacity-50" />
-                            </div>
-                            <p className="text-sm font-medium">情報が見つかりません</p>
-                            <Button variant="outline" size="sm" onClick={() => {
-                                setSearchQuery('');
-                                setBrandFilter('ALL_BRANDS');
-                                setCourseFilter('ALL_COURSES');
-                                setAuthorFilter('ALL_AUTHORS');
-                            }}>
-                                フィルタを解除
-                            </Button>
+            {/* Table Container - Scrollable */}
+            <div className="flex-1 min-h-0 overflow-auto bg-white">
+                {filteredItems.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-neutral-400 gap-4 p-8">
+                        <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center">
+                            <Filter size={32} className="opacity-50" />
                         </div>
-                    ) : (
-                        <Table>
+                        <p className="text-sm font-medium">情報が見つかりません</p>
+                        <Button variant="outline" size="sm" onClick={() => {
+                            setSearchQuery('');
+                            setBrandFilter('ALL_BRANDS');
+                            setCourseFilter('ALL_COURSES');
+                            setAuthorFilter('ALL_AUTHORS');
+                        }}>
+                            フィルタを解除
+                        </Button>
+                    </div>
+                ) : (
+                    <Table>
                             <TableHeader>
                                 <TableRow className="bg-neutral-50/50 hover:bg-neutral-50/50">
+                                    <TableHead className="w-[40px] text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={paginatedItems.length > 0 && selectedIds.size === paginatedItems.length}
+                                            onChange={(e) => toggleSelectAll(e.target.checked)}
+                                            className="rounded border-neutral-300 scale-90 cursor-pointer"
+                                        />
+                                    </TableHead>
                                     <TableHead className="w-[40%] pl-6">内容</TableHead>
                                     <TableHead className="w-[100px]">ブランド</TableHead>
                                     <TableHead className="w-[120px]">種類</TableHead>
@@ -372,7 +467,22 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                             </TableHeader>
                             <TableBody>
                                 {paginatedItems.map((item) => (
-                                    <TableRow key={item.id} className="group hover:bg-neutral-50 transition-colors cursor-pointer" onClick={() => openDetail(item)}>
+                                    <TableRow
+                                        key={item.id}
+                                        className={cn(
+                                            "group hover:bg-neutral-50 transition-colors cursor-pointer",
+                                            selectedIds.has(item.id) && "bg-blue-50/50"
+                                        )}
+                                        onClick={() => openDetail(item)}
+                                    >
+                                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(item.id)}
+                                                onChange={() => toggleSelection(item.id)}
+                                                className="rounded border-neutral-300 scale-90 cursor-pointer"
+                                            />
+                                        </TableCell>
                                         <TableCell className="pl-6 font-medium">
                                             {(item.sourceType === 'url' || (!item.sourceType && item.content.startsWith('http'))) ? (
                                                 <div className="flex items-center gap-3 max-w-[500px]">
@@ -406,16 +516,21 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 rounded font-normal border-0 whitespace-nowrap", getBrandColor(item.brand))}>
-                                                {item.brand === 'ALL' ? '共通' : item.brand}
-                                            </Badge>
+                                            {item.brand ? (
+                                                <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 rounded font-normal border-0 whitespace-nowrap", getBrandColor(item.brand))}>
+                                                    {item.brandName || item.brand}
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-xs text-neutral-400">-</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <span className="text-xs text-neutral-600">
-                                                {item.kind === 'STUDENT_VOICE' && '受講生の声'}
-                                                {item.kind === 'AUTHOR_ARTICLE' && '監修者記事'}
-                                                {item.kind === 'EXTERNAL' && '外部文献'}
+                                                {(item.kind === 'STUDENT_VOICE' || item.kind === '受講生の声') && '受講生の声'}
+                                                {(item.kind === 'AUTHOR_ARTICLE' || item.kind === '監修者記事') && '監修者記事'}
+                                                {(item.kind === 'EXTERNAL' || item.kind === '外部文献') && '外部文献'}
                                                 {!item.kind && '-'}
+                                                {item.kind && !['STUDENT_VOICE', '受講生の声', 'AUTHOR_ARTICLE', '監修者記事', 'EXTERNAL', '外部文献'].includes(item.kind) && item.kind}
                                             </span>
                                         </TableCell>
                                         <TableCell>
@@ -458,98 +573,111 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                 ))}
                             </TableBody>
                         </Table>
-                    )}
-                </div>
-
-                {/* Pagination */}
-                {filteredItems.length > 0 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-100 bg-white flex-none">
-                        <div className="text-xs text-neutral-500">
-                            全 {filteredItems.length} 件中 {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredItems.length)} 件を表示
-                        </div>
-                        <Pagination className="justify-end w-auto mx-0">
-                            <PaginationContent>
-                                <PaginationItem>
-                                    <PaginationPrevious
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        className={cn("cursor-pointer", currentPage === 1 && "pointer-events-none opacity-50")}
-                                    />
-                                </PaginationItem>
-
-                                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                    .filter(page => {
-                                        // Show first, last, current, and neighbors
-                                        return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
-                                    })
-                                    .map((page, i, arr) => {
-                                        // Insert ellipsis logic visually by checking gaps
-                                        const prevPage = arr[i - 1];
-                                        const showEllipsis = prevPage && page - prevPage > 1;
-
-                                        return (
-                                            <React.Fragment key={page}>
-                                                {showEllipsis && (
-                                                    <PaginationItem>
-                                                        <PaginationEllipsis />
-                                                    </PaginationItem>
-                                                )}
-                                                <PaginationItem>
-                                                    <PaginationLink
-                                                        isActive={page === currentPage}
-                                                        onClick={() => setCurrentPage(page)}
-                                                        className="cursor-pointer"
-                                                    >
-                                                        {page}
-                                                    </PaginationLink>
-                                                </PaginationItem>
-                                            </React.Fragment>
-                                        );
-                                    })}
-
-                                <PaginationItem>
-                                    <PaginationNext
-                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                        className={cn("cursor-pointer", currentPage === totalPages && "pointer-events-none opacity-50")}
-                                    />
-                                </PaginationItem>
-                            </PaginationContent>
-                        </Pagination>
-                    </div>
                 )}
             </div>
 
+            {/* Pagination - Fixed at bottom */}
+            {filteredItems.length > 0 && (
+                <div className="flex-none flex items-center justify-between px-6 py-4 border-t border-neutral-100 bg-white">
+                    <div className="text-xs text-neutral-500">
+                        全 {filteredItems.length} 件中 {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredItems.length)} 件を表示
+                    </div>
+                    <Pagination className="justify-end w-auto mx-0">
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    className={cn("cursor-pointer", currentPage === 1 && "pointer-events-none opacity-50")}
+                                />
+                            </PaginationItem>
+
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter(page => {
+                                    // Show first, last, current, and neighbors
+                                    return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
+                                })
+                                .map((page, i, arr) => {
+                                    // Insert ellipsis logic visually by checking gaps
+                                    const prevPage = arr[i - 1];
+                                    const showEllipsis = prevPage && page - prevPage > 1;
+
+                                    return (
+                                        <React.Fragment key={page}>
+                                            {showEllipsis && (
+                                                <PaginationItem>
+                                                    <PaginationEllipsis />
+                                                </PaginationItem>
+                                            )}
+                                            <PaginationItem>
+                                                <PaginationLink
+                                                    isActive={page === currentPage}
+                                                    onClick={() => setCurrentPage(page)}
+                                                    className="cursor-pointer"
+                                                >
+                                                    {page}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                        </React.Fragment>
+                                    );
+                                })}
+
+                            <PaginationItem>
+                                <PaginationNext
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    className={cn("cursor-pointer", currentPage === totalPages && "pointer-events-none opacity-50")}
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            )}
+
             {/* Register Dialog */}
             <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
-                <DialogContent className="sm:max-w-[600px] transition-all duration-200">
-                    <DialogHeader>
+                <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader className="shrink-0">
                         <DialogTitle>{editingItem ? '情報を編集' : 'ソースを追加'}</DialogTitle>
                         <DialogDescription className="text-neutral-500">
                             {editingItem ? '登録済みの情報を編集します。' : '記事生成に活用する一次情報を登録します。'}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-6 py-4">
-                        {/* Source Type Selection */}
+                    <div className="flex-1 min-h-0 overflow-y-auto space-y-6 py-4">
+                        {/* Source Type Selection - 編集時はタブ切り替え不可 */}
                         <div className="flex p-1 bg-neutral-100 rounded-lg">
                             <button
-                                onClick={() => setInputType('text')}
+                                onClick={() => {
+                                    if (!editingItem && inputType !== 'text') {
+                                        setInputType('text');
+                                        setInputContent('');
+                                    }
+                                }}
+                                disabled={!!editingItem}
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all",
                                     inputType === 'text'
                                         ? "bg-white text-neutral-900 shadow-sm"
-                                        : "text-neutral-500 hover:text-neutral-700"
+                                        : "text-neutral-500 hover:text-neutral-700",
+                                    editingItem && "cursor-not-allowed opacity-60"
                                 )}
                             >
                                 <FileText size={16} />
                                 テキスト
                             </button>
                             <button
-                                onClick={() => setInputType('url')}
+                                onClick={() => {
+                                    if (!editingItem && inputType !== 'url') {
+                                        setInputType('url');
+                                        setInputContent('');
+                                    }
+                                }}
+                                disabled={!!editingItem}
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all",
                                     inputType === 'url'
                                         ? "bg-white text-neutral-900 shadow-sm"
-                                        : "text-neutral-500 hover:text-neutral-700"
+                                        : "text-neutral-500 hover:text-neutral-700",
+                                    editingItem && "cursor-not-allowed opacity-60"
                                 )}
                             >
                                 <LinkIcon size={16} />
@@ -580,7 +708,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                 <div className="space-y-2">
                                     <Textarea
                                         placeholder="受講生の声、フィードバック、監修者のブログ記事、参考文献などを貼り付け..."
-                                        className="min-h-[200px] resize-none text-sm leading-relaxed bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100"
+                                        className="min-h-[150px] max-h-[250px] text-sm leading-relaxed bg-neutral-50/50 border-neutral-200 focus:ring-2 focus:ring-neutral-100"
                                         value={inputContent}
                                         onChange={(e) => setInputContent(e.target.value)}
                                         autoFocus
@@ -660,7 +788,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                         </div>
                     </div>
 
-                    <DialogFooter className="sm:justify-between items-center border-t border-neutral-100 pt-4 mt-2">
+                    <DialogFooter className="shrink-0 sm:justify-between items-center border-t border-neutral-100 pt-4 mt-2">
                         <div className="text-xs text-neutral-400">
                             ソースの件数: {items.length}
                         </div>
@@ -672,10 +800,10 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 size={16} className="mr-2 animate-spin" />
-                                        追加中
+                                        {editingItem ? '保存中' : '追加中'}
                                     </>
                                 ) : (
-                                    '追加'
+                                    editingItem ? '保存' : '追加'
                                 )}
                             </Button>
                         </div>
@@ -686,7 +814,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
             {/* Detail Dialog */}
             <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
                 <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
+                    <DialogHeader className="shrink-0">
                         <div className="flex items-center justify-between">
                             <DialogTitle>情報詳細</DialogTitle>
                             <DialogDescription className="sr-only">
@@ -706,11 +834,17 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                     </DialogHeader>
 
                     {selectedItem && (
-                        <div className="space-y-6 py-2">
-                            <div className="flex flex-wrap gap-2">
-                                <Badge variant="outline" className={cn("h-6 px-2", getBrandColor(selectedItem.brand))}>
-                                    {selectedItem.brand === 'ALL' ? '共通' : selectedItem.brand}
-                                </Badge>
+                        <div className="flex flex-col gap-4 min-h-0 flex-1 overflow-hidden">
+                            <div className="flex flex-wrap gap-2 shrink-0">
+                                {selectedItem.brand ? (
+                                    <Badge variant="outline" className={cn("h-6 px-2", getBrandColor(selectedItem.brand))}>
+                                        {selectedItem.brandName || selectedItem.brand}
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline" className="h-6 px-2 bg-neutral-100 text-neutral-500">
+                                        未設定
+                                    </Badge>
+                                )}
                                 {selectedItem.course && (
                                     <Badge variant="secondary" className="h-6 px-2 bg-neutral-100 text-neutral-600">
                                         {selectedItem.course}
@@ -724,13 +858,13 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                 )}
                             </div>
 
-                            <div className="bg-neutral-50 p-6 rounded-xl border border-neutral-100">
+                            <div className="flex-1 min-h-0 bg-neutral-50 p-6 rounded-xl border border-neutral-100 overflow-y-auto">
                                 <p className="text-sm leading-relaxed text-neutral-800 whitespace-pre-wrap">
                                     {selectedItem.content}
                                 </p>
                             </div>
 
-                            <div className="flex items-center gap-6 text-xs text-neutral-500 border-t border-neutral-100 pt-4">
+                            <div className="flex items-center gap-6 text-xs text-neutral-500 border-t border-neutral-100 pt-4 shrink-0">
                                 <div>
                                     <span className="font-medium text-neutral-900">登録日: </span>
                                     {format(new Date(selectedItem.createdAt), 'yyyy/MM/dd HH:mm')}
@@ -748,6 +882,18 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                open={confirmDialog.open}
+                onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+                title={confirmDialog.title}
+                description={confirmDialog.description}
+                variant={confirmDialog.variant}
+                confirmLabel="削除"
+                onConfirm={confirmDialog.onConfirm}
+                isLoading={deleteKnowledgeEntry.isPending}
+            />
         </div>
     );
 }

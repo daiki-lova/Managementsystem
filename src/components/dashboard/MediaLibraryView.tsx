@@ -26,6 +26,7 @@ import {
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 import { ScrollArea } from '../ui/scroll-area';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import { useMedia, useUploadMedia, useDeleteMedia, useGenerateMedia } from '../../lib/hooks';
 
 // Media item type
@@ -77,6 +78,9 @@ export function MediaLibraryView() {
     const [selectedFolder, setSelectedFolder] = useState('all');
     const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
 
+    // Selection for bulk actions
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
     // NanoBanana States
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [generatePrompt, setGeneratePrompt] = useState('');
@@ -86,6 +90,20 @@ export function MediaLibraryView() {
     // Folder creation state
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
+
+    // Confirm Dialog States
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant?: 'default' | 'destructive';
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+    });
 
     // Calculate folder counts
     const folderCounts = useMemo(() => {
@@ -139,8 +157,50 @@ export function MediaLibraryView() {
     };
 
     const handleDelete = (id: string) => {
-        deleteMediaMutation.mutate(id, {
-            onSuccess: () => setSelectedItem(null),
+        const item = media.find(m => m.id === id);
+        setConfirmDialog({
+            open: true,
+            title: 'メディアを削除',
+            description: `「${item?.name || ''}」を削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: () => {
+                deleteMediaMutation.mutate(id, {
+                    onSuccess: () => setSelectedItem(null),
+                });
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+            },
+        });
+    };
+
+    // Selection handlers
+    const toggleSelection = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) newSelected.delete(id);
+        else newSelected.add(id);
+        setSelectedIds(newSelected);
+    };
+
+    const toggleSelectAll = (checked: boolean) => {
+        setSelectedIds(checked ? new Set(filteredMedia.map(m => m.id)) : new Set());
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+
+        setConfirmDialog({
+            open: true,
+            title: '一括削除',
+            description: `選択した${selectedIds.size}件のメディアを削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                const promises = Array.from(selectedIds).map(id =>
+                    deleteMediaMutation.mutateAsync(id).catch(() => null)
+                );
+                await Promise.all(promises);
+                setSelectedIds(new Set());
+            },
         });
     };
 
@@ -310,13 +370,31 @@ export function MediaLibraryView() {
                 <div className="flex-1 flex flex-col min-w-0 bg-white">
                     {/* Toolbar */}
                     <div className="h-16 flex items-center justify-between px-8 border-b border-neutral-100 bg-white flex-none z-10">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-sm font-bold text-neutral-900">
-                                {folders.find(f => f.id === selectedFolder)?.name}
-                            </h2>
-                            <span className="bg-neutral-100 text-neutral-500 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                                {filteredMedia.length}
-                            </span>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={filteredMedia.length > 0 && selectedIds.size === filteredMedia.length}
+                                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                                    className="rounded border-neutral-300 scale-90 cursor-pointer"
+                                />
+                                <h2 className="text-sm font-bold text-neutral-900">
+                                    {folders.find(f => f.id === selectedFolder)?.name}
+                                </h2>
+                                <span className="bg-neutral-100 text-neutral-500 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                    {filteredMedia.length}
+                                </span>
+                            </div>
+                            {selectedIds.size > 0 && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs border-red-300 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-400"
+                                    onClick={handleBulkDelete}
+                                >
+                                    <Trash2 size={12} className="mr-1.5" /> {selectedIds.size}件を削除
+                                </Button>
+                            )}
                         </div>
                         <div className="relative w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
@@ -342,7 +420,10 @@ export function MediaLibraryView() {
                                 {filteredMedia.map(item => (
                                     <div
                                         key={item.id}
-                                        className="group relative rounded-xl overflow-hidden bg-neutral-100 shadow-sm hover:shadow-md transition-all aspect-square"
+                                        className={cn(
+                                            "group relative rounded-xl overflow-hidden bg-neutral-100 shadow-sm hover:shadow-md transition-all aspect-square",
+                                            selectedIds.has(item.id) && "ring-2 ring-blue-500 ring-offset-2"
+                                        )}
                                     >
                                         <div onClick={() => setSelectedItem(item)} className="cursor-zoom-in w-full h-full">
                                             <img
@@ -359,6 +440,28 @@ export function MediaLibraryView() {
                                                     }
                                                 }}
                                             />
+                                        </div>
+
+                                        {/* Checkbox */}
+                                        <div
+                                            className={cn(
+                                                "absolute top-2 left-2 z-10 transition-opacity",
+                                                selectedIds.has(item.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                            )}
+                                            onClick={(e) => toggleSelection(item.id, e)}
+                                        >
+                                            <div className={cn(
+                                                "w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-all",
+                                                selectedIds.has(item.id)
+                                                    ? "bg-blue-500 border-blue-500 text-white"
+                                                    : "bg-white/90 border-white shadow-sm hover:border-blue-400"
+                                            )}>
+                                                {selectedIds.has(item.id) && (
+                                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                                        <polyline points="20 6 9 17 4 12" />
+                                                    </svg>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {/* Overlay */}
@@ -564,6 +667,18 @@ export function MediaLibraryView() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                open={confirmDialog.open}
+                onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+                title={confirmDialog.title}
+                description={confirmDialog.description}
+                variant={confirmDialog.variant}
+                confirmLabel="削除"
+                onConfirm={confirmDialog.onConfirm}
+                isLoading={deleteMediaMutation.isPending}
+            />
         </div>
     );
 }

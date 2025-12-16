@@ -149,10 +149,19 @@ async function apiFetch<T>(
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    // ネットワークエラー（サーバー未起動、接続拒否など）を日本語化
+    const message = error instanceof Error && error.message.includes('Failed to fetch')
+      ? 'サーバーに接続できません。バックエンドサーバーが起動しているか確認してください。'
+      : 'ネットワークエラーが発生しました。接続を確認してください。';
+    throw new ApiError('NETWORK_ERROR', message, 0);
+  }
 
   // Handle 401 with token refresh
   if (response.status === 401 && retry) {
@@ -265,13 +274,27 @@ export async function uploadFile(
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+  } catch (error) {
+    // ネットワークエラー（サーバー未起動、接続拒否など）を日本語化
+    const message = error instanceof Error && error.message.includes('Failed to fetch')
+      ? 'サーバーに接続できません。バックエンドサーバーが起動しているか確認してください。'
+      : 'ファイルのアップロードに失敗しました。接続を確認してください。';
+    throw new ApiError('NETWORK_ERROR', message, 0);
+  }
 
-  const result = await response.json();
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new ApiError('INVALID_RESPONSE', 'サーバーからの応答が不正です', response.status);
+  }
 
   if (!result.success && result.error) {
     throw new ApiError(

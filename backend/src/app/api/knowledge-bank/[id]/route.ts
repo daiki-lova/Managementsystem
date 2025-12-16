@@ -73,7 +73,7 @@ const updateKnowledgeItemSchema = z.object({
   title: z.string().max(200).optional(),
   type: z.string().max(50).optional(),
   kind: z.string().max(50).optional(), // typeのエイリアス（フロントエンド互換）
-  brandId: commonSchemas.id.optional().nullable(),
+  brandId: z.string().max(100).optional().nullable(), // UUIDまたはスラグを受け付ける
   course: z.string().max(100).optional().nullable(),
   authorId: commonSchemas.id.optional().nullable(),
   content: z.string().min(1).optional(),
@@ -101,12 +101,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const resolvedType = data.type || data.kind;
       const resolvedSourceUrl = data.sourceUrl !== undefined ? data.sourceUrl : data.url;
 
+      // brandIdがスラグの場合、IDに変換
+      let resolvedBrandId = data.brandId;
+      if (data.brandId && !data.brandId.match(/^[0-9a-f-]{36}$/i)) {
+        // UUIDでない場合、スラグとして検索
+        const brand = await prisma.brands.findFirst({
+          where: { slug: data.brandId.toLowerCase() },
+          select: { id: true },
+        });
+        resolvedBrandId = brand?.id || null;
+      }
+
       const item = await prisma.knowledge_items.update({
         where: { id },
         data: {
           title: data.title,
           type: resolvedType,
-          brandId: data.brandId,
+          brandId: resolvedBrandId,
           course: data.course,
           authorId: data.authorId,
           content: data.content,

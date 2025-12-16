@@ -334,7 +334,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
               </div>
             )}
             {activeTab === 'knowledge' && (
-              <div className="h-full overflow-y-auto">
+              <div className="h-full overflow-hidden">
                 <KnowledgeBankView />
               </div>
             )}

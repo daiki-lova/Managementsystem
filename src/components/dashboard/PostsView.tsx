@@ -4,7 +4,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
     Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon,
     ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,
-    Send, Calendar as CalendarIcon, Ban, Loader2, RotateCcw
+    Send, Calendar as CalendarIcon, Ban, Loader2, RotateCcw, X
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -36,8 +36,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "../ui/dialog";
-
-import { BulkActionBar } from './BulkActionBar';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import {
     useArticles,
     useDeleteArticle,
@@ -412,7 +411,44 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
 
     return (
         <DndProvider backend={HTML5Backend}>
-            <div className="w-full h-full overflow-auto relative">
+            <div className="w-full h-full flex flex-col relative">
+                {/* Toolbar */}
+                {selectedIds.size > 0 && (
+                    <div className="flex items-center justify-between py-3 px-6 border-b border-neutral-100 bg-neutral-50/50 flex-none">
+                        <div className="text-xs text-neutral-600 font-medium">
+                            {selectedIds.size}件を選択中
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {!isTrashView && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400"
+                                    onClick={handleBulkPublish}
+                                >
+                                    <Send size={12} className="mr-1.5" /> 一括公開
+                                </Button>
+                            )}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs border-red-300 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-400"
+                                onClick={handleBulkDelete}
+                            >
+                                <Trash2 size={12} className="mr-1.5" /> {isTrashView ? '完全削除' : 'ゴミ箱へ'}
+                            </Button>
+                            <button
+                                onClick={handleClearSelection}
+                                className="h-7 w-7 flex items-center justify-center rounded text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 transition-colors"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Table */}
+                <div className="flex-1 overflow-auto">
                 <table className="w-full border-collapse" style={{ minWidth: columns.reduce((acc, col) => acc + col.width, 0) }}>
                     <thead className="sticky top-0 z-20">
                         <tr>
@@ -698,14 +734,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                         ))}
                     </tbody>
                 </table>
-
-                <BulkActionBar
-                    selectedCount={selectedIds.size}
-                    onClearSelection={handleClearSelection}
-                    onPublish={isTrashView ? undefined : handleBulkPublish}
-                    onDelete={handleBulkDelete}
-                    mode={isTrashView ? 'trash' : 'active'}
-                />
+                </div>
             </div>
 
             {/* Schedule Dialog */}
@@ -765,6 +794,20 @@ export function PostsView({
 
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Confirm Dialog States
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant?: 'default' | 'destructive';
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+    });
+
     // Map API data to ExtendedArticle format
     const articles: ExtendedArticle[] = (articlesData?.data || []).map((article: any) => ({
         id: article.id,
@@ -796,15 +839,30 @@ export function PostsView({
     };
 
     const handleDelete = (id: string) => {
+        const article = articles.find(a => a.id === id);
         if (viewMode === 'trash') {
-            if (window.confirm('この記事を完全に削除してもよろしいですか？（元に戻せません）')) {
-                deleteArticlePermanent.mutate(id);
-            }
+            setConfirmDialog({
+                open: true,
+                title: '記事を完全に削除',
+                description: `「${article?.title || ''}」を完全に削除してもよろしいですか？この操作は取り消せません。`,
+                variant: 'destructive',
+                onConfirm: () => {
+                    deleteArticlePermanent.mutate(id);
+                    setConfirmDialog(prev => ({ ...prev, open: false }));
+                },
+            });
             return;
         }
-        if (window.confirm('この記事をゴミ箱に移動してもよろしいですか？')) {
-            deleteArticle.mutate(id);
-        }
+        setConfirmDialog({
+            open: true,
+            title: '記事をゴミ箱へ移動',
+            description: `「${article?.title || ''}」をゴミ箱に移動してもよろしいですか？`,
+            variant: 'destructive',
+            onConfirm: () => {
+                deleteArticle.mutate(id);
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+            },
+        });
     };
 
     const handleRestore = (id: string) => {
@@ -812,9 +870,17 @@ export function PostsView({
     };
 
     const handleDeletePermanent = (id: string) => {
-        if (window.confirm('この記事を完全に削除してもよろしいですか？（元に戻せません）')) {
-            deleteArticlePermanent.mutate(id);
-        }
+        const article = articles.find(a => a.id === id);
+        setConfirmDialog({
+            open: true,
+            title: '記事を完全に削除',
+            description: `「${article?.title || ''}」を完全に削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: () => {
+                deleteArticlePermanent.mutate(id);
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+            },
+        });
     };
 
     const handleUpdateStatus = (id: string, status: string, version: number) => {
@@ -921,6 +987,18 @@ export function PostsView({
                     isTrashView={viewMode === 'trash'}
                 />
             </div>
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                open={confirmDialog.open}
+                onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+                title={confirmDialog.title}
+                description={confirmDialog.description}
+                variant={confirmDialog.variant}
+                confirmLabel={viewMode === 'trash' ? '完全に削除' : 'ゴミ箱へ移動'}
+                onConfirm={confirmDialog.onConfirm}
+                isLoading={deleteArticle.isPending || deleteArticlePermanent.isPending}
+            />
         </div>
     );
 }

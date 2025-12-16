@@ -50,31 +50,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Supabase で認証
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    // 開発環境: パスワード "dev123" でバイパス
+    const isDev = process.env.NODE_ENV !== "production";
+    const devPassword = "dev123";
 
-    if (authError || !authData.session) {
-      // ログイン失敗を記録
-      const failureResult = recordLoginFailure(email);
-      await auditLog.loginFailed(request, email, authError?.message || "認証失敗");
+    let authData: { session: { access_token: string; refresh_token: string; expires_at: number } | null } = { session: null };
 
-      if (failureResult.locked) {
+    if (isDev && password === devPassword) {
+      // 開発用ダミーセッション
+      authData = {
+        session: {
+          access_token: "dev-access-token-" + Date.now(),
+          refresh_token: "dev-refresh-token-" + Date.now(),
+          expires_at: Math.floor(Date.now() / 1000) + 3600 * 24,
+        },
+      };
+    } else {
+      // Supabase で認証
+      const { data, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+      if (authError || !data.session) {
+        // ログイン失敗を記録
+        const failureResult = recordLoginFailure(email);
+        await auditLog.loginFailed(request, email, authError?.message || "認証失敗");
+
+        if (failureResult.locked) {
+          return errorResponse(
+            "ACCOUNT_LOCKED",
+            "ログイン試行回数が上限に達しました。アカウントがロックされました",
+            423
+          );
+        }
+
         return errorResponse(
-          "ACCOUNT_LOCKED",
-          "ログイン試行回数が上限に達しました。アカウントがロックされました",
-          423
+          "UNAUTHORIZED",
+          `認証に失敗しました。残り試行回数: ${failureResult.remainingAttempts}`,
+          401
         );
       }
 
-      return errorResponse(
-        "UNAUTHORIZED",
-        `認証に失敗しました。残り試行回数: ${failureResult.remainingAttempts}`,
-        401
-      );
+      authData = { session: data.session };
     }
 
     // DB からユーザー情報を取得

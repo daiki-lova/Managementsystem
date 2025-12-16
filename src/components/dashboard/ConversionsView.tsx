@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-    Search, Image as ImageIcon, MoreHorizontal, X, Loader2
+    Search, Image as ImageIcon, MoreHorizontal, X, Loader2, Trash2
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -33,6 +33,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "../ui/select";
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import type { ConversionItem } from '../../types';
 import { useConversions, useCreateConversion, useUpdateConversion, useDeleteConversion } from '../../lib/hooks';
 
@@ -66,6 +67,23 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<ConversionItem | null>(null);
     const [formData, setFormData] = useState<Partial<ConversionItem>>({});
+
+    // Selection for bulk actions
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // Confirm Dialog States
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant?: 'default' | 'destructive';
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+    });
 
     const filteredConversions = conversions.filter(cv => 
         cv.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -102,7 +120,48 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
     };
 
     const handleDelete = (id: string) => {
-        deleteConversion.mutate(id);
+        const conversion = conversions.find(c => c.id === id);
+        setConfirmDialog({
+            open: true,
+            title: 'コンバージョンを削除',
+            description: `「${conversion?.name || ''}」を削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: () => {
+                deleteConversion.mutate(id);
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+            },
+        });
+    };
+
+    // Selection handlers
+    const toggleSelection = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) newSelected.delete(id);
+        else newSelected.add(id);
+        setSelectedIds(newSelected);
+    };
+
+    const toggleSelectAll = (checked: boolean) => {
+        setSelectedIds(checked ? new Set(filteredConversions.map(c => c.id)) : new Set());
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+
+        setConfirmDialog({
+            open: true,
+            title: '一括削除',
+            description: `選択した${selectedIds.size}件のコンバージョンを削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                const promises = Array.from(selectedIds).map(id =>
+                    deleteConversion.mutateAsync(id).catch(() => null)
+                );
+                await Promise.all(promises);
+                setSelectedIds(new Set());
+            },
+        });
     };
 
     const handleSave = () => {
@@ -174,9 +233,34 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                 </div>
             </header>
 
+            {/* Toolbar */}
+            {selectedIds.size > 0 && (
+                <div className="flex items-center justify-between py-3 px-8 border-b border-neutral-100 bg-neutral-50/50 flex-none">
+                    <div className="text-xs text-neutral-600 font-medium">
+                        {selectedIds.size}件を選択中
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs border-red-300 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-400"
+                        onClick={handleBulkDelete}
+                    >
+                        <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
+                    </Button>
+                </div>
+            )}
+
             {/* List Header */}
             <div className="flex-none grid grid-cols-12 gap-4 px-8 py-3 text-[11px] font-bold text-neutral-400 uppercase tracking-wider select-none border-b border-neutral-100/50">
-                <div className="col-span-5 pl-2">キャンペーン / URL</div>
+                <div className="col-span-1 flex items-center pl-2">
+                    <input
+                        type="checkbox"
+                        checked={filteredConversions.length > 0 && selectedIds.size === filteredConversions.length}
+                        onChange={(e) => toggleSelectAll(e.target.checked)}
+                        className="rounded border-neutral-300 scale-90 cursor-pointer"
+                    />
+                </div>
+                <div className="col-span-4">キャンペーン / URL</div>
                 <div className="col-span-2">ステータス</div>
                 <div className="col-span-1 text-right">CTR</div>
                 <div className="col-span-1 text-right">クリック数</div>
@@ -189,10 +273,25 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
             <ScrollArea className="flex-1">
                 <div className="px-4 pb-20 pt-2">
                     {filteredConversions.map(cv => (
-                        <div key={cv.id} className="group grid grid-cols-12 gap-4 px-4 py-4 items-center rounded-2xl transition-all hover:bg-neutral-50 border border-transparent mb-0.5">
-                            
+                        <div
+                            key={cv.id}
+                            className={cn(
+                                "group grid grid-cols-12 gap-4 px-4 py-4 items-center rounded-2xl transition-all hover:bg-neutral-50 border border-transparent mb-0.5",
+                                selectedIds.has(cv.id) && "bg-blue-50/50"
+                            )}
+                        >
+                            {/* Checkbox */}
+                            <div className="col-span-1 flex items-center pl-2">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedIds.has(cv.id)}
+                                    onChange={() => toggleSelection(cv.id)}
+                                    className="rounded border-neutral-300 scale-90 cursor-pointer"
+                                />
+                            </div>
+
                             {/* Info */}
-                            <div className="col-span-5 flex gap-5 items-center overflow-hidden">
+                            <div className="col-span-4 flex gap-5 items-center overflow-hidden">
                                 <div className="w-20 h-12 shrink-0 bg-neutral-100 rounded-lg overflow-hidden border border-neutral-200/50 relative">
                                     {cv.thumbnail ? (
                                         <img src={cv.thumbnail} alt={cv.name} className="w-full h-full object-cover" />
@@ -405,6 +504,18 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                open={confirmDialog.open}
+                onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+                title={confirmDialog.title}
+                description={confirmDialog.description}
+                variant={confirmDialog.variant}
+                confirmLabel="削除"
+                onConfirm={confirmDialog.onConfirm}
+                isLoading={deleteConversion.isPending}
+            />
         </div>
     );
 }
