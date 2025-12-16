@@ -1,6 +1,7 @@
 // API Client for Backend Communication
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// Vite uses `import.meta.env` for env vars. Keep empty by default so dev server proxy (`/api` -> backend) works.
+const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) || '';
 
 // API Response Types (matching backend)
 export interface ApiResponse<T = unknown> {
@@ -159,10 +160,34 @@ async function apiFetch<T>(
     if (refreshed) {
       return apiFetch<T>(endpoint, options, false);
     }
+    tokenManager.clearTokens();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth:logout'));
+    }
     throw new ApiError('UNAUTHORIZED', '認証が必要です', 401);
   }
 
-  const result: ApiResponse<T> = await response.json();
+  const rawText = await response.text();
+  if (!rawText) {
+    if (!response.ok) {
+      throw new ApiError('HTTP_ERROR', response.statusText || 'リクエストに失敗しました', response.status);
+    }
+    return { success: true } as ApiResponse<T>;
+  }
+
+  let result: ApiResponse<T>;
+  try {
+    result = JSON.parse(rawText) as ApiResponse<T>;
+  } catch {
+    // If the request is accidentally routed to a non-API server (e.g. missing proxy in dev/prod),
+    // we can get HTML back; surface that clearly instead of a generic JSON parse error.
+    throw new ApiError(
+      'INVALID_RESPONSE',
+      'APIレスポンスの形式が不正です（JSONではありません）',
+      response.status,
+      { url, status: response.status, contentType: response.headers.get('content-type'), bodyPreview: rawText.slice(0, 300) }
+    );
+  }
 
   if (!result.success && result.error) {
     throw new ApiError(
@@ -317,18 +342,16 @@ export const usersApi = {
 
 // Categories
 export const categoriesApi = {
-  list: (params?: { page?: number; limit?: number; includeDeleted?: boolean }) =>
+  list: (params?: { page?: number; limit?: number }) =>
     api.get<Array<{
       id: string;
       name: string;
       slug: string;
       description: string | null;
       color: string | null;
-      sortOrder: number;
-      parentId: string | null;
-      authorId: string | null;
-      author: { id: string; name: string } | null;
-      _count: { articles: number };
+      articlesCount: number;
+      createdAt: string;
+      updatedAt: string;
     }>>('/api/categories', params),
 
   get: (id: string) =>
@@ -337,6 +360,10 @@ export const categoriesApi = {
       name: string;
       slug: string;
       description: string | null;
+      color: string | null;
+      articlesCount: number;
+      createdAt: string;
+      updatedAt: string;
     }>(`/api/categories/${id}`),
 
   create: (data: {
@@ -344,18 +371,13 @@ export const categoriesApi = {
     slug: string;
     description?: string;
     color?: string;
-    parentId?: string;
-    authorId?: string;
   }) => api.post<{ id: string }>('/api/categories', data),
 
   update: (id: string, data: {
     name?: string;
     slug?: string;
-    description?: string;
-    color?: string;
-    sortOrder?: number;
-    parentId?: string | null;
-    authorId?: string | null;
+    description?: string | null;
+    color?: string | null;
   }) => api.patch<{ id: string }>(`/api/categories/${id}`, data),
 
   delete: (id: string) => api.delete(`/api/categories/${id}`),
@@ -370,10 +392,15 @@ export const authorsApi = {
       slug: string;
       role: string | null;
       bio: string | null;
-      avatarUrl: string | null;
+      imageUrl: string | null;
       qualifications: string[];
       socialLinks: Record<string, string>;
-      _count: { articles: number; categories: number };
+      categories: string[];
+      tags: string[];
+      articlesCount: number;
+      systemPrompt: string | null;
+      createdAt: string;
+      updatedAt: string;
     }>>('/api/authors', params),
 
   get: (id: string) =>
@@ -383,19 +410,23 @@ export const authorsApi = {
       slug: string;
       role: string | null;
       bio: string | null;
-      avatarUrl: string | null;
+      imageUrl: string | null;
       qualifications: string[];
       socialLinks: Record<string, string>;
+      categories: string[];
+      tags: string[];
       systemPrompt: string | null;
     }>(`/api/authors/${id}`),
 
   create: (data: {
     name: string;
-    slug: string;
+    slug?: string;
     role?: string;
     bio?: string;
-    avatarUrl?: string;
+    imageUrl?: string;
     qualifications?: string[];
+    categories?: string[];
+    tags?: string[];
     socialLinks?: Record<string, string>;
     systemPrompt?: string;
   }) => api.post<{ id: string }>('/api/authors', data),
@@ -405,8 +436,10 @@ export const authorsApi = {
     slug?: string;
     role?: string;
     bio?: string;
-    avatarUrl?: string;
+    imageUrl?: string;
     qualifications?: string[];
+    categories?: string[];
+    tags?: string[];
     socialLinks?: Record<string, string>;
     systemPrompt?: string;
   }) => api.patch<{ id: string }>(`/api/authors/${id}`, data),
@@ -466,6 +499,8 @@ export const conversionsApi = {
   delete: (id: string) => api.delete(`/api/conversions/${id}`),
 };
 
+
+
 // Brands
 export const brandsApi = {
   list: () =>
@@ -509,9 +544,8 @@ export const brandsApi = {
 export interface ArticleBlock {
   id: string;
   type: string;
-  content: string;
-  order: number;
-  metadata: Record<string, unknown> | null;
+  content?: string;
+  data?: Record<string, unknown>;
 }
 
 export interface ArticleDetail {
@@ -519,21 +553,30 @@ export interface ArticleDetail {
   title: string;
   slug: string;
   status: string;
-  metaDescription: string | null;
-  content: string | null;
-  blocks: ArticleBlock[];
-  thumbnailId: string | null;
-  media_assets: Array<{ id: string; url: string }>;
-  thumbnail: { id: string; url: string } | null;
-  categoryId: string | null;
-  category: { id: string; name: string; slug: string } | null;
-  authorId: string | null;
-  author: { id: string; name: string } | null;
-  conversionId: string | null;
-  conversion: { id: string; name: string } | null;
-  article_tags: Array<{ tags: { id: string; name: string; slug: string } }>;
+  previousSlug?: string | null;
+  deletedAt?: string | null;
+  blocks: ArticleBlock[] | unknown;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  ogpImageUrl?: string | null;
+  categories?: { id: string; name: string; slug: string; color?: string | null } | null;
+  authors?: { id: string; name: string; role?: string; imageUrl?: string | null; bio?: string | null } | null;
+  brands?: { id: string; name: string; slug: string } | null;
+  media_assets?: { id: string; url: string; altText?: string | null } | null;
+  users?: { id: string; name: string | null; email: string } | null;
+  tags?: Array<{ id: string; name: string; slug: string }>;
+  conversions?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    url: string;
+    thumbnailUrl?: string | null;
+    position: number;
+  }>;
+  images?: Array<{ id: string; url: string; altText?: string | null; type: string; position: number }>;
+  knowledgeItems?: Array<{ id: string; title: string; type: string }>;
   publishedAt: string | null;
-  scheduledAt: string | null;
+  scheduledAt?: string | null;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -544,11 +587,12 @@ export interface ArticleListItem {
   title: string;
   slug: string;
   status: string;
-  media_assets: Array<{ url: string }>;
-  thumbnail: { url: string } | null;
-  category: { id: string; name: string } | null;
-  article_tags: Array<{ tags: { id: string; name: string; slug: string } }>;
-  author: { id: string; name: string } | null;
+  categories?: { id: string; name: string; slug: string; color?: string | null } | null;
+  authors?: { id: string; name: string; imageUrl?: string | null } | null;
+  brands?: { id: string; name: string; slug: string } | null;
+  media_assets?: { id: string; url: string } | null;
+  article_tags?: Array<{ tags: { id: string; name: string; slug: string } }>;
+  users?: { id: string; name: string | null; email: string } | null;
   publishedAt: string | null;
   scheduledAt: string | null;
   updatedAt: string;
@@ -569,42 +613,59 @@ export const articlesApi = {
   create: (data: {
     title: string;
     slug?: string;
-    content?: string;
-    blocks?: Array<{ type: string; content: string; order: number; metadata?: Record<string, unknown> }>;
+    blocks?: Array<
+      | { id: string; type: string; content?: string; data?: Record<string, unknown> }
+      | { type: string; content?: string; order?: number; metadata?: Record<string, unknown> }
+    >;
+    status?: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED';
     categoryId?: string;
     authorId?: string;
-    conversionId?: string;
+    brandId?: string;
     thumbnailId?: string;
+    metaTitle?: string;
     metaDescription?: string;
     tagIds?: string[];
+    conversionIds?: string[];
   }) => api.post<{ id: string }>('/api/articles', data),
 
   update: (id: string, data: {
     title?: string;
     slug?: string;
-    content?: string;
-    blocks?: Array<{ type: string; content: string; order: number; metadata?: Record<string, unknown> }>;
+    blocks?: Array<
+      | { id: string; type: string; content?: string; data?: Record<string, unknown> }
+      | { type: string; content?: string; order?: number; metadata?: Record<string, unknown> }
+    >;
+    status?: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'DELETED';
     categoryId?: string | null;
     authorId?: string | null;
-    conversionId?: string | null;
+    brandId?: string | null;
     thumbnailId?: string | null;
-    metaDescription?: string;
+    metaTitle?: string | null;
+    metaDescription?: string | null;
+    ogpImageUrl?: string | null;
     tagIds?: string[];
+    conversionIds?: string[];
+    publishedAt?: string | null;
     version: number;
   }) => api.patch<{ id: string; version: number }>(`/api/articles/${id}`, data),
 
   delete: (id: string) => api.delete(`/api/articles/${id}`),
 
+  deletePermanent: (id: string) =>
+    api.delete(`/api/articles/${id}?permanent=true`),
+
   restore: (id: string) => api.post<{ id: string }>(`/api/articles/${id}/restore`),
 
   publish: (id: string, version: number) =>
-    api.post<{ id: string; status: string; publishedAt: string }>(`/api/articles/${id}/publish`, { version }),
+    api.post<{ id: string; status: string; publishedAt: string | null; version: number }>(`/api/articles/${id}/publish`, { version }),
 
   schedule: (id: string, scheduledAt: string, version: number) =>
-    api.post<{ id: string; status: string; scheduledAt: string }>(`/api/articles/${id}/schedule`, { scheduledAt, version }),
+    api.post<{ id: string; status: string; scheduledAt: string | null; version: number }>(`/api/articles/${id}/schedule`, { scheduledAt, version }),
 
-  unschedule: (id: string) =>
-    api.delete<{ id: string }>(`/api/articles/${id}/schedule`),
+  unschedule: (id: string, version?: number) => {
+    const qs = version ? `?version=${encodeURIComponent(String(version))}` : '';
+    return api.delete<{ id: string; status: string; scheduledAt: string | null; version: number }>(`/api/articles/${id}/schedule${qs}`);
+  },
 };
 
 // Media
@@ -908,11 +969,26 @@ export const tagsApi = {
       id: string;
       name: string;
       slug: string;
-      _count: { articles: number };
+      createdAt: string;
+      updatedAt: string;
+      _count: { articles: number; article_tags: number };
     }>>('/api/tags', params),
+
+  get: (id: string) =>
+    api.get<{
+      id: string;
+      name: string;
+      slug: string;
+      createdAt: string;
+      updatedAt: string;
+      _count: { articles: number; article_tags: number };
+    }>(`/api/tags/${id}`),
 
   create: (data: { name: string; slug: string }) =>
     api.post<{ id: string }>('/api/tags', data),
+
+  update: (id: string, data: { name?: string; slug?: string }) =>
+    api.patch<{ id: string }>(`/api/tags/${id}`, data),
 
   delete: (id: string) => api.delete(`/api/tags/${id}`),
 };

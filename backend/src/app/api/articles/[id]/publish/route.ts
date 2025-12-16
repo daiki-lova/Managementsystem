@@ -15,11 +15,15 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// 公開設定スキーマ
-const publishSchema = z.object({
-  action: z.enum(["publish", "unpublish", "schedule"]),
-  scheduledAt: z.string().datetime().optional(), // action=scheduleの場合必須
-});
+// Frontend expects { version }.
+// Keep old shape for backward compatibility.
+const publishSchema = z.union([
+  z.object({ version: z.number().int().min(1) }),
+  z.object({
+    action: z.enum(["publish", "unpublish", "schedule"]),
+    scheduledAt: z.string().datetime().optional(),
+  }),
+]);
 
 // 記事公開ステータス変更
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -31,7 +35,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // 存在確認
       const existing = await prisma.articles.findUnique({
         where: { id },
-        select: { id: true, status: true, publishedAt: true },
+        select: { id: true, status: true, publishedAt: true, version: true },
       });
 
       if (!existing) {
@@ -42,6 +46,35 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return ApiErrors.badRequest("ゴミ箱内の記事は公開できません");
       }
 
+      // New: optimistic lock publish
+      if ("version" in data) {
+        if (data.version !== existing.version) {
+          return errorResponse(
+            "CONFLICT",
+            "この記事は他のユーザーによって更新されました。ページを再読み込みしてください。",
+            409
+          );
+        }
+
+        const article = await prisma.articles.update({
+          where: { id },
+          data: {
+            status: ArticleStatus.PUBLISHED,
+            publishedAt: new Date(),
+            version: { increment: 1 },
+          },
+          select: { id: true, status: true, publishedAt: true, version: true },
+        });
+
+        return successResponse({
+          id: article.id,
+          status: article.status,
+          publishedAt: article.publishedAt?.toISOString() ?? null,
+          version: article.version,
+        });
+      }
+
+      // Old shape: keep behavior but fix to use scheduledAt column
       let updateData: {
         status: ArticleStatus;
         publishedAt?: Date | null;
@@ -58,11 +91,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         case "unpublish":
           updateData = {
             status: ArticleStatus.DRAFT,
-            // publishedAtは保持（再公開時に使用）
           };
           break;
 
-        case "schedule":
+        case "schedule": {
           if (!data.scheduledAt) {
             return ApiErrors.badRequest("予約公開には日時が必要です");
           }
@@ -75,32 +107,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             publishedAt: scheduledDate,
           };
           break;
-
-        default:
-          return ApiErrors.badRequest("不正なアクションです");
+        }
       }
 
       const article = await prisma.articles.update({
         where: { id },
         data: updateData,
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          status: true,
-          publishedAt: true,
-        },
+        select: { id: true, status: true, publishedAt: true, version: true },
       });
 
-      const messages = {
-        publish: "記事を公開しました",
-        unpublish: "記事を非公開にしました",
-        schedule: "記事の予約公開を設定しました",
-      };
-
       return successResponse({
-        ...article,
-        message: messages[data.action],
+        id: article.id,
+        status: article.status,
+        publishedAt: article.publishedAt?.toISOString() ?? null,
+        scheduledAt: null,
+        version: article.version,
       });
     });
   } catch (error) {

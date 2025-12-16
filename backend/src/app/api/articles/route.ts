@@ -15,6 +15,66 @@ import { isAppError, handlePrismaError } from "@/lib/errors";
 import { ArticleStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 
+function generateSlugBase(input: string): string {
+  const base = input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return base || "article";
+}
+
+function generateUniqueSlug(input: string): string {
+  const base = generateSlugBase(input).slice(0, 93); // 100 - "-" - 6 chars
+  const randomId = Math.random().toString(36).slice(2, 8);
+  return `${base}-${randomId}`;
+}
+
+const frontendBlockSchema = z.object({
+  type: z.enum([
+    "p",
+    "h2",
+    "h3",
+    "h4",
+    "image",
+    "html",
+    "blockquote",
+    "ul",
+    "ol",
+    "hr",
+    "table",
+    "code",
+  ]),
+  content: z.string().optional(),
+  order: z.number().int().nonnegative().optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+
+type NormalizedBlock = { id: string; type: string; content?: string; data?: Record<string, unknown> };
+
+function normalizeBlocks(blocks: Array<z.infer<typeof blockSchema> | z.infer<typeof frontendBlockSchema>>): NormalizedBlock[] {
+  return blocks.map((block) => {
+    // Backend/native block format already contains `id`
+    if ("id" in block) {
+      return {
+        id: block.id,
+        type: block.type,
+        content: block.content,
+        data: block.data as Record<string, unknown> | undefined,
+      };
+    }
+
+    // Frontend format: generate id and map metadata -> data
+    return {
+      id: randomUUID(),
+      type: block.type,
+      content: block.content,
+      data: (block.metadata as Record<string, unknown> | undefined) ?? undefined,
+    };
+  });
+}
+
 // 記事一覧取得
 export async function GET(request: NextRequest) {
   try {
@@ -135,12 +195,12 @@ const blockSchema = z.object({
 // 記事作成スキーマ
 const createArticleSchema = z.object({
   title: z.string().min(1).max(200),
-  slug: commonSchemas.slug,
-  blocks: z.array(blockSchema).default([]),
+  slug: commonSchemas.slug.optional(),
+  blocks: z.array(z.union([blockSchema, frontendBlockSchema])).default([]),
   status: z.nativeEnum(ArticleStatus).default(ArticleStatus.DRAFT),
-  categoryId: commonSchemas.id,
-  authorId: commonSchemas.id,
-  brandId: commonSchemas.id,
+  categoryId: commonSchemas.id.optional(),
+  authorId: commonSchemas.id.optional(),
+  brandId: commonSchemas.id.optional(),
   thumbnailId: commonSchemas.id.optional(),
   metaTitle: z.string().max(60).optional(),
   metaDescription: z.string().max(160).optional(),
@@ -154,16 +214,54 @@ export async function POST(request: NextRequest) {
     return await withAuth(request, async (user: AuthUser) => {
       const data = await validateBody(request, createArticleSchema);
 
+      const [categoryFallback, authorFallback, brandDefault, brandFallback] =
+        await Promise.all([
+          prisma.categories.findFirst({
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          }),
+          prisma.authors.findFirst({
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          }),
+          prisma.brands.findFirst({
+            where: { isDefault: true },
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          }),
+          prisma.brands.findFirst({
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          }),
+        ]);
+
+      const categoryId = data.categoryId ?? categoryFallback?.id;
+      const authorId = data.authorId ?? authorFallback?.id;
+      const brandId = data.brandId ?? brandDefault?.id ?? brandFallback?.id;
+
+      if (!categoryId) {
+        return ApiErrors.badRequest("カテゴリが存在しません。先にカテゴリを作成してください。");
+      }
+      if (!authorId) {
+        return ApiErrors.badRequest("監修者が存在しません。先に監修者を作成してください。");
+      }
+      if (!brandId) {
+        return ApiErrors.badRequest("ブランドが存在しません。先にブランドを作成してください。");
+      }
+
+      const slug = data.slug ?? generateUniqueSlug(data.title);
+      const blocks = normalizeBlocks(data.blocks ?? []);
+
       const article = await prisma.articles.create({
         data: {
           id: randomUUID(),
           title: data.title,
-          slug: data.slug,
-          blocks: data.blocks as unknown as Prisma.InputJsonValue,
+          slug,
+          blocks: blocks as unknown as Prisma.InputJsonValue,
           status: data.status,
-          categoryId: data.categoryId,
-          authorId: data.authorId,
-          brandId: data.brandId,
+          categoryId,
+          authorId,
+          brandId,
           thumbnailId: data.thumbnailId,
           metaTitle: data.metaTitle,
           metaDescription: data.metaDescription,
@@ -196,7 +294,7 @@ export async function POST(request: NextRequest) {
 
       // カテゴリの記事数を更新
       await prisma.categories.update({
-        where: { id: data.categoryId },
+        where: { id: categoryId },
         data: { articlesCount: { increment: 1 } },
       });
 

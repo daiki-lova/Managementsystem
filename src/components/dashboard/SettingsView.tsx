@@ -30,7 +30,7 @@ export function SettingsView() {
         maxSearchVolume: 2000,
         gaPropertyId: '',
         searchConsoleSiteUrl: '',
-        imageModel: 'google/gemini-3-pro-image-preview',
+        imageModel: 'google/imagen-3',
         articleModel: 'anthropic/claude-sonnet-4',
         analysisModel: 'anthropic/claude-3.5-haiku',
         keywordPrompt: '',
@@ -58,7 +58,7 @@ export function SettingsView() {
                 maxSearchVolume: settings.maxSearchVolume ?? 2000,
                 gaPropertyId: settings.gaPropertyId || '',
                 searchConsoleSiteUrl: settings.searchConsoleSiteUrl || '',
-                imageModel: settings.imageModel || 'google/gemini-3-pro-image-preview',
+                imageModel: settings.imageModel || 'google/imagen-3',
                 articleModel: settings.articleModel || 'anthropic/claude-sonnet-4',
                 analysisModel: settings.analysisModel || 'anthropic/claude-3.5-haiku',
                 keywordPrompt: settings.keywordPrompt || '',
@@ -73,7 +73,36 @@ export function SettingsView() {
     }, [settings]);
 
     const handleSave = () => {
-        updateSettings.mutate(formData);
+        // 編集中のAPIキーがあれば含める
+        const dataToSave = {
+            ...formData,
+            // 編集中のOpenRouter APIキーがあれば使用
+            ...(isEditingApiKey && newApiKey.trim()
+                ? { openRouterApiKey: newApiKey.trim() }
+                : {}),
+            // 編集中のDataForSEO APIキーがあれば使用
+            ...(isEditingDataforSeoKey && newDataforSeoKey.trim()
+                ? { dataforSeoApiKey: newDataforSeoKey.trim() }
+                : {}),
+        };
+
+        // マスク値は送信しない（バックエンドでスキップされるが、明示的に除外）
+        if (dataToSave.openRouterApiKey === '********' || dataToSave.openRouterApiKey?.match(/^\*+$/)) {
+            delete dataToSave.openRouterApiKey;
+        }
+        if (dataToSave.dataforSeoApiKey === '********' || dataToSave.dataforSeoApiKey?.match(/^\*+$/)) {
+            delete dataToSave.dataforSeoApiKey;
+        }
+
+        updateSettings.mutate(dataToSave, {
+            onSuccess: () => {
+                // 編集モードを閉じる
+                setIsEditingApiKey(false);
+                setNewApiKey('');
+                setIsEditingDataforSeoKey(false);
+                setNewDataforSeoKey('');
+            }
+        });
     };
 
     // Loading state
@@ -264,7 +293,7 @@ export function SettingsView() {
                                         <h3 className="font-bold text-neutral-900">DataForSEO</h3>
                                         <p className="text-[10px] text-neutral-500">検索ボリューム取得API</p>
                                         <div className="flex items-center gap-1.5 mt-1">
-                                            {formData.dataforSeoApiKey ? (
+                                            {settings?.hasDataforSeoApiKey ? (
                                                 <>
                                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                                                     <span className="text-xs font-bold text-emerald-600">API連携済み</span>
@@ -324,7 +353,7 @@ export function SettingsView() {
                                             <>
                                                 <Input
                                                     type="password"
-                                                    value={formData.dataforSeoApiKey ? '●'.repeat(Math.min(formData.dataforSeoApiKey.length, 20)) : ''}
+                                                    value={settings?.hasDataforSeoApiKey ? '●'.repeat(20) : ''}
                                                     readOnly
                                                     className="h-10 bg-neutral-50 border-neutral-200 rounded-xl font-mono text-xs cursor-default"
                                                     placeholder="未設定"
@@ -337,7 +366,7 @@ export function SettingsView() {
                                                     }}
                                                     className="absolute right-1 top-1 h-8 bg-neutral-900 text-white hover:bg-neutral-800 font-bold text-[10px]"
                                                 >
-                                                    {formData.dataforSeoApiKey ? '変更' : '設定'}
+                                                    {settings?.hasDataforSeoApiKey ? '変更' : '設定'}
                                                 </Button>
                                             </>
                                         )}
@@ -400,7 +429,7 @@ export function SettingsView() {
                                         <h3 className="font-bold">OpenRouter API Configuration</h3>
                                     </div>
                                     <div className="flex gap-2">
-                                        {formData.openRouterApiKey && (
+                                        {settings?.hasOpenRouterApiKey && (
                                             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-[10px] font-bold text-emerald-400">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
                                                 設定済み
@@ -451,7 +480,7 @@ export function SettingsView() {
                                         <>
                                             <Input
                                                 type="password"
-                                                value={formData.openRouterApiKey ? '●'.repeat(Math.min(formData.openRouterApiKey.length, 40)) : ''}
+                                                value={settings?.hasOpenRouterApiKey ? '●'.repeat(30) : ''}
                                                 readOnly
                                                 className="h-12 bg-white/10 border-transparent rounded-xl font-mono text-sm pl-4 text-white placeholder:text-white/30 cursor-default"
                                                 placeholder="APIキーが設定されていません"
@@ -464,7 +493,7 @@ export function SettingsView() {
                                                 }}
                                                 className="absolute right-2 top-2 h-8 bg-white text-neutral-900 hover:bg-neutral-200 font-bold text-xs"
                                             >
-                                                {formData.openRouterApiKey ? '変更' : '設定'}
+                                                {settings?.hasOpenRouterApiKey ? '変更' : '設定'}
                                             </Button>
                                         </>
                                     )}
@@ -494,10 +523,16 @@ export function SettingsView() {
                                                 <SelectValue placeholder="モデルを選択" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="google/gemini-3-pro-image-preview">Nano Banana Pro (推奨)</SelectItem>
-                                                <SelectItem value="google/gemini-2.5-flash-image-preview">Gemini 2.5 Flash</SelectItem>
+                                                {/* Google 画像生成 */}
+                                                <SelectItem value="google/gemini-2.0-flash-exp:image">Gemini 2.0 Flash (画像生成)</SelectItem>
+                                                <SelectItem value="google/imagen-3">Imagen 3 (推奨)</SelectItem>
+                                                {/* OpenAI 画像生成 */}
                                                 <SelectItem value="openai/dall-e-3">DALL-E 3 (OpenAI)</SelectItem>
+                                                <SelectItem value="openai/gpt-4o:image">GPT-4o (画像生成)</SelectItem>
+                                                {/* FLUX モデル */}
                                                 <SelectItem value="black-forest-labs/flux-1.1-pro">FLUX 1.1 Pro</SelectItem>
+                                                <SelectItem value="black-forest-labs/flux-1.1-pro-ultra">FLUX 1.1 Pro Ultra</SelectItem>
+                                                <SelectItem value="black-forest-labs/flux-schnell">FLUX Schnell (高速)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -531,14 +566,22 @@ export function SettingsView() {
                                                 <SelectValue placeholder="モデルを選択" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="anthropic/claude-opus-4">Claude Opus 4 (最高性能)</SelectItem>
-                                                <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet 4 (推奨)</SelectItem>
+                                                {/* Anthropic - 最新モデル */}
+                                                <SelectItem value="anthropic/claude-opus-4-5-20251101">Claude Opus 4.5 (最高性能)</SelectItem>
+                                                <SelectItem value="anthropic/claude-sonnet-4-5-20251101">Claude Sonnet 4.5 (推奨)</SelectItem>
+                                                <SelectItem value="anthropic/claude-opus-4">Claude Opus 4</SelectItem>
+                                                <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet 4</SelectItem>
+                                                {/* OpenAI - 最新モデル */}
                                                 <SelectItem value="openai/gpt-4.1">GPT-4.1 (最新)</SelectItem>
                                                 <SelectItem value="openai/o3">o3 (推論特化)</SelectItem>
+                                                <SelectItem value="openai/o4-mini">o4-mini (推論・高速)</SelectItem>
                                                 <SelectItem value="openai/o1">o1 (推論)</SelectItem>
                                                 <SelectItem value="openai/gpt-4o">GPT-4o</SelectItem>
-                                                <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
-                                                <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                                                {/* Google - 最新モデル */}
+                                                <SelectItem value="google/gemini-2.5-pro-preview">Gemini 2.5 Pro (プレビュー)</SelectItem>
+                                                <SelectItem value="google/gemini-2.5-flash-preview">Gemini 2.5 Flash (プレビュー)</SelectItem>
+                                                <SelectItem value="google/gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                                                {/* その他 */}
                                                 <SelectItem value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</SelectItem>
                                                 <SelectItem value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</SelectItem>
                                             </SelectContent>
@@ -564,14 +607,20 @@ export function SettingsView() {
                                                 <SelectValue placeholder="モデルを選択" />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                {/* 高速・コスト効率重視 */}
                                                 <SelectItem value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku (推奨・高速)</SelectItem>
                                                 <SelectItem value="openai/gpt-4.1-mini">GPT-4.1 mini (最新・高速)</SelectItem>
+                                                <SelectItem value="openai/o4-mini">o4-mini (推論・高速)</SelectItem>
                                                 <SelectItem value="openai/gpt-4o-mini">GPT-4o mini</SelectItem>
-                                                <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                                                <SelectItem value="google/gemini-2.5-flash-preview">Gemini 2.5 Flash (プレビュー)</SelectItem>
+                                                <SelectItem value="google/gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                                                {/* 高性能モデル */}
+                                                <SelectItem value="anthropic/claude-sonnet-4-5-20251101">Claude Sonnet 4.5</SelectItem>
                                                 <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet 4</SelectItem>
+                                                <SelectItem value="anthropic/claude-opus-4-5-20251101">Claude Opus 4.5</SelectItem>
                                                 <SelectItem value="anthropic/claude-opus-4">Claude Opus 4</SelectItem>
                                                 <SelectItem value="openai/gpt-4.1">GPT-4.1</SelectItem>
-                                                <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                                                <SelectItem value="google/gemini-2.5-pro-preview">Gemini 2.5 Pro (プレビュー)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>

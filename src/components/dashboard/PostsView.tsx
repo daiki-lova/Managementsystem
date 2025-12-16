@@ -4,7 +4,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
     Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon,
     ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,
-    Send, Calendar as CalendarIcon, Ban, Loader2
+    Send, Calendar as CalendarIcon, Ban, Loader2, RotateCcw
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -41,10 +41,12 @@ import { BulkActionBar } from './BulkActionBar';
 import {
     useArticles,
     useDeleteArticle,
+    useDeleteArticlePermanent,
     usePublishArticle,
     useScheduleArticle,
     useUpdateArticle,
     useCreateArticle,
+    useRestoreArticle,
 } from '../../lib/hooks';
 
 export type ExtendedArticle = Article & {
@@ -236,11 +238,14 @@ interface ArticlesTableProps {
     onPublish: (id: string, version: number) => void;
     onSchedule: (id: string, scheduledAt: string, version: number) => void;
     onDelete: (id: string) => void;
+    onRestore: (id: string) => void;
+    onDeletePermanent: (id: string) => void;
     onUpdateStatus: (id: string, status: string, version: number) => void;
     onDuplicate: (article: ExtendedArticle) => void;
+    isTrashView: boolean;
 }
 
-function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onUpdateStatus, onDuplicate }: ArticlesTableProps) {
+function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onDuplicate, isTrashView }: ArticlesTableProps) {
     const [columns, setColumns] = useState<ColumnConfig[]>([
         { id: 'actions', label: '', width: 40, minWidth: 40 },
         { id: 'select', label: '', width: 40, minWidth: 40 },
@@ -263,6 +268,21 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
     // Schedule Dialog State
     const [schedulingArticle, setSchedulingArticle] = useState<ExtendedArticle | null>(null);
     const [scheduleDate, setScheduleDate] = useState<Date | undefined>(new Date());
+    const [scheduleTime, setScheduleTime] = useState<string>(() => {
+        const now = new Date(Date.now() + 60 * 60 * 1000);
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+    });
+
+    const openScheduleDialog = (article: ExtendedArticle) => {
+        const now = new Date(Date.now() + 60 * 60 * 1000);
+        setSchedulingArticle(article);
+        setScheduleDate(now);
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        setScheduleTime(`${hh}:${mm}`);
+    };
 
     const moveColumn = useCallback((dragIndex: number, hoverIndex: number) => {
         setColumns((prevColumns) => {
@@ -362,7 +382,12 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
 
     const handleScheduleConfirm = () => {
         if (!schedulingArticle || !scheduleDate) return;
-        onSchedule(schedulingArticle.id, scheduleDate.toISOString(), schedulingArticle.version || 1);
+        const [hh, mm] = scheduleTime.split(':').map((v) => Number(v));
+        const scheduled = new Date(scheduleDate);
+        if (Number.isFinite(hh)) scheduled.setHours(hh);
+        if (Number.isFinite(mm)) scheduled.setMinutes(mm);
+        scheduled.setSeconds(0, 0);
+        onSchedule(schedulingArticle.id, scheduled.toISOString(), schedulingArticle.version || 1);
         setSchedulingArticle(null);
     };
 
@@ -371,7 +396,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
     };
 
     const handleBulkDelete = () => {
-        selectedIds.forEach(id => onDelete(id));
+        selectedIds.forEach(id => (isTrashView ? onDeletePermanent(id) : onDelete(id)));
         setSelectedIds(new Set());
     };
 
@@ -480,30 +505,43 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
 
                                                         <DropdownMenuSeparator />
 
-                                                        {(article.status === 'draft' || article.status === 'review' || article.status === 'DRAFT' || article.status === 'REVIEW') && (
+                                                        {!isTrashView && (article.status === 'draft' || article.status === 'review' || article.status === 'DRAFT' || article.status === 'REVIEW') && (
                                                             <>
                                                                 <DropdownMenuItem onClick={() => handlePublishArticle(article)} className="text-blue-600 focus:text-blue-600">
                                                                     <Send size={14} className="mr-2" /> 公開する
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => {
-                                                                    setSchedulingArticle(article);
-                                                                    setScheduleDate(new Date());
+                                                                    openScheduleDialog(article);
                                                                 }}>
                                                                     <CalendarIcon size={14} className="mr-2" /> 予約公開
                                                                 </DropdownMenuItem>
                                                             </>
                                                         )}
 
-                                                        {(article.status === 'published' || article.status === 'PUBLISHED') && (
+                                                        {!isTrashView && (article.status === 'published' || article.status === 'PUBLISHED') && (
                                                             <DropdownMenuItem onClick={() => handleUnpublish(article)} className="text-orange-600 focus:text-orange-600">
                                                                 <Ban size={14} className="mr-2" /> 非公開にする
                                                             </DropdownMenuItem>
                                                         )}
 
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => onDelete(article.id)}>
-                                                            <Trash2 size={14} className="mr-2" /> 削除
-                                                        </DropdownMenuItem>
+                                                        {isTrashView || article.status === 'deleted' || article.status === 'DELETED' ? (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => onRestore(article.id)}>
+                                                                    <RotateCcw size={14} className="mr-2" /> 復元
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    className="text-red-600 focus:text-red-600"
+                                                                    onClick={() => onDeletePermanent(article.id)}
+                                                                >
+                                                                    <Trash2 size={14} className="mr-2" /> 完全削除
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        ) : (
+                                                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => onDelete(article.id)}>
+                                                                <Trash2 size={14} className="mr-2" /> ゴミ箱へ
+                                                            </DropdownMenuItem>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             )}
@@ -516,44 +554,64 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                                                 "w-2 h-2 rounded-full shrink-0",
                                                                 article.status === 'published' ? "bg-emerald-500" :
                                                                     article.status === 'scheduled' ? "bg-orange-400" :
-                                                                        article.status === 'draft' ? "bg-neutral-300" :
-                                                                            "bg-blue-500" // review
+                                                                        article.status === 'deleted' ? "bg-red-400" :
+                                                                            article.status === 'draft' ? "bg-neutral-300" :
+                                                                                "bg-blue-500" // review
                                                             )} />
                                                             <span className={cn(
                                                                 "text-[11px] font-medium flex-1 whitespace-nowrap",
                                                                 article.status === 'published' ? "text-emerald-700" :
                                                                     article.status === 'scheduled' ? "text-orange-700" :
-                                                                        article.status === 'draft' ? "text-neutral-500" :
-                                                                            "text-blue-700"
+                                                                        article.status === 'deleted' ? "text-red-700" :
+                                                                            article.status === 'draft' ? "text-neutral-500" :
+                                                                                "text-blue-700"
                                                             )}>
                                                                 {article.status === 'published' ? '公開中' :
                                                                     article.status === 'scheduled' ? '公開予約' :
-                                                                        article.status === 'draft' ? '下書き' : 'レビュー中'}
+                                                                        article.status === 'deleted' ? 'ゴミ箱' :
+                                                                            article.status === 'draft' ? '下書き' : 'レビュー中'}
                                                             </span>
                                                             <ChevronDown size={12} className="text-neutral-400 opacity-0 group-hover/status:opacity-100 transition-opacity" />
                                                         </button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="start" className="w-40">
-                                                        <DropdownMenuItem onClick={() => onUpdateStatus(article.id, 'DRAFT', article.version || 1)}>
-                                                            <div className="w-2 h-2 rounded-full bg-neutral-300 mr-2" />
-                                                            下書き
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => onUpdateStatus(article.id, 'REVIEW', article.version || 1)}>
-                                                            <div className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
-                                                            レビュー中
-                                                        </DropdownMenuItem>
+                                                        {isTrashView || article.status === 'deleted' || article.status === 'DELETED' ? (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => onRestore(article.id)}>
+                                                                    <RotateCcw size={14} className="mr-2" />
+                                                                    復元
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    className="text-red-600 focus:text-red-600"
+                                                                    onClick={() => onDeletePermanent(article.id)}
+                                                                >
+                                                                    <Trash2 size={14} className="mr-2" />
+                                                                    完全削除
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => onUpdateStatus(article.id, 'DRAFT', article.version || 1)}>
+                                                                    <div className="w-2 h-2 rounded-full bg-neutral-300 mr-2" />
+                                                                    下書き
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => onUpdateStatus(article.id, 'REVIEW', article.version || 1)}>
+                                                                    <div className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                                                                    レビュー中
+                                                                </DropdownMenuItem>
 
-                                                        <DropdownMenuItem onClick={() => handlePublishArticle(article)}>
-                                                            <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
-                                                            公開済みにする
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => {
-                                                            setSchedulingArticle(article);
-                                                            setScheduleDate(new Date());
-                                                        }}>
-                                                            <div className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
-                                                            予約公開...
-                                                        </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handlePublishArticle(article)}>
+                                                                    <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
+                                                                    公開済みにする
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => {
+                                                                    openScheduleDialog(article);
+                                                                }}>
+                                                                    <div className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
+                                                                    予約公開...
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             )}
@@ -644,8 +702,9 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                 <BulkActionBar
                     selectedCount={selectedIds.size}
                     onClearSelection={handleClearSelection}
-                    onPublish={handleBulkPublish}
+                    onPublish={isTrashView ? undefined : handleBulkPublish}
                     onDelete={handleBulkDelete}
+                    mode={isTrashView ? 'trash' : 'active'}
                 />
             </div>
 
@@ -662,6 +721,15 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                             onSelect={setScheduleDate}
                             className="rounded-md border"
                             locale={ja}
+                        />
+                    </div>
+                    <div className="px-1 pb-2">
+                        <label className="text-sm text-neutral-600">時間</label>
+                        <Input
+                            type="time"
+                            value={scheduleTime}
+                            onChange={(e) => setScheduleTime(e.target.value)}
+                            className="mt-2"
                         />
                     </div>
                     <DialogFooter>
@@ -683,8 +751,13 @@ export function PostsView({
     onSwitchToStrategy
 }: PostsViewProps) {
     // Use API hooks
-    const { data: articlesData, isLoading, error } = useArticles();
+    const [viewMode, setViewMode] = useState<'active' | 'trash'>('active');
+    const { data: articlesData, isLoading, error } = useArticles(
+        viewMode === 'trash' ? { status: 'DELETED' } : undefined
+    );
     const deleteArticle = useDeleteArticle();
+    const deleteArticlePermanent = useDeleteArticlePermanent();
+    const restoreArticle = useRestoreArticle();
     const publishArticle = usePublishArticle();
     const scheduleArticle = useScheduleArticle();
     const updateArticle = useUpdateArticle();
@@ -704,7 +777,7 @@ export function PostsView({
         tags: article.article_tags?.map(at => at.tags.name) || [],
         slug: article.slug,
         publishedAt: article.publishedAt ? format(new Date(article.publishedAt), 'yyyy-MM-dd HH:mm') : undefined,
-        authorName: article.author?.name,
+        authorName: article.authors?.name,
         version: article.version || 1,
     }));
 
@@ -723,8 +796,24 @@ export function PostsView({
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm('この記事を削除してもよろしいですか？')) {
+        if (viewMode === 'trash') {
+            if (window.confirm('この記事を完全に削除してもよろしいですか？（元に戻せません）')) {
+                deleteArticlePermanent.mutate(id);
+            }
+            return;
+        }
+        if (window.confirm('この記事をゴミ箱に移動してもよろしいですか？')) {
             deleteArticle.mutate(id);
+        }
+    };
+
+    const handleRestore = (id: string) => {
+        restoreArticle.mutate(id);
+    };
+
+    const handleDeletePermanent = (id: string) => {
+        if (window.confirm('この記事を完全に削除してもよろしいですか？（元に戻せません）')) {
+            deleteArticlePermanent.mutate(id);
         }
     };
 
@@ -769,6 +858,23 @@ export function PostsView({
                     <p className="text-sm text-neutral-500 font-medium">公開済みの記事と下書きを管理します。</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant={viewMode === 'active' ? 'default' : 'outline'}
+                            className="h-10 rounded-full"
+                            onClick={() => setViewMode('active')}
+                        >
+                            記事一覧
+                        </Button>
+                        <Button
+                            variant={viewMode === 'trash' ? 'default' : 'outline'}
+                            className="h-10 rounded-full"
+                            onClick={() => setViewMode('trash')}
+                        >
+                            <Trash2 size={16} className="mr-2" />
+                            ゴミ箱
+                        </Button>
+                    </div>
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={18} />
                         <Input
@@ -808,8 +914,11 @@ export function PostsView({
                     onPublish={handlePublish}
                     onSchedule={handleSchedule}
                     onDelete={handleDelete}
+                    onRestore={handleRestore}
+                    onDeletePermanent={handleDeletePermanent}
                     onUpdateStatus={handleUpdateStatus}
                     onDuplicate={handleDuplicate}
+                    isTrashView={viewMode === 'trash'}
                 />
             </div>
         </div>

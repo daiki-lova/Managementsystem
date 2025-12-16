@@ -14,7 +14,8 @@ export interface OpenRouterResponse<T> {
   tokensUsed?: number;
 }
 
-const DEFAULT_MODEL = "openai/gpt-4o";
+// 最新の推奨モデル（2024年12月時点）
+const DEFAULT_MODEL = "anthropic/claude-sonnet-4";
 const DEFAULT_MAX_TOKENS = 4000;
 const DEFAULT_TEMPERATURE = 0.7;
 
@@ -112,36 +113,37 @@ export async function callOpenRouter<T>(
 }
 
 /**
- * ステージごとの推奨モデル設定
+ * ステージごとの推奨モデル設定（設定で上書き可能）
+ * 最新モデル: Claude Sonnet 4.5, Claude Opus 4.5, GPT-4.1, Gemini 2.5 Pro
  */
 export const STAGE_MODEL_CONFIG = {
   // Stage 1: キーワード分析（分析能力重視）
   keyword_analysis: {
-    model: "openai/gpt-4o",
+    model: "anthropic/claude-sonnet-4",
     maxTokens: 2000,
     temperature: 0.5,
   },
   // Stage 2: 構成設計（構造化能力重視）
   structure: {
-    model: "openai/gpt-4o",
+    model: "anthropic/claude-sonnet-4",
     maxTokens: 3000,
     temperature: 0.5,
   },
   // Stage 3: 記事執筆（創造性重視）
   draft: {
-    model: "openai/gpt-4o",
+    model: "anthropic/claude-sonnet-4",
     maxTokens: 6000,
     temperature: 0.7,
   },
   // Stage 4: SEO最適化（精度重視）
   seo: {
-    model: "openai/gpt-4o",
+    model: "anthropic/claude-sonnet-4",
     maxTokens: 5000,
     temperature: 0.3,
   },
   // Stage 5: 監修・校正（厳密性重視）
   proofreading: {
-    model: "openai/gpt-4o",
+    model: "anthropic/claude-sonnet-4",
     maxTokens: 3000,
     temperature: 0.2,
   },

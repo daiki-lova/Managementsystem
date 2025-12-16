@@ -18,6 +18,7 @@ interface GlobalHeaderProps {
   setMode: (mode: AppMode) => void;
   status: 'draft' | 'saving' | 'saved';
   articleStatus?: 'draft' | 'review' | 'published' | 'scheduled';
+  lastSavedAt?: Date | null;
   onBack: () => void;
   onPreview: () => void;
   onPublish?: () => void;
@@ -33,6 +34,7 @@ export function GlobalHeader({
     setMode, 
     status, 
     articleStatus = 'draft', 
+    lastSavedAt,
     onBack, 
     onPreview, 
     onPublish, 
@@ -91,7 +93,11 @@ export function GlobalHeader({
               <CheckCircle2 size={14} />
               <span>保存済み</span>
               <span className="text-neutral-300">•</span>
-              <span className="tabular-nums">12:45</span>
+              <span className="tabular-nums">
+                {lastSavedAt
+                  ? lastSavedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+                  : '--:--'}
+              </span>
             </>
           )}
         </div>

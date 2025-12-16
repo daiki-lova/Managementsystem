@@ -11,6 +11,7 @@ import { cn } from '../../lib/utils';
 import { AppMode, BlockData } from '../../types';
 import { HtmlBlock } from './HtmlBlock';
 import { PublishedEditWarning } from '../dashboard/PublishedEditWarning';
+import { useCategories, useTags } from '../../lib/hooks';
 import {
     Popover,
     PopoverContent,
@@ -62,16 +63,18 @@ const MOCK_IMAGES = [
     "https://images.unsplash.com/photo-1661956602116-aa6865609028?w=800&auto=format&fit=crop&q=60",
 ];
 
-// Mock Data from Dashboard
-const AVAILABLE_CATEGORIES = ["レッスン", "コラム", "知識", "ライフスタイル", "動画", "ハウツー", "重要", "スタッフ", "ダイエット成功", "体質改善", "キャリアチェンジ"];
-const AVAILABLE_TAGS = ["ヨガ", "ピラティス", "初心者向け", "健康", "比較", "瞑想", "マインドフルネス", "メンタルヘルス", "ストレッチ", "自宅トレ", "セルフケア", "お知らせ", "営業案内", "人事", "インストラクター", "メンテナンス", "システム", "ダイエット", "30代", "初心者", "健康改善", "腰痛", "40代", "キャリア", "資格取得"];
-
 export function EditorCanvas({ 
     title, setTitle, blocks, setBlocks, mode,
     thumbnail, setThumbnail, category, setCategory, tags, setTags, slug, setSlug, description, setDescription,
     metaTitle, setMetaTitle, ogImage, setOgImage,
     isPublished = false
 }: EditorCanvasProps) {
+  const { data: categoriesResult } = useCategories({ page: 1, limit: 200 });
+  const { data: tagsResult } = useTags({ page: 1, limit: 200 });
+
+  const availableCategories = (categoriesResult?.data ?? []).map((c: any) => c.name);
+  const availableTags = (tagsResult?.data ?? []).map((t: any) => t.name);
+
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -530,10 +533,10 @@ export function EditorCanvas({
                                     </PopoverTrigger>
                                     <PopoverContent className="w-48 p-1" align="start">
                                         <div className="max-h-48 overflow-y-auto space-y-0.5">
-                                            {AVAILABLE_CATEGORIES.map(cat => (
+                                            {(availableCategories.length > 0 ? availableCategories : ["カテゴリがありません"]).map(cat => (
                                                 <button
                                                     key={cat}
-                                                    onClick={() => setCategory(cat)}
+                                                    onClick={() => cat !== "カテゴリがありません" && setCategory(cat)}
                                                     className={cn(
                                                         "w-full text-left px-2 py-1.5 text-xs hover:bg-neutral-100 rounded cursor-pointer flex justify-between items-center",
                                                         category === cat && "bg-neutral-100 font-medium"
@@ -565,7 +568,7 @@ export function EditorCanvas({
                                     </PopoverTrigger>
                                     <PopoverContent className="w-48 p-1" align="start">
                                         <div className="max-h-48 overflow-y-auto space-y-0.5">
-                                            {AVAILABLE_TAGS.filter(t => !tags.includes(t)).map(tag => (
+                                            {availableTags.filter(t => !tags.includes(t)).map(tag => (
                                                 <button
                                                     key={tag}
                                                     onClick={() => setTags([...tags, tag])}

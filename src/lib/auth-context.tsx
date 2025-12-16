@@ -5,7 +5,7 @@ import { authApi, tokenManager, ApiError } from './api';
 export interface User {
   id: string;
   email: string;
-  role: 'OWNER' | 'EDITOR';
+  role: 'OWNER' | 'WRITER';
   name: string | null;
   avatarUrl?: string | null;
 }
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser({
               id: response.data.id,
               email: response.data.email,
-              role: response.data.role as 'OWNER' | 'EDITOR',
+              role: response.data.role as 'OWNER' | 'WRITER',
               name: response.data.name,
               avatarUrl: response.data.avatarUrl,
             });
@@ -60,23 +60,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
+  // Force logout from API layer (e.g. token refresh failure)
+  useEffect(() => {
+    const handler = () => {
+      tokenManager.clearTokens();
+      setUser(null);
+      setError(null);
+      setIsLoading(false);
+    };
+    window.addEventListener('auth:logout', handler);
+    return () => window.removeEventListener('auth:logout', handler);
+  }, []);
+
   // Login
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
-
-    // Development Bypass
-    if (process.env.NODE_ENV === 'development' || password === 'admin123456' || true) { // Force bypass for now as requested
-      // Simulate success
-      tokenManager.setTokens('dev-access-token', 'dev-refresh-token');
-      setUser({
-        id: 'admin-user-id',
-        email: email || 'admin@radiance.jp',
-        role: 'OWNER',
-        name: 'Admin User',
-        avatarUrl: null
-      });
-      return;
-    }
 
     try {
       const response = await authApi.login(email, password);
@@ -92,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           id: response.data.user.id,
           email: response.data.user.email,
-          role: response.data.user.role as 'OWNER' | 'EDITOR',
+          role: response.data.user.role as 'OWNER' | 'WRITER',
           name: response.data.user.name,
         });
       }
@@ -133,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           id: response.data.id,
           email: response.data.email,
-          role: response.data.role as 'OWNER' | 'EDITOR',
+          role: response.data.role as 'OWNER' | 'WRITER',
           name: response.data.name,
           avatarUrl: response.data.avatarUrl,
         });

@@ -152,11 +152,53 @@ const blockSchema = z.object({
   data: z.record(z.string(), z.any()).optional(),
 });
 
+const frontendBlockSchema = z.object({
+  type: z.enum([
+    "p",
+    "h2",
+    "h3",
+    "h4",
+    "image",
+    "html",
+    "blockquote",
+    "ul",
+    "ol",
+    "hr",
+    "table",
+    "code",
+  ]),
+  content: z.string().optional(),
+  order: z.number().int().nonnegative().optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+
+type NormalizedBlock = { id: string; type: string; content?: string; data?: Record<string, unknown> };
+
+function normalizeBlocks(blocks: Array<z.infer<typeof blockSchema> | z.infer<typeof frontendBlockSchema>>): NormalizedBlock[] {
+  return blocks.map((block) => {
+    if ("id" in block) {
+      return {
+        id: block.id,
+        type: block.type,
+        content: block.content,
+        data: block.data as Record<string, unknown> | undefined,
+      };
+    }
+
+    return {
+      id: randomUUID(),
+      type: block.type,
+      content: block.content,
+      data: (block.metadata as Record<string, unknown> | undefined) ?? undefined,
+    };
+  });
+}
+
 // 記事更新スキーマ
 const updateArticleSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   slug: commonSchemas.slug.optional(),
-  blocks: z.array(blockSchema).optional(),
+  blocks: z.array(z.union([blockSchema, frontendBlockSchema])).optional(),
   status: z.nativeEnum(ArticleStatus).optional(),
   categoryId: commonSchemas.id.optional(),
   authorId: commonSchemas.id.optional(),
@@ -178,6 +220,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async () => {
       const { id } = await params;
       const data = await validateBody(request, updateArticleSchema);
+      const normalizedBlocks = data.blocks ? normalizeBlocks(data.blocks) : undefined;
 
       // 存在確認
       const existing = await prisma.articles.findUnique({
@@ -255,13 +298,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           });
         }
 
-        // 公開日時の設定
-        let publishedAt = undefined;
-        if (data.status === ArticleStatus.PUBLISHED && !existing.status) {
-          publishedAt = new Date();
-        } else if (data.publishedAt) {
-          publishedAt = new Date(data.publishedAt);
-        }
+      // 公開日時の設定
+      let publishedAt: Date | null | undefined = undefined;
+      if (data.status === ArticleStatus.PUBLISHED && existing.status !== ArticleStatus.PUBLISHED) {
+        publishedAt = new Date();
+      } else if (data.publishedAt !== undefined) {
+        publishedAt = data.publishedAt ? new Date(data.publishedAt) : null;
+      }
 
         // 記事の更新（versionをインクリメント）
         return tx.articles.update({
@@ -269,7 +312,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           data: {
             title: data.title,
             slug: data.slug,
-            blocks: data.blocks as unknown as Prisma.InputJsonValue | undefined,
+            blocks: normalizedBlocks as unknown as Prisma.InputJsonValue | undefined,
             status: data.status,
             categoryId: data.categoryId,
             authorId: data.authorId,

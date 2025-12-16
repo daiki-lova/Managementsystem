@@ -98,18 +98,42 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm('この監修者を削除してもよろしいですか？')) {
-            deleteAuthor.mutate(id);
-        }
+        // DropdownMenuが閉じた後にconfirmダイアログを表示
+        setTimeout(() => {
+            if (window.confirm('この監修者を削除してもよろしいですか？')) {
+                deleteAuthor.mutate(id);
+            }
+        }, 100);
+    };
+
+    const handleBulkDelete = async () => {
+        if (!window.confirm(`${selectedIds.size}件の監修者を削除してもよろしいですか？`)) return;
+
+        // 並列実行し、エラーは個別のHookのonErrorで表示させる
+        const promises = Array.from(selectedIds).map(id =>
+            deleteAuthor.mutateAsync(id).catch(() => {
+                // 個別のエラーは表示済みなのでここでは無視
+                return null;
+            })
+        );
+
+        await Promise.all(promises);
+        setSelectedIds(new Set());
     };
 
     const handleSubmit = () => {
         if (!formData.name || !formData.role || !formData.slug) return;
 
+        // 空文字列をundefinedに変換（APIでバリデーションエラーを防ぐ）
+        const cleanString = (val: string | undefined | null): string | undefined => {
+            if (val === null || val === undefined || val.trim() === '') return undefined;
+            return val.trim();
+        };
+
         const authorData = {
-            name: formData.name,
-            slug: formData.slug,
-            role: formData.role,
+            name: formData.name.trim(),
+            slug: formData.slug.trim(),
+            role: formData.role.trim(),
             // Convert comma-separated string back to array for API
             qualifications: typeof formData.qualifications === 'string'
                 ? formData.qualifications.split(/[,、]/).map(s => s.trim()).filter(Boolean)
@@ -121,10 +145,10 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                 facebook: formData.facebook || '',
                 twitter: formData.twitter || '',
             },
-            imageUrl: formData.avatar, // API expects imageUrl
-            avatarUrl: formData.avatar, // Keeping avatarUrl for compatibility if needed
-            bio: formData.bio,
-            systemPrompt: formData.systemPrompt,
+            // 空文字列はundefinedに変換（nullableなフィールド）
+            imageUrl: cleanString(formData.avatar),
+            bio: cleanString(formData.bio),
+            systemPrompt: cleanString(formData.systemPrompt),
         };
 
         if (editingProfile) {
@@ -310,7 +334,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                 </div>
                 <div className="flex items-center gap-2">
                     {selectedIds.size > 0 && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200">
+                        <Button variant="outline" size="sm" className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200" onClick={handleBulkDelete}>
                             <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
                         </Button>
                     )}
@@ -361,27 +385,34 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-32">
-                                            <DropdownMenuItem onClick={() => {
+                                            <DropdownMenuItem onSelect={() => {
+                                                // 正しいフィールド名でAPIに送信
+                                                const qualificationsArray = typeof profile.qualifications === 'string'
+                                                    ? profile.qualifications.split(/[,、]/).map(s => s.trim()).filter(Boolean)
+                                                    : [];
                                                 createAuthor.mutate({
                                                     name: `${profile.name} (コピー)`,
-                                                    slug: `${profile.slug}-copy`,
-                                                    title: profile.role,
-                                                    qualifications: profile.qualifications || '',
+                                                    slug: `${profile.slug}-copy-${Date.now()}`,
+                                                    role: profile.role,
+                                                    qualifications: qualificationsArray,
                                                     categories: profile.categories || [],
                                                     tags: profile.tags || [],
-                                                    instagramUrl: profile.instagram,
-                                                    facebookUrl: profile.facebook,
-                                                    avatarUrl: profile.avatar,
+                                                    socialLinks: {
+                                                        instagram: profile.instagram || '',
+                                                        facebook: profile.facebook || '',
+                                                        twitter: profile.twitter || '',
+                                                    },
+                                                    imageUrl: profile.avatar || undefined,
                                                     bio: profile.bio,
                                                     systemPrompt: profile.systemPrompt,
                                                 });
                                             }}>
                                                 <Copy size={14} className="mr-2" /> 複製
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleOpenEdit(profile)}>
+                                            <DropdownMenuItem onSelect={() => handleOpenEdit(profile)}>
                                                 <PenTool size={14} className="mr-2" /> 編集
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDelete(profile.id)}>
+                                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onSelect={() => handleDelete(profile.id)}>
                                                 <Trash2 size={14} className="mr-2" /> 削除
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>

@@ -34,7 +34,6 @@ interface CategoryFormData {
     slug: string;
     description: string;
     color?: string;
-    authorId?: string | null;
 }
 
 export function CategoriesView() {
@@ -75,56 +74,60 @@ export function CategoriesView() {
             slug: category.slug,
             description: category.description || '',
             color: category.color || 'bg-neutral-100 text-neutral-700',
-            authorId: category.authorId,
         });
         setIsDialogOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = (id: string) => {
         if (window.confirm('このカテゴリーを削除してもよろしいですか？')) {
-            await deleteCategory.mutateAsync(id);
+            deleteCategory.mutate(id);
         }
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = () => {
         if (!formData.name || !formData.slug) return;
 
         if (editingCategoryId) {
-            await updateCategory.mutateAsync({
+            updateCategory.mutate({
                 id: editingCategoryId,
                 data: {
                     name: formData.name,
                     slug: formData.slug,
                     description: formData.description || undefined,
                     color: formData.color,
-                    authorId: formData.authorId,
                 },
+            }, {
+                onSuccess: () => setIsDialogOpen(false)
             });
         } else {
-            await createCategory.mutateAsync({
+            createCategory.mutate({
                 name: formData.name,
                 slug: formData.slug,
                 description: formData.description || undefined,
                 color: formData.color,
+            }, {
+                onSuccess: () => setIsDialogOpen(false)
             });
         }
-        setIsDialogOpen(false);
     };
 
     const filteredCategories = categories.filter(category => {
         const matchesSearch = category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              category.slug.toLowerCase().includes(searchQuery.toLowerCase());
+            category.slug.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
         return Object.entries(activeFilters).every(([key, filterSet]) => {
             if (filterSet.size === 0) return true;
-            const val = (category as Record<string, unknown>)[key];
+            // @ts-ignore
+            const val = category[key];
             return filterSet.has(String(val));
         });
     }).sort((a, b) => {
         if (!sortConfig) return 0;
-        const aVal = (a as Record<string, unknown>)[sortConfig.key];
-        const bVal = (b as Record<string, unknown>)[sortConfig.key];
+        // @ts-ignore
+        const aVal = a[sortConfig.key];
+        // @ts-ignore
+        const bVal = b[sortConfig.key];
         if (aVal === undefined || aVal === null) return 1;
         if (bVal === undefined || bVal === null) return -1;
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -161,9 +164,16 @@ export function CategoriesView() {
 
     const handleBulkDelete = async () => {
         if (!window.confirm(`${selectedIds.size}件のカテゴリーを削除してもよろしいですか？`)) return;
-        for (const id of selectedIds) {
-            await deleteCategory.mutateAsync(id);
-        }
+
+        // 並列実行し、エラーは個別のHookのonErrorで表示させる
+        const promises = Array.from(selectedIds).map(id =>
+            deleteCategory.mutateAsync(id).catch(() => {
+                // 個別のエラーは表示済みなのでここでは無視
+                return null;
+            })
+        );
+
+        await Promise.all(promises);
         setSelectedIds(new Set());
     };
 
@@ -195,7 +205,7 @@ export function CategoriesView() {
                             </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-2" align="start">
-                             <div className="space-y-2">
+                            <div className="space-y-2">
                                 <div className="text-xs font-medium text-neutral-500 px-2 py-1">{label}</div>
 
                                 {isSortable && (
@@ -210,7 +220,7 @@ export function CategoriesView() {
                                 )}
 
                                 {isFilterable && (
-                                     <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
                                         {filterOptions.map((opt) => (
                                             <div key={opt} className="flex items-center justify-between px-2 py-1.5 hover:bg-neutral-50 rounded">
                                                 <div className="flex items-center gap-2 overflow-hidden">
@@ -224,7 +234,7 @@ export function CategoriesView() {
                                                 </div>
                                             </div>
                                         ))}
-                                     </div>
+                                    </div>
                                 )}
                             </div>
                         </PopoverContent>
@@ -305,7 +315,7 @@ export function CategoriesView() {
                 <table className="w-full text-left border-collapse" style={{ minWidth: '1000px' }}>
                     <thead className="sticky top-0 z-20">
                         <tr>
-                             <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-0 z-20">
+                            <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-0 z-20">
                             </th>
                             <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-[40px] z-20">
                                 <input
@@ -315,10 +325,10 @@ export function CategoriesView() {
                                     className="rounded border-neutral-300 scale-90 cursor-pointer"
                                 />
                             </th>
-                            {renderHeaderCell("カテゴリー名", "name", 220)}
-                            {renderHeaderCell("スラッグ", "slug", 150)}
-                            {renderHeaderCell("記事数", "_count", 80)}
-                            {renderHeaderCell("監修者", "author", 150)}
+                            {renderHeaderCell("カテゴリー名", "name", 280)}
+                            {renderHeaderCell("スラッグ", "slug", 200)}
+                            {renderHeaderCell("記事数", "articlesCount", 100)}
+                            {renderHeaderCell("説明", "description", 300)}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
@@ -375,12 +385,12 @@ export function CategoriesView() {
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
                                     <span className="text-xs font-medium text-neutral-600">
-                                        {category._count?.articles || 0}
+                                        {category.articlesCount ?? 0}
                                     </span>
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
-                                    <span className="text-xs text-neutral-600">
-                                        {category.author?.name || '-'}
+                                    <span className="text-xs text-neutral-500 line-clamp-2">
+                                        {category.description || '-'}
                                     </span>
                                 </td>
                             </tr>
@@ -416,7 +426,7 @@ export function CategoriesView() {
                                         placeholder="例: ヨガ"
                                         className="h-9 text-sm"
                                         value={formData.name}
-                                        onChange={e => setFormData({...formData, name: e.target.value})}
+                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
                                     />
                                 </div>
                                 <div className="grid gap-1.5">
@@ -426,7 +436,7 @@ export function CategoriesView() {
                                         placeholder="例: yoga"
                                         className="font-mono text-sm h-9"
                                         value={formData.slug}
-                                        onChange={e => setFormData({...formData, slug: e.target.value})}
+                                        onChange={e => setFormData({ ...formData, slug: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
@@ -436,7 +446,7 @@ export function CategoriesView() {
                                         placeholder="このカテゴリーの説明を入力してください。"
                                         className="h-20 text-sm"
                                         value={formData.description}
-                                        onChange={e => setFormData({...formData, description: e.target.value})}
+                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
                                     />
                                 </div>
                             </div>

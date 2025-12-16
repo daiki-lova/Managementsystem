@@ -165,24 +165,55 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // 監修者削除（オーナーのみ）
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    return await withOwnerAuth(request, async (user) => {
+    return await withAuth(request, async (user) => {
       const { id } = await params;
 
       // 存在確認
       const existing = await prisma.authors.findUnique({
         where: { id },
-        include: { _count: { select: { articles: true } } },
+        include: {
+          _count: {
+            select: {
+              articles: true,
+              generation_jobs: true,
+              knowledge_items: true
+            }
+          }
+        },
       });
 
       if (!existing) {
         return ApiErrors.notFound("監修者");
       }
 
-      // 紐づく記事がある場合は削除不可
-      if (existing._count.articles > 0) {
-        return ApiErrors.badRequest(
-          `この監修者には${existing._count.articles}件の記事が紐づいています。先に記事の監修者を変更してください。`
-        );
+      // 紐づくデータがある場合は別の監修者に移動
+      if (existing._count.articles > 0 || existing._count.generation_jobs > 0 || existing._count.knowledge_items > 0) {
+        const fallback = await prisma.authors.findFirst({
+          where: { id: { not: id } },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true }
+        });
+
+        if (fallback) {
+          await prisma.$transaction([
+            prisma.articles.updateMany({
+              where: { authorId: id },
+              data: { authorId: fallback.id }
+            }),
+            prisma.generation_jobs.updateMany({
+              where: { authorId: id },
+              data: { authorId: fallback.id }
+            }),
+            prisma.knowledge_items.updateMany({
+              where: { authorId: id },
+              data: { authorId: fallback.id }
+            })
+          ]);
+        } else {
+          return ApiErrors.badRequest(
+            `この監修者には関連データが紐づいており、移行先の監修者も存在しません。先に別の監修者を作成してください。\n(記事: ${existing._count.articles}, ジョブ: ${existing._count.generation_jobs}, ナレッジ: ${existing._count.knowledge_items})`
+          );
+        }
       }
 
       await prisma.authors.delete({

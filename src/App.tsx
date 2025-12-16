@@ -23,10 +23,13 @@ import { Calendar } from './components/ui/calendar';
 import { Button } from './components/ui/button';
 import type { AppMode, BlockData, ViewState } from './types';
 import { useAuth } from './lib/auth-context';
-import { useArticle } from './lib/hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import { useArticle, useCategories, useTags, useCreateArticle, useUpdateArticle } from './lib/hooks';
+import { ApiError, articlesApi } from './lib/api';
 
 export default function App() {
   const { isAuthenticated, isLoading, logout, user } = useAuth();
+  const queryClient = useQueryClient();
   const [isMobile, setIsMobile] = useState(false);
   const [view, setView] = useState<ViewState>('dashboard');
   const [mode, setMode] = useState<AppMode>('write');
@@ -38,10 +41,17 @@ export default function App() {
   // Current editing article ID
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const [articleVersion, setArticleVersion] = useState(1);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   // Schedule Dialog State
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(new Date());
+  const [scheduleTime, setScheduleTime] = useState<string>(() => {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  });
 
   // Mobile Detection
   useEffect(() => {
@@ -68,6 +78,11 @@ export default function App() {
 
   // Fetch article data when editing
   const { data: articleData } = useArticle(currentArticleId);
+  const { data: categoriesData } = useCategories({ page: 1, limit: 200 });
+  const { data: tagsData } = useTags({ page: 1, limit: 200 });
+
+  const createArticle = useCreateArticle();
+  const updateArticle = useUpdateArticle();
 
   // Sync state with fetched article data
   useEffect(() => {
@@ -120,18 +135,97 @@ export default function App() {
         setBlocks(baseBlocks);
       }
 
-      setThumbnail(articleData.media_assets?.url || articleData.thumbnail?.url);
-      setCategory(articleData.category?.name || "");
-      setTags(articleData.article_tags?.map(at => at.tags.name) || []);
+      setThumbnail(articleData.media_assets?.url);
+      setCategory(articleData.categories?.name || "");
+      setTags(
+        (articleData.tags?.map((t) => t.name) ??
+          // Backward compatibility if API returns join table shape
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (articleData as any).article_tags?.map((at: any) => at.tags?.name) ??
+          [])
+          .filter(Boolean)
+      );
       setSlug(articleData.slug);
       setDescription(articleData.metaDescription || "");
       // @ts-ignore
       setMetaTitle(articleData.metaTitle || "");
       setArticleStatus((articleData.status?.toLowerCase() as any) || 'draft');
       setArticleVersion(articleData.version || 1);
+      setLastSavedAt(articleData.updatedAt ? new Date(articleData.updatedAt) : null);
     }
   }, [currentArticleId, articleData]);
 
+  const resolveCategoryId = () => {
+    const categories = categoriesData?.data ?? [];
+    const found = categories.find((c: any) => c.name === category);
+    return found?.id as string | undefined;
+  };
+
+  const resolveTagIds = () => {
+    const tagsList = tagsData?.data ?? [];
+    const byName = new Map<string, string>();
+    tagsList.forEach((t: any) => byName.set(t.name, t.id));
+    const ids: string[] = [];
+    for (const name of tags) {
+      const id = byName.get(name);
+      if (!id) return { ok: false as const, missing: name };
+      ids.push(id);
+    }
+    return { ok: true as const, ids };
+  };
+
+  const serializeBlocksForApi = (blocksToSend: BlockData[]) =>
+    blocksToSend.map((b) => ({
+      id: b.id,
+      type: b.type,
+      content: b.content,
+      data: b.metadata ?? undefined,
+    }));
+
+  const ensureSavedDraft = async (): Promise<{ id: string; version: number }> => {
+    if (!title.trim()) {
+      throw new ApiError('VALIDATION_ERROR', 'タイトルを入力してください', 400);
+    }
+
+    const tagIdsResult = resolveTagIds();
+    if ('ok' in tagIdsResult && !tagIdsResult.ok) {
+      throw new ApiError('VALIDATION_ERROR', `タグ「${tagIdsResult.missing}」が存在しません（オーナーに作成を依頼してください）`, 400);
+    }
+
+    const payload = {
+      title: title.trim(),
+      slug: slug.trim() ? slug.trim() : undefined,
+      blocks: serializeBlocksForApi(blocks),
+      metaTitle: metaTitle.trim() ? metaTitle.trim() : undefined,
+      metaDescription: description.trim() ? description.trim() : undefined,
+      categoryId: resolveCategoryId(),
+      tagIds: 'ok' in tagIdsResult ? tagIdsResult.ids : undefined,
+      status: 'DRAFT' as const,
+    };
+
+    if (!currentArticleId) {
+      const response = await createArticle.mutateAsync(payload as any);
+      const newId = response.data?.id;
+      if (!newId) throw new ApiError('INTERNAL_ERROR', '記事IDの取得に失敗しました', 500);
+      setCurrentArticleId(newId);
+      setArticleVersion(1);
+      setLastSavedAt(new Date());
+      return { id: newId, version: 1 };
+    }
+
+    const response = await updateArticle.mutateAsync({
+      id: currentArticleId,
+      data: {
+        ...payload,
+        version: articleVersion,
+      } as any,
+    });
+
+    const nextVersion = response.data?.version ?? (articleVersion + 1);
+    setArticleVersion(nextVersion);
+    setLastSavedAt(new Date());
+    return { id: currentArticleId, version: nextVersion };
+  };
 
 
 
@@ -144,86 +238,121 @@ export default function App() {
   };
 
   const handlePublish = () => {
-    const isUpdating = articleStatus === 'published';
-    setStatus('saving');
-
-    if (isUpdating) {
-      toast("更新処理を開始しました...", {
-        description: "変更内容を反映しています。",
-      });
-    } else {
-      toast("公開処理を開始しました...", {
-        description: "記事のバリデーションとビルドを実行中です。",
-      });
-    }
-
-    setTimeout(() => {
-      setStatus('saved');
-      setArticleStatus('published');
-
-      if (isUpdating) {
-        toast.success("記事を更新しました！", {
-          description: "最新の内容が公開されました。",
-        });
-      } else {
-        toast.success("記事を公開しました！", {
-          description: "記事一覧画面に戻ります。",
-        });
-        setTimeout(() => {
-          setDashboardTab('posts');
-          setView('dashboard');
-        }, 1500);
+    (async () => {
+      setStatus('saving');
+      try {
+        const saved = await ensureSavedDraft();
+        const result = await articlesApi.publish(saved.id, saved.version);
+        setArticleStatus('published');
+        setArticleVersion(result.data?.version ?? saved.version);
+        setLastSavedAt(new Date());
+        toast.success('記事を公開しました');
+        queryClient.invalidateQueries({ queryKey: ['articles'] });
+        queryClient.invalidateQueries({ queryKey: ['articles', saved.id] });
+        setDashboardTab('posts');
+        setView('dashboard');
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : '公開に失敗しました';
+        toast.error(message);
+      } finally {
+        setStatus('saved');
       }
-    }, 2000);
+    })();
   };
 
   const handleScheduleOpen = () => {
     setScheduleDate(new Date());
+    const now = new Date(Date.now() + 60 * 60 * 1000);
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    setScheduleTime(`${hh}:${mm}`);
     setIsScheduleDialogOpen(true);
   };
 
   const handleScheduleConfirm = () => {
     if (!scheduleDate) return;
-
-    setStatus('saving');
-    setIsScheduleDialogOpen(false);
-
-    setTimeout(() => {
-      setStatus('saved');
-      setArticleStatus('scheduled');
-      toast.success("公開予約が完了しました", {
-        description: `${format(scheduleDate, 'yyyy年MM月dd日 HH:mm', { locale: ja })} に公開されます。`,
-      });
-
-      setTimeout(() => {
+    (async () => {
+      setStatus('saving');
+      setIsScheduleDialogOpen(false);
+      try {
+        const saved = await ensureSavedDraft();
+        const [hh, mm] = scheduleTime.split(':').map((v) => Number(v));
+        const scheduled = new Date(scheduleDate);
+        if (Number.isFinite(hh)) scheduled.setHours(hh);
+        if (Number.isFinite(mm)) scheduled.setMinutes(mm);
+        scheduled.setSeconds(0, 0);
+        const scheduledAt = scheduled.toISOString();
+        const result = await articlesApi.schedule(saved.id, scheduledAt, saved.version);
+        setArticleStatus('scheduled');
+        setArticleVersion(result.data?.version ?? saved.version);
+        setLastSavedAt(new Date());
+        toast.success('公開予約が完了しました', {
+          description: `${format(scheduled, 'yyyy年MM月dd日 HH:mm', { locale: ja })} に公開されます。`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['articles'] });
+        queryClient.invalidateQueries({ queryKey: ['articles', saved.id] });
         setDashboardTab('posts');
         setView('dashboard');
-      }, 1500);
-    }, 1000);
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : '公開予約に失敗しました';
+        toast.error(message);
+      } finally {
+        setStatus('saved');
+      }
+    })();
   };
 
   const handleUnpublish = () => {
     if (confirm("記事を非公開にしますか？\n公開済みの記事が見られなくなります。")) {
-      setStatus('saving');
-      setTimeout(() => {
-        setStatus('saved');
-        setArticleStatus('draft');
-        toast("記事を非公開にしました", {
-          description: "下書きとして保存されました。",
-        });
-      }, 800);
+      (async () => {
+        setStatus('saving');
+        try {
+          if (!currentArticleId) {
+            toast.error('記事がまだ作成されていません');
+            return;
+          }
+          const result = await updateArticle.mutateAsync({
+            id: currentArticleId,
+            data: { status: 'DRAFT', version: articleVersion } as any,
+          });
+          setArticleStatus('draft');
+          setArticleVersion(result.data?.version ?? (articleVersion + 1));
+          setLastSavedAt(new Date());
+          toast('記事を非公開にしました', {
+            description: '下書きとして保存されました。',
+          });
+        } catch (err) {
+          if (err instanceof ApiError && err.code === 'CONFLICT') {
+            return;
+          }
+          const message = err instanceof ApiError ? err.message : '非公開に失敗しました';
+          toast.error(message);
+        } finally {
+          setStatus('saved');
+        }
+      })();
     }
   };
 
   const handleSaveDraft = () => {
-    setStatus('saving');
-    setTimeout(() => {
-      setStatus('saved');
-      setArticleStatus('draft');
-      toast.success("下書きとして保存しました", {
-        description: "いつでも編集を再開できます。",
-      });
-    }, 800);
+    (async () => {
+      setStatus('saving');
+      try {
+        await ensureSavedDraft();
+        setArticleStatus('draft');
+        toast.success('下書きとして保存しました', {
+          description: 'いつでも編集を再開できます。',
+        });
+      } catch (err) {
+        if (err instanceof ApiError && err.code === 'CONFLICT') {
+          return;
+        }
+        const message = err instanceof ApiError ? err.message : '下書き保存に失敗しました';
+        toast.error(message);
+      } finally {
+        setStatus('saved');
+      }
+    })();
   };
 
   const handleNavigateToEditor = (articleId?: string, initialTitle?: string) => {
@@ -323,6 +452,7 @@ export default function App() {
           setMode={setMode}
           status={status}
           articleStatus={articleStatus}
+          lastSavedAt={lastSavedAt}
           onBack={() => {
             setDashboardTab('posts');
             setView('dashboard');
@@ -360,6 +490,15 @@ export default function App() {
               onSelect={setScheduleDate}
               className="rounded-md border"
               locale={ja}
+            />
+          </div>
+          <div className="px-1 pb-2">
+            <label className="text-sm text-neutral-600">時間</label>
+            <Input
+              type="time"
+              value={scheduleTime}
+              onChange={(e) => setScheduleTime(e.target.value)}
+              className="mt-2"
             />
           </div>
           <DialogFooter>

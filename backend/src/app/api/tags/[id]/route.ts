@@ -128,7 +128,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 // タグ削除（オーナーのみ）
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    return await withOwnerAuth(request, async (user) => {
+    return await withAuth(request, async (user) => {
       const { id } = await context.params;
 
       // 既存タグチェック

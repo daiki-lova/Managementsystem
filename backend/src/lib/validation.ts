@@ -84,8 +84,17 @@ export const commonSchemas = {
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "有効なカラーコードを入力してください"),
 
-  // URL
-  url: z.string().url("有効なURLを入力してください"),
+  // URL（空文字列も許容）
+  url: z.string().refine(
+    (val) => val === '' || val === null || /^https?:\/\/.+/.test(val),
+    "有効なURLを入力してください"
+  ),
+
+  // URL（空文字列を許容し、空文字列はnullに変換）
+  urlOrEmpty: z.string().transform((val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    return val;
+  }).nullable(),
 };
 
 // ページネーションクエリスキーマ

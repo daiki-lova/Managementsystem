@@ -14,15 +14,17 @@ import {
 interface BulkActionBarProps {
     selectedCount: number;
     onClearSelection: () => void;
-    onPublish: () => void;
+    onPublish?: () => void;
     onDelete: () => void;
+    mode?: 'active' | 'trash';
 }
 
 export function BulkActionBar({ 
     selectedCount, 
     onClearSelection, 
     onPublish,
-    onDelete 
+    onDelete,
+    mode = 'active',
 }: BulkActionBarProps) {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -52,13 +54,15 @@ export function BulkActionBar({
                             
                             <div className="h-4 w-px bg-neutral-200 mx-1" />
 
-                            <Button 
-                                onClick={onPublish}
-                                size="sm" 
-                                className="h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white border-0 font-bold text-xs px-3 gap-1.5"
-                            >
-                                <Send size={12} /> 一括公開
-                            </Button>
+                            {mode === 'active' && onPublish && (
+                                <Button 
+                                    onClick={onPublish}
+                                    size="sm" 
+                                    className="h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white border-0 font-bold text-xs px-3 gap-1.5"
+                                >
+                                    <Send size={12} /> 一括公開
+                                </Button>
+                            )}
                             
                             <Button 
                                 onClick={handleDeleteClick}
@@ -66,7 +70,7 @@ export function BulkActionBar({
                                 variant="ghost"
                                 className="h-8 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700 font-bold text-xs px-3 gap-1.5"
                             >
-                                <Trash2 size={12} /> 削除
+                                <Trash2 size={12} /> {mode === 'trash' ? '完全削除' : 'ゴミ箱へ'}
                             </Button>
 
                             <div className="w-2" />
@@ -87,15 +91,17 @@ export function BulkActionBar({
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                 <DialogContent className="sm:max-w-[400px]">
                     <DialogHeader>
-                        <DialogTitle>選択した記事を削除しますか？</DialogTitle>
+                        <DialogTitle>
+                            {mode === 'trash' ? '選択した記事を完全に削除しますか？' : '選択した記事をゴミ箱に移動しますか？'}
+                        </DialogTitle>
                         <DialogDescription>
-                            選択中の {selectedCount} 件の記事を削除しようとしています。<br/>
-                            この操作は取り消せません。
+                            選択中の {selectedCount} 件の記事を{mode === 'trash' ? '完全に削除' : 'ゴミ箱に移動'}しようとしています。<br/>
+                            {mode === 'trash' ? 'この操作は取り消せません。' : 'ゴミ箱から復元できます。'}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>キャンセル</Button>
-                        <Button variant="destructive" onClick={handleConfirmDelete}>削除する</Button>
+                        <Button variant="destructive" onClick={handleConfirmDelete}>{mode === 'trash' ? '完全に削除する' : 'ゴミ箱へ移動'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

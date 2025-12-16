@@ -117,24 +117,50 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // カテゴリ削除（オーナーのみ）
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    return await withOwnerAuth(request, async (user) => {
+    return await withAuth(request, async (user) => {
       const { id } = await params;
 
       // 存在確認
       const existing = await prisma.categories.findUnique({
         where: { id },
-        include: { _count: { select: { articles: true } } },
+        include: {
+          _count: {
+            select: {
+              articles: true,
+              generation_jobs: true
+            }
+          }
+        },
       });
 
       if (!existing) {
         return ApiErrors.notFound("カテゴリ");
       }
 
-      // 紐づく記事がある場合は削除不可
-      if (existing._count.articles > 0) {
-        return ApiErrors.badRequest(
-          `このカテゴリには${existing._count.articles}件の記事が紐づいています。先に記事のカテゴリを変更してください。`
-        );
+      // 紐づく記事またはジョブがある場合は別のカテゴリに移動
+      if (existing._count.articles > 0 || existing._count.generation_jobs > 0) {
+        const fallback = await prisma.categories.findFirst({
+          where: { id: { not: id } },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true }
+        });
+
+        if (fallback) {
+          await prisma.$transaction([
+            prisma.articles.updateMany({
+              where: { categoryId: id },
+              data: { categoryId: fallback.id }
+            }),
+            prisma.generation_jobs.updateMany({
+              where: { categoryId: id },
+              data: { categoryId: fallback.id }
+            })
+          ]);
+        } else {
+          return ApiErrors.badRequest(
+            `このカテゴリには関連データ（記事: ${existing._count.articles}件, ジョブ: ${existing._count.generation_jobs}件）が紐づいており、移行先のカテゴリも存在しません。先に別のカテゴリを作成してください。`
+          );
+        }
       }
 
       await prisma.categories.delete({

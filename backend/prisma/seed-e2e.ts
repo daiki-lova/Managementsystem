@@ -19,7 +19,7 @@ async function main() {
       id: "default",
       minSearchVolume: 300,
       maxSearchVolume: 2000,
-      aiModel: "openai/gpt-4-turbo",
+      aiModel: "anthropic/claude-sonnet-4",
     },
   });
   console.log("✓ システム設定");

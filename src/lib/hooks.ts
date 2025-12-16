@@ -14,6 +14,7 @@ import {
   notificationsApi,
   settingsApi,
   brandsApi,
+  tagsApi,
   ApiError,
   ArticleDetail,
   ArticleListItem,
@@ -281,6 +282,20 @@ export function useDeleteArticle() {
   });
 }
 
+export function useDeleteArticlePermanent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: articlesApi.deletePermanent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['articles'] });
+      toast.success('記事を完全に削除しました');
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.message || '記事の完全削除に失敗しました');
+    },
+  });
+}
+
 export function useRestoreArticle() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -321,6 +336,21 @@ export function useScheduleArticle() {
     },
     onError: (error: ApiError) => {
       toast.error(error.message || '公開予約の設定に失敗しました');
+    },
+  });
+}
+
+export function useUnscheduleArticle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version?: number }) =>
+      articlesApi.unschedule(id, version),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['articles'] });
+      toast.success('公開予約を解除しました');
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.message || '公開予約の解除に失敗しました');
     },
   });
 }
@@ -612,6 +642,63 @@ export function useUpdateSettings() {
     },
     onError: (error: ApiError) => {
       toast.error(error.message || '設定の保存に失敗しました');
+    },
+  });
+}
+
+// ============================================
+// Tags
+// ============================================
+
+export function useTags(params?: { page?: number; limit?: number; search?: string }) {
+  return useQuery({
+    queryKey: ['tags', params],
+    queryFn: async () => {
+      const response = await tagsApi.list(params);
+      return { data: response.data!, meta: response.meta };
+    },
+  });
+}
+
+export function useCreateTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: tagsApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      toast.success('タグを作成しました');
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.message || 'タグの作成に失敗しました');
+    },
+  });
+}
+
+export function useUpdateTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof tagsApi.update>[1] }) =>
+      tagsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      toast.success('タグを更新しました');
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.message || 'タグの更新に失敗しました');
+    },
+  });
+}
+
+export function useDeleteTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: tagsApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      toast.success('タグを削除しました');
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.message || 'タグの削除に失敗しました');
     },
   });
 }

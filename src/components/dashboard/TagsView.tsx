@@ -19,41 +19,41 @@ import {
     DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from '../ui/popover';
 import { cn } from '../../lib/utils';
+import { useTags, useCreateTag, useUpdateTag, useDeleteTag } from '../../lib/hooks';
 
 interface TagData {
     id: string;
     name: string;
     slug: string;
-    count: number;
+    articlesCount: number;
 }
 
-const MOCK_TAGS_DATA: TagData[] = [
-    { id: 't1', name: '初心者歓迎', slug: 'beginner', count: 89 },
-    { id: 't2', name: '産後ケア', slug: 'postpartum', count: 34 },
-    { id: 't3', name: '骨盤矯正', slug: 'pelvis', count: 56 },
-    { id: 't4', name: 'ダイエット', slug: 'diet', count: 142 },
-    { id: 't5', name: '睡眠改善', slug: 'sleep', count: 28 },
-    { id: 't6', name: 'ストレス解消', slug: 'stress-relief', count: 77 },
-    { id: 't7', name: '肩こり', slug: 'stiff-shoulder', count: 92 },
-    { id: 't8', name: '腰痛', slug: 'back-pain', count: 64 },
-    { id: 't9', name: '朝ヨガ', slug: 'morning-yoga', count: 41 },
-    { id: 't10', name: 'ナイトルーティン', slug: 'night-routine', count: 35 },
-];
-
 export function TagsView() {
-    const [tags, setTags] = useState<TagData[]>(MOCK_TAGS_DATA);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingTag, setEditingTag] = useState<TagData | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [activeFilters, setActiveFilters] = useState<Record<string, Set<string>>>({});
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    // API Hooks
+    const { data: tagsData, isLoading } = useTags({ search: searchQuery });
+    const createTag = useCreateTag();
+    const updateTag = useUpdateTag();
+    const deleteTag = useDeleteTag();
+
+    const tags = tagsData?.data?.map(tag => ({
+        id: tag.id,
+        name: tag.name,
+        slug: tag.slug,
+        articlesCount: tag._count?.articles || 0
+    })) || [];
 
     // Form States
     const [formData, setFormData] = useState<Partial<TagData>>({});
@@ -72,7 +72,7 @@ export function TagsView() {
 
     const handleDelete = (id: string) => {
         if (window.confirm('このタグを削除してもよろしいですか？')) {
-            setTags(tags.filter(t => t.id !== id));
+            deleteTag.mutate(id);
         }
     };
 
@@ -81,23 +81,26 @@ export function TagsView() {
 
         if (editingTag) {
             // Update
-            setTags(tags.map(t => t.id === editingTag.id ? { ...t, ...formData } as TagData : t));
+            updateTag.mutate({
+                id: editingTag.id,
+                data: { name: formData.name, slug: formData.slug }
+            }, {
+                onSuccess: () => setIsDialogOpen(false)
+            });
         } else {
             // Create
-            const newTag: TagData = {
-                id: Math.random().toString(36).substr(2, 9),
-                name: formData.name!,
-                slug: formData.slug!,
-                count: 0
-            };
-            setTags([...tags, newTag]);
+            createTag.mutate({
+                name: formData.name,
+                slug: formData.slug
+            }, {
+                onSuccess: () => setIsDialogOpen(false)
+            });
         }
-        setIsDialogOpen(false);
     };
 
     const filteredTags = tags.filter(tag => {
-        const matchesSearch = tag.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                              tag.slug.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = tag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            tag.slug.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
         return Object.entries(activeFilters).every(([key, filterSet]) => {
@@ -145,9 +148,12 @@ export function TagsView() {
     };
 
     const handleBulkDelete = () => {
-        const newTags = tags.filter(t => !selectedIds.has(t.id));
-        setTags(newTags);
-        setSelectedIds(new Set());
+        if (selectedIds.size === 0) return;
+        if (window.confirm(`${selectedIds.size}件のタグを削除してもよろしいですか？`)) {
+            // 並列で削除を実行
+            Promise.all(Array.from(selectedIds).map(id => deleteTag.mutateAsync(id)))
+                .then(() => setSelectedIds(new Set()));
+        }
     };
 
     const handleBulkPublish = () => {
@@ -160,7 +166,7 @@ export function TagsView() {
         const isSortable = true;
 
         return (
-            <th 
+            <th
                 className="px-4 py-2.5 relative bg-neutral-50/80 select-none whitespace-nowrap text-xs text-neutral-500 font-medium group border-b border-neutral-200 border-r border-neutral-100/50"
                 style={{ width }}
             >
@@ -179,9 +185,9 @@ export function TagsView() {
                             </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-2" align="start">
-                             <div className="space-y-2">
+                            <div className="space-y-2">
                                 <div className="text-xs font-medium text-neutral-500 px-2 py-1">{label}</div>
-                                
+
                                 {isSortable && (
                                     <div className="space-y-1 border-b border-neutral-100 pb-2 mb-2">
                                         <button onClick={() => handleSort(key, 'asc')} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-neutral-100">
@@ -194,12 +200,12 @@ export function TagsView() {
                                 )}
 
                                 {isFilterable && (
-                                     <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
                                         {filterOptions.map((opt) => (
                                             <div key={opt} className="flex items-center justify-between px-2 py-1.5 hover:bg-neutral-50 rounded">
                                                 <div className="flex items-center gap-2 overflow-hidden">
-                                                    <input 
-                                                        type="checkbox" 
+                                                    <input
+                                                        type="checkbox"
                                                         checked={activeFilters[key]?.has(opt) || false}
                                                         onChange={(e) => toggleFilter(key, opt, e.target.checked)}
                                                         className="rounded border-neutral-300 text-blue-600"
@@ -208,7 +214,7 @@ export function TagsView() {
                                                 </div>
                                             </div>
                                         ))}
-                                     </div>
+                                    </div>
                                 )}
                             </div>
                         </PopoverContent>
@@ -217,6 +223,10 @@ export function TagsView() {
             </th>
         );
     };
+
+    if (isLoading) {
+        return <div className="flex items-center justify-center h-full">読み込み中...</div>;
+    }
 
     return (
         <div className="flex flex-col h-full bg-white">
@@ -229,7 +239,7 @@ export function TagsView() {
                 <div className="flex items-center gap-3">
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={18} />
-                        <Input 
+                        <Input
                             className="w-[300px] pl-11 h-12 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded-full text-sm font-medium transition-all"
                             placeholder="タグを検索..."
                             value={searchQuery}
@@ -261,12 +271,12 @@ export function TagsView() {
                 <table className="w-full text-left border-collapse" style={{ minWidth: '800px' }}>
                     <thead className="sticky top-0 z-20">
                         <tr>
-                             <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-0 z-20">
+                            <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-0 z-20">
                                 {/* Actions Column Header */}
                             </th>
                             <th className="px-4 py-2.5 bg-neutral-50/80 border-b border-neutral-200 border-r border-neutral-100/50 w-[40px] text-center sticky left-[40px] z-20">
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={filteredTags.length > 0 && selectedIds.size === filteredTags.length}
                                     onChange={(e) => toggleSelectAll(e.target.checked)}
                                     className="rounded border-neutral-300 scale-90 cursor-pointer"
@@ -279,8 +289,8 @@ export function TagsView() {
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
                         {filteredTags.map(tag => (
-                            <tr 
-                                key={tag.id} 
+                            <tr
+                                key={tag.id}
                                 className={cn(
                                     "group hover:bg-neutral-50/80 transition-colors",
                                     selectedIds.has(tag.id) && "bg-blue-50/50 hover:bg-blue-50/60"
@@ -294,12 +304,6 @@ export function TagsView() {
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-32">
-                                             <DropdownMenuItem onClick={() => {
-                                                 const newTag = { ...tag, id: Math.random().toString(36).substr(2, 9), name: `${tag.name} (Copy)` };
-                                                 setTags([...tags, newTag]);
-                                             }}>
-                                                <Copy size={14} className="mr-2" /> 複製
-                                            </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleOpenEdit(tag)}>
                                                 <PenTool size={14} className="mr-2" /> 編集
                                             </DropdownMenuItem>
@@ -310,8 +314,8 @@ export function TagsView() {
                                     </DropdownMenu>
                                 </td>
                                 <td className="px-4 py-3.5 bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50 sticky left-[40px] text-center z-10">
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         checked={selectedIds.has(tag.id)}
                                         onChange={() => toggleSelection(tag.id)}
                                         className="rounded border-neutral-300 scale-90 cursor-pointer"
@@ -322,7 +326,7 @@ export function TagsView() {
                                         <div className="w-8 h-8 rounded bg-neutral-100 flex items-center justify-center text-neutral-400">
                                             <Hash size={14} />
                                         </div>
-                                        <span 
+                                        <span
                                             className="font-medium text-neutral-900 text-sm leading-normal cursor-pointer hover:text-blue-600 hover:underline decoration-blue-300 underline-offset-2 transition-all"
                                             onClick={() => handleOpenEdit(tag)}
                                         >
@@ -337,7 +341,7 @@ export function TagsView() {
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
                                     <span className="text-xs font-medium text-neutral-600">
-                                        {tag.count}
+                                        {tag.articlesCount}
                                     </span>
                                 </td>
                             </tr>
@@ -345,7 +349,7 @@ export function TagsView() {
                     </tbody>
                 </table>
 
-                <BulkActionBar 
+                <BulkActionBar
                     selectedCount={selectedIds.size}
                     onClearSelection={handleClearSelection}
                     onPublish={handleBulkPublish}
@@ -362,28 +366,28 @@ export function TagsView() {
                             記事に付与するタグ情報を入力してください。
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label htmlFor="name">タグ名 <span className="text-red-500">*</span></Label>
                             <div className="flex items-center gap-2">
                                 <Hash size={14} className="text-neutral-400" />
-                                <Input 
-                                    id="name" 
-                                    placeholder="例: 初心者歓迎" 
+                                <Input
+                                    id="name"
+                                    placeholder="例: 初心者歓迎"
                                     value={formData.name || ''}
-                                    onChange={e => setFormData({...formData, name: e.target.value})}
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                                 />
                             </div>
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="slug">スラグ (URL) <span className="text-red-500">*</span></Label>
-                            <Input 
-                                id="slug" 
-                                placeholder="例: beginner" 
+                            <Input
+                                id="slug"
+                                placeholder="例: beginner"
                                 className="font-mono text-xs"
                                 value={formData.slug || ''}
-                                onChange={e => setFormData({...formData, slug: e.target.value})}
+                                onChange={e => setFormData({ ...formData, slug: e.target.value })}
                             />
                             <p className="text-[10px] text-neutral-400">URLの一部として使用されます（半角英数字とハイフンのみ）</p>
                         </div>
