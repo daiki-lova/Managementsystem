@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react';
-import { User, PenTool, Plus, Trash2, Search, Instagram, Facebook, Award, MoreHorizontal, Link as LinkIcon, Tag, Hash, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy, Loader2 } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { User, PenTool, Plus, Trash2, Search, Instagram, Facebook, Award, MoreHorizontal, Link as LinkIcon, Tag, Hash, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Input } from '../ui/input';
@@ -27,8 +27,9 @@ import {
     PopoverTrigger,
 } from '../ui/popover';
 import { cn } from '../../lib/utils';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import type { Profile } from '../../types';
-import { useAuthors, useCreateAuthor, useUpdateAuthor, useDeleteAuthor } from '../../lib/hooks';
+import { useAuthors, useCreateAuthor, useUpdateAuthor, useDeleteAuthor, useUploadMedia } from '../../lib/hooks';
 
 interface AuthorsViewProps {
     profiles?: Profile[];
@@ -41,6 +42,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
     const createAuthor = useCreateAuthor();
     const updateAuthor = useUpdateAuthor();
     const deleteAuthor = useDeleteAuthor();
+    const uploadMedia = useUploadMedia();
 
     // Map API data to Profile format
     const profiles: Profile[] = (authorsData?.data || []).map((author: any) => {
@@ -82,6 +84,20 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
     // Form States
     const [formData, setFormData] = useState<Partial<Profile>>({});
 
+    // Confirm Dialog States
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant?: 'default' | 'destructive';
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+    });
+
     const handleOpenCreate = () => {
         setEditingProfile(null);
         setFormData({
@@ -98,27 +114,37 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
     };
 
     const handleDelete = (id: string) => {
-        // DropdownMenuが閉じた後にconfirmダイアログを表示
-        setTimeout(() => {
-            if (window.confirm('この監修者を削除してもよろしいですか？')) {
+        const profile = profiles.find(p => p.id === id);
+        setConfirmDialog({
+            open: true,
+            title: '監修者を削除',
+            description: `「${profile?.name || ''}」を削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: () => {
                 deleteAuthor.mutate(id);
-            }
-        }, 100);
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+            },
+        });
     };
 
-    const handleBulkDelete = async () => {
-        if (!window.confirm(`${selectedIds.size}件の監修者を削除してもよろしいですか？`)) return;
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
 
-        // 並列実行し、エラーは個別のHookのonErrorで表示させる
-        const promises = Array.from(selectedIds).map(id =>
-            deleteAuthor.mutateAsync(id).catch(() => {
-                // 個別のエラーは表示済みなのでここでは無視
-                return null;
-            })
-        );
-
-        await Promise.all(promises);
-        setSelectedIds(new Set());
+        setConfirmDialog({
+            open: true,
+            title: '一括削除',
+            description: `選択した${selectedIds.size}件の監修者を削除してもよろしいですか？この操作は取り消せません。`,
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                // 並列実行し、エラーは個別のHookのonErrorで表示させる
+                const promises = Array.from(selectedIds).map(id =>
+                    deleteAuthor.mutateAsync(id).catch(() => null)
+                );
+                await Promise.all(promises);
+                setSelectedIds(new Set());
+            },
+        });
     };
 
     const handleSubmit = () => {
@@ -128,6 +154,17 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
         const cleanString = (val: string | undefined | null): string | undefined => {
             if (val === null || val === undefined || val.trim() === '') return undefined;
             return val.trim();
+        };
+
+        // 画像URLの処理: アップロード済みURLをそのまま使用
+        const getImageUrl = (): string | undefined => {
+            const avatar = formData.avatar;
+            if (!avatar || avatar.trim() === '') return undefined;
+            // Base64データは無視（旧実装との互換性）
+            if (avatar.startsWith('data:')) {
+                return editingProfile?.avatar?.startsWith('data:') ? undefined : editingProfile?.avatar || undefined;
+            }
+            return avatar.trim();
         };
 
         const authorData = {
@@ -145,8 +182,8 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                 facebook: formData.facebook || '',
                 twitter: formData.twitter || '',
             },
-            // 空文字列はundefinedに変換（nullableなフィールド）
-            imageUrl: cleanString(formData.avatar),
+            // 画像URL: Base64はスキップ、有効なURLのみ送信
+            imageUrl: getImageUrl(),
             bio: cleanString(formData.bio),
             systemPrompt: cleanString(formData.systemPrompt),
         };
@@ -334,7 +371,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                 </div>
                 <div className="flex items-center gap-2">
                     {selectedIds.size > 0 && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs border-neutral-200 text-red-600 hover:bg-red-50 hover:border-red-200" onClick={handleBulkDelete}>
+                        <Button variant="outline" size="sm" className="h-7 text-xs border-red-300 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-400" onClick={handleBulkDelete}>
                             <Trash2 size={12} className="mr-1.5" /> 選択項目を削除
                         </Button>
                     )}
@@ -534,22 +571,29 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="w-full">
-                                    <Label htmlFor="avatar-upload" className="block text-[10px] text-center text-blue-600 cursor-pointer hover:underline mb-1">
-                                        画像を変更
+                                    <Label htmlFor="avatar-upload" className={cn(
+                                        "block text-[10px] text-center cursor-pointer hover:underline mb-1",
+                                        uploadMedia.isPending ? "text-neutral-400 pointer-events-none" : "text-blue-600"
+                                    )}>
+                                        {uploadMedia.isPending ? "アップロード中..." : "画像を変更"}
                                     </Label>
                                     <Input
                                         id="avatar-upload"
                                         type="file"
                                         accept="image/*"
                                         className="hidden"
-                                        onChange={(e) => {
+                                        disabled={uploadMedia.isPending}
+                                        onChange={async (e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
-                                                const reader = new FileReader();
-                                                reader.onloadend = () => {
-                                                    setFormData({ ...formData, avatar: reader.result as string });
-                                                };
-                                                reader.readAsDataURL(file);
+                                                try {
+                                                    const result = await uploadMedia.mutateAsync({ file });
+                                                    if (result.data?.url) {
+                                                        setFormData({ ...formData, avatar: result.data.url });
+                                                    }
+                                                } catch {
+                                                    // エラーは useUploadMedia の onError で処理される
+                                                }
                                             }
                                         }}
                                     />
@@ -638,11 +682,37 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
-                        <Button onClick={handleSubmit}>保存する</Button>
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={uploadMedia.isPending}>キャンセル</Button>
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={uploadMedia.isPending || createAuthor.isPending || updateAuthor.isPending}
+                        >
+                            {(createAuthor.isPending || updateAuthor.isPending) ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    保存中...
+                                </>
+                            ) : uploadMedia.isPending ? (
+                                "画像アップロード中..."
+                            ) : (
+                                "保存する"
+                            )}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                open={confirmDialog.open}
+                onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+                title={confirmDialog.title}
+                description={confirmDialog.description}
+                variant={confirmDialog.variant}
+                confirmLabel="削除"
+                onConfirm={confirmDialog.onConfirm}
+                isLoading={deleteAuthor.isPending}
+            />
         </div>
     );
 }
