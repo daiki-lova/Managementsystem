@@ -105,6 +105,9 @@ export function MediaLibraryView() {
         onConfirm: () => {},
     });
 
+    // Get total count from API meta
+    const totalCount = mediaData?.meta?.total ?? media.length;
+
     // Calculate folder counts
     const folderCounts = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -118,12 +121,13 @@ export function MediaLibraryView() {
             }
         });
 
-        counts['all'] = media.length;
+        // Use total from API for 'all' folder
+        counts['all'] = totalCount;
         // Mock counts for special folders if not implemented
         // counts['favorites'] = ...
 
         return counts;
-    }, [media, folders]);
+    }, [media, folders, totalCount]);
 
     const filteredMedia = media.filter(item => {
         const matchesSearch = (item.name || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -382,7 +386,7 @@ export function MediaLibraryView() {
                                     {folders.find(f => f.id === selectedFolder)?.name}
                                 </h2>
                                 <span className="bg-neutral-100 text-neutral-500 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                                    {filteredMedia.length}
+                                    {selectedFolder === 'all' && !searchQuery ? totalCount : filteredMedia.length}
                                 </span>
                             </div>
                             {selectedIds.size > 0 && (

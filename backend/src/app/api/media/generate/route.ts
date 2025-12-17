@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       const imageUrl = await generateImage({
         prompt: fullPrompt,
         apiKey: settings.openRouterApiKey,
-        model: settings.imageModel || "google/gemini-3-pro-image-preview",
+        model: settings.imageModel || "google/imagen-3",
       });
 
       if (!imageUrl) {
@@ -120,9 +120,13 @@ interface GenerateImageParams {
 
 async function generateImage(params: GenerateImageParams): Promise<string | null> {
   const { prompt, apiKey, model } = params;
+  // OpenRouterで画像生成をサポートするモデル
+  // デフォルトは gemini-2.5-flash-image-preview (無料枠あり)
+  const selectedModel = model || "google/gemini-2.5-flash-image-preview";
 
   try {
-    // OpenRouter経由で画像生成
+    // OpenRouterは chat/completions エンドポイントで画像生成をサポート
+    // modalities: ["image", "text"] を指定する
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -131,7 +135,7 @@ async function generateImage(params: GenerateImageParams): Promise<string | null
         "HTTP-Referer": process.env.NEXTAUTH_URL || "http://localhost:3000",
       },
       body: JSON.stringify({
-        model: model || "google/gemini-3-pro-image-preview",
+        model: selectedModel,
         modalities: ["image", "text"],
         messages: [
           {
@@ -139,6 +143,7 @@ async function generateImage(params: GenerateImageParams): Promise<string | null
             content: `Generate an image: ${prompt}`,
           },
         ],
+        max_tokens: 2000,
       }),
     });
 
@@ -149,23 +154,27 @@ async function generateImage(params: GenerateImageParams): Promise<string | null
     }
 
     const data = await response.json();
-    console.log("Image API response:", JSON.stringify(data, null, 2));
+    console.log("Image API response structure:", Object.keys(data));
 
-    // OpenRouterのレスポンス形式に対応
+    // chat/completions レスポンス形式から画像を取得
     const imageData = data.choices?.[0]?.message?.images?.[0];
 
     if (!imageData) {
-      console.error("No image data in response:", JSON.stringify(data));
+      console.error("No image data in response");
       return null;
     }
 
     let imageBuffer: Buffer;
 
+    // 型アサーション用
+    const img = imageData as Record<string, unknown>;
+
     // 複数の形式に対応
-    if (typeof imageData === "object" && imageData.b64_json) {
-      imageBuffer = Buffer.from(imageData.b64_json, "base64");
-    } else if (typeof imageData === "object" && imageData.image_url?.url) {
-      const dataUrl = imageData.image_url.url;
+    if (typeof imageData === "object" && img.b64_json && typeof img.b64_json === "string") {
+      imageBuffer = Buffer.from(img.b64_json, "base64");
+    } else if (typeof imageData === "object" && img.image_url && typeof img.image_url === "object") {
+      const imageUrl = img.image_url as { url?: string };
+      const dataUrl = imageUrl.url || "";
       const base64Match = dataUrl.match(/^data:image\/\w+;base64,(.+)$/);
       if (base64Match) {
         imageBuffer = Buffer.from(base64Match[1], "base64");
@@ -176,8 +185,8 @@ async function generateImage(params: GenerateImageParams): Promise<string | null
         console.error("Unknown image_url format:", dataUrl.substring(0, 100));
         return null;
       }
-    } else if (typeof imageData === "object" && imageData.url) {
-      const imageResponse = await fetch(imageData.url);
+    } else if (typeof imageData === "object" && img.url && typeof img.url === "string") {
+      const imageResponse = await fetch(img.url);
       imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
     } else if (typeof imageData === "string") {
       const base64Match = imageData.match(/^data:image\/\w+;base64,(.+)$/);
@@ -187,7 +196,7 @@ async function generateImage(params: GenerateImageParams): Promise<string | null
         imageBuffer = Buffer.from(imageData, "base64");
       }
     } else {
-      console.error("Unknown image data format:", typeof imageData);
+      console.error("Unknown image data format:", typeof imageData, JSON.stringify(imageData).substring(0, 200));
       return null;
     }
 
