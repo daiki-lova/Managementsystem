@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import * as RechartsPrimitive from "recharts";
+import type { Payload } from "recharts/types/component/DefaultTooltipContent";
 
 import { cn } from "./utils";
 
@@ -104,27 +105,26 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
-type ChartTooltipContentProps = {
+interface ChartTooltipContentProps extends React.HTMLAttributes<HTMLDivElement> {
   active?: boolean;
-  payload?: Array<{
-    dataKey?: string | number;
-    name?: string;
-    value?: number | string;
-    color?: string;
-    payload?: Record<string, unknown>;
-  }>;
-  className?: string;
-  indicator?: "line" | "dot" | "dashed";
+  payload?: Payload<number | string, string | number>[];
+  label?: string | number;
+  labelFormatter?: (label: React.ReactNode, payload: Payload<number | string, string | number>[]) => React.ReactNode;
+  labelClassName?: string;
+  formatter?: (
+    value: number | string,
+    name: string | number,
+    item: Payload<number | string, string | number>,
+    index: number,
+    payload: Record<string, unknown>
+  ) => React.ReactNode;
+  color?: string;
   hideLabel?: boolean;
   hideIndicator?: boolean;
-  label?: string;
-  labelFormatter?: (value: unknown, payload: unknown[]) => React.ReactNode;
-  labelClassName?: string;
-  formatter?: (value: unknown, name: string, item: unknown, index: number) => React.ReactNode;
-  color?: string;
+  indicator?: "line" | "dot" | "dashed";
   nameKey?: string;
   labelKey?: string;
-};
+}
 
 function ChartTooltipContent({
   active,
@@ -197,18 +197,18 @@ function ChartTooltipContent({
         {payload.map((item, index) => {
           const key = `${nameKey || item.name || item.dataKey || "value"}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
-          const indicatorColor = color || (item.payload as Record<string, unknown>)?.fill || item.color;
+          const indicatorColor = color || item.payload.fill || item.color;
 
           return (
             <div
-              key={item.dataKey}
+              key={`${item.dataKey ?? index}`}
               className={cn(
                 "[&>svg]:text-muted-foreground flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5",
                 indicator === "dot" && "items-center",
               )}
             >
               {formatter && item?.value !== undefined && item.name ? (
-                formatter(item.value, item.name, item, index)
+                formatter(item.value, item.name, item, index, item.payload)
               ) : (
                 <>
                   {itemConfig?.icon ? (

@@ -93,7 +93,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      authData = { session: data.session };
+      authData = {
+        session: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: data.session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+        },
+      };
     }
 
     // DB からユーザー情報を取得
@@ -110,6 +116,11 @@ export async function POST(request: NextRequest) {
     if (!user) {
       await auditLog.loginFailed(request, email, "DBにユーザーが存在しない");
       return ApiErrors.unauthorized();
+    }
+
+    // セッションが取得できない場合はエラー
+    if (!authData.session) {
+      return ApiErrors.internalError();
     }
 
     // ログイン成功: 失敗カウンターをリセット
