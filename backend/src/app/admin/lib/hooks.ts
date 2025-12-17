@@ -114,6 +114,17 @@ export function useCreateAuthor() {
       toast.success('監修者を作成しました');
     },
     onError: (error: ApiError) => {
+      // バリデーションエラーの場合は詳細を表示
+      if (error.code === 'VALIDATION_ERROR' && error.details) {
+        const details = error.details as { fieldErrors?: Record<string, string[]>; formErrors?: string[] };
+        const fieldErrors = details.fieldErrors;
+        if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+          const firstField = Object.keys(fieldErrors)[0];
+          const firstError = fieldErrors[firstField]?.[0];
+          toast.error(`${firstField}: ${firstError || '入力値が不正です'}`);
+          return;
+        }
+      }
       toast.error(error.message || '監修者の作成に失敗しました');
     },
   });
@@ -129,6 +140,17 @@ export function useUpdateAuthor() {
       toast.success('監修者を更新しました');
     },
     onError: (error: ApiError) => {
+      // バリデーションエラーの場合は詳細を表示
+      if (error.code === 'VALIDATION_ERROR' && error.details) {
+        const details = error.details as { fieldErrors?: Record<string, string[]>; formErrors?: string[] };
+        const fieldErrors = details.fieldErrors;
+        if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+          const firstField = Object.keys(fieldErrors)[0];
+          const firstError = fieldErrors[firstField]?.[0];
+          toast.error(`${firstField}: ${firstError || '入力値が不正です'}`);
+          return;
+        }
+      }
       toast.error(error.message || '監修者の更新に失敗しました');
     },
   });

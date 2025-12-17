@@ -113,24 +113,51 @@ export async function POST(request: NextRequest) {
 
     return await withAuth(request, async (user) => {
       const formData = await request.formData();
-      const file = formData.get("file") as File | null;
+      const fileEntry = formData.get("file");
       const altText = formData.get("altText") as string | null;
 
-      if (!file) {
+      if (!fileEntry) {
         return ApiErrors.badRequest("ファイルが指定されていません");
       }
 
-      // ファイルをBufferに変換
-      const buffer = Buffer.from(await file.arrayBuffer());
+      // Next.js 16/Turbopack互換: FileまたはBlobとして処理
+      let buffer: Buffer;
+      let fileName: string;
+      let mimeType: string;
+
+      if (fileEntry instanceof File) {
+        buffer = Buffer.from(await fileEntry.arrayBuffer());
+        fileName = fileEntry.name;
+        mimeType = fileEntry.type;
+      } else if (typeof fileEntry === 'object' && fileEntry !== null && 'arrayBuffer' in fileEntry) {
+        // Blob-like object (Turbopack may return Blob instead of File)
+        const blob = fileEntry as Blob;
+        buffer = Buffer.from(await blob.arrayBuffer());
+        fileName = `upload-${Date.now()}.jpg`;
+        mimeType = blob.type || "image/jpeg";
+      } else if (typeof fileEntry === "string") {
+        // Base64データの場合
+        const base64Match = fileEntry.match(/^data:([^;]+);base64,(.+)$/);
+        if (base64Match) {
+          mimeType = base64Match[1];
+          buffer = Buffer.from(base64Match[2], "base64");
+          const ext = mimeType.split("/")[1] || "jpg";
+          fileName = `upload-${Date.now()}.${ext}`;
+        } else {
+          return ApiErrors.badRequest("無効なファイル形式です");
+        }
+      } else {
+        return ApiErrors.badRequest("ファイル形式が認識できません");
+      }
 
       // ファイル名をサニタイズ
-      const sanitizedFilename = sanitizeFilename(file.name);
+      const sanitizedFilename = sanitizeFilename(fileName);
 
       // MIMEタイプ、マジックバイト、SVG安全性などを包括的に検証
       const validationResult = validateUploadedFile(
         buffer,
         sanitizedFilename,
-        file.type
+        mimeType
       );
 
       if (!validationResult.valid) {
@@ -146,7 +173,7 @@ export async function POST(request: NextRequest) {
         "MEDIA",
         filePath,
         buffer,
-        validationResult.mimeType || file.type
+        validationResult.mimeType || mimeType
       );
 
       // DB に保存

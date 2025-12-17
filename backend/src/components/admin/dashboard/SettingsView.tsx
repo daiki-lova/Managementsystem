@@ -372,7 +372,7 @@ export function SettingsView() {
                                         )}
                                     </div>
                                     <p className="text-[10px] text-neutral-400 pl-1">
-                                        ※ DataForSEOダッシュボードからBase64形式のAPIキーを取得してください
+                                        ※ 「login:password」形式またはBase64エンコード済みの値を入力
                                     </p>
                                 </div>
 

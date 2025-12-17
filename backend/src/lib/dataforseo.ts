@@ -45,7 +45,27 @@ export class DataForSEOClient {
   private baseUrl = "https://api.dataforseo.com/v3";
 
   constructor(authKey: string) {
-    this.authKey = authKey.trim();
+    const trimmed = authKey.trim();
+    // login:password形式の場合は自動でBase64エンコード
+    if (trimmed.includes(':') && !this.isBase64(trimmed)) {
+      this.authKey = Buffer.from(trimmed).toString('base64');
+      console.log("DataForSEO: Auto-encoded credentials to Base64");
+    } else {
+      this.authKey = trimmed;
+    }
+  }
+
+  // Base64形式かどうかをチェック
+  private isBase64(str: string): boolean {
+    if (!str || str.length === 0) return false;
+    try {
+      // Base64デコードして再エンコードして一致するか確認
+      const decoded = Buffer.from(str, 'base64').toString('utf8');
+      const reencoded = Buffer.from(decoded).toString('base64');
+      return reencoded === str && /^[A-Za-z0-9+/]*={0,2}$/.test(str);
+    } catch {
+      return false;
+    }
   }
 
   // キーワードのボリュームデータを取得

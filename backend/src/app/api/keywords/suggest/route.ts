@@ -443,7 +443,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (settings.dataforSeoApiKey) {
-        console.log("Fetching search volume data from DataForSEO...");
+        // デバッグ: APIキーの形式を確認（最初と最後の4文字のみ表示）
+        const keyPreview = settings.dataforSeoApiKey.length > 8
+          ? `${settings.dataforSeoApiKey.slice(0, 4)}...${settings.dataforSeoApiKey.slice(-4)}`
+          : '(短すぎる)';
+        console.log(`Fetching search volume data from DataForSEO... (key: ${keyPreview}, length: ${settings.dataforSeoApiKey.length})`);
         const client = new DataForSEOClient(settings.dataforSeoApiKey);
         const keywordStrings = aiKeywords.map((k) => k.keyword);
         const batches = chunk(keywordStrings, 20);
@@ -456,14 +460,26 @@ export async function POST(request: NextRequest) {
           trend: number[];
         }> = [];
 
+        let hasAuthError = false;
         for (const batch of batches) {
           try {
             const data = await client.getKeywordData({ keywords: batch });
             allVolumeData.push(...data);
           } catch (error) {
-            console.error("DataForSEO batch error:", error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error("DataForSEO batch error:", errorMessage);
+
+            // 認証エラーの場合は警告フラグを立てる
+            if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+              hasAuthError = true;
+              console.error("DataForSEO認証エラー: APIキーの形式を確認してください。'login:password'形式またはBase64エンコード済みの形式が必要です。");
+            }
             // 失敗したバッチはスキップして続行
           }
+        }
+
+        if (hasAuthError && allVolumeData.length === 0) {
+          console.warn("DataForSEO APIの認証に失敗しました。検索ボリュームは0として処理されます。");
         }
 
         // AIキーワードとボリュームデータをマージ（カニバリ情報を保持）

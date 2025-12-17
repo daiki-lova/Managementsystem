@@ -54,7 +54,7 @@ export interface ConversionItem {
   type: 'campaign' | 'evergreen' | 'app';
   url: string;
   thumbnail?: string;
-  status: 'active' | 'scheduled' | 'ended';
+  status: 'ACTIVE' | 'INACTIVE';
   ctr: string;
   clicks: number;
   cv: number;

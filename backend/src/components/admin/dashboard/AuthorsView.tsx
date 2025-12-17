@@ -102,7 +102,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
         setEditingProfile(null);
         setFormData({
             name: '', slug: '', role: '', qualifications: '', categories: [], tags: [],
-            bio: '', avatar: '', instagram: '', facebook: ''
+            bio: '', avatar: '', instagram: '', facebook: '', twitter: '', systemPrompt: ''
         });
         setIsDialogOpen(true);
     };
@@ -148,7 +148,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
     };
 
     const handleSubmit = () => {
-        if (!formData.name || !formData.role || !formData.slug) return;
+        if (!formData.name) return; // nameのみ必須（slug/roleはAPIでデフォルト値が設定される）
 
         // 空文字列をundefinedに変換（APIでバリデーションエラーを防ぐ）
         const cleanString = (val: string | undefined | null): string | undefined => {
@@ -169,8 +169,8 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
 
         const authorData = {
             name: formData.name.trim(),
-            slug: formData.slug.trim(),
-            role: formData.role.trim(),
+            slug: formData.slug?.trim() || undefined,
+            role: formData.role?.trim() || undefined,
             // Convert comma-separated string back to array for API
             qualifications: typeof formData.qualifications === 'string'
                 ? formData.qualifications.split(/[,、]/).map(s => s.trim()).filter(Boolean)
@@ -185,7 +185,8 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
             // 画像URL: Base64はスキップ、有効なURLのみ送信
             imageUrl: getImageUrl(),
             bio: cleanString(formData.bio),
-            systemPrompt: cleanString(formData.systemPrompt),
+            // systemPromptは明示的に空文字列を許可（削除するため）
+            systemPrompt: formData.systemPrompt?.trim() ?? '',
         };
 
         if (editingProfile) {
@@ -606,12 +607,12 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                         <Input id="name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} className="h-8 text-sm" placeholder="例: 山田 花子" />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="slug" className="text-xs">スラグ (ID) <span className="text-red-500">*</span></Label>
-                                        <Input id="slug" value={formData.slug || ''} onChange={e => setFormData({ ...formData, slug: e.target.value })} className="h-8 text-sm font-mono" placeholder="例: hanako-yamada" />
+                                        <Label htmlFor="slug" className="text-xs">スラグ (ID)</Label>
+                                        <Input id="slug" value={formData.slug || ''} onChange={e => setFormData({ ...formData, slug: e.target.value })} className="h-8 text-sm font-mono" placeholder="例: hanako-yamada (空欄で自動生成)" />
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="role" className="text-xs">肩書き <span className="text-red-500">*</span></Label>
+                                    <Label htmlFor="role" className="text-xs">肩書き</Label>
                                     <Input id="role" value={formData.role || ''} onChange={e => setFormData({ ...formData, role: e.target.value })} className="h-8 text-sm" placeholder="例: ヨガインストラクター" />
                                 </div>
                                 <div className="space-y-1.5">

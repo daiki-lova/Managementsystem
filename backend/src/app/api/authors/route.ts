@@ -112,21 +112,27 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// 空文字列をundefinedに変換するZodスキーマ
+const optionalString = (maxLength?: number) => {
+  let schema = z.string();
+  if (maxLength) schema = schema.max(maxLength);
+  return schema.optional().transform(v => v === '' ? undefined : v);
+};
+
 // 監修者作成スキーマ
 const createAuthorSchema = z.object({
   name: z.string().min(1).max(100),
-  slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "小文字英数字とハイフンのみ使用できます").optional(),
-  role: z.string().max(100).optional(), // 肩書き（オプショナル化）
+  slug: z.string().max(100).regex(/^[a-z0-9-]+$/, "小文字英数字とハイフンのみ使用できます").optional()
+    .or(z.literal('')).transform(v => v === '' ? undefined : v),
+  role: optionalString(100),
   qualifications: z.array(z.string()).default([]),
   categories: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
-  bio: z.string().optional(), // オプショナル化
-  avatarUrl: z.string().optional(), // 空文字列も受け入れる
-  imageUrl: z.string().optional(), // 空文字列も受け入れる
-  socialLinks: z
-    .record(z.string())
-    .optional(),
-  systemPrompt: z.string().optional(), // オプショナル化
+  bio: optionalString(),
+  avatarUrl: optionalString(),
+  imageUrl: optionalString(),
+  socialLinks: z.record(z.string()).optional(),
+  systemPrompt: optionalString(),
 });
 
 // 監修者作成（オーナーのみ）
@@ -184,7 +190,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (isAppError(error)) {
-      return errorResponse(error.code, error.message, error.statusCode);
+      return errorResponse(error.code, error.message, error.statusCode, error.details);
     }
     const appError = handlePrismaError(error);
     return errorResponse(appError.code, appError.message, appError.statusCode);

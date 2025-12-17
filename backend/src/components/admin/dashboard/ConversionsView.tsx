@@ -35,7 +35,7 @@ import {
 } from "../ui/select";
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import type { ConversionItem } from '@/app/admin/lib/types';
-import { useConversions, useCreateConversion, useUpdateConversion, useDeleteConversion } from '@/app/admin/lib/hooks';
+import { useConversions, useCreateConversion, useUpdateConversion, useDeleteConversion, useUploadMedia } from '@/app/admin/lib/hooks';
 
 interface ConversionsViewProps {
     conversions?: ConversionItem[];
@@ -48,6 +48,7 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
     const createConversion = useCreateConversion();
     const updateConversion = useUpdateConversion();
     const deleteConversion = useDeleteConversion();
+    const uploadMedia = useUploadMedia();
 
     // Map API data to ConversionItem format
     const conversions: ConversionItem[] = (conversionsData?.data || []).map((cv: any) => ({
@@ -93,7 +94,7 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
         setEditingItem(null);
         setFormData({
             type: 'campaign',
-            status: 'scheduled',
+            status: 'ACTIVE',
             clicks: 0,
             cv: 0,
             ctr: '-'
@@ -113,7 +114,7 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
             type: item.type,
             url: item.url,
             thumbnailUrl: item.thumbnail,
-            status: 'scheduled',
+            status: 'ACTIVE',
         });
     };
 
@@ -168,7 +169,7 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
             type: formData.type || 'campaign',
             url: formData.url || '',
             thumbnailUrl: formData.thumbnail,
-            status: formData.status || 'scheduled',
+            status: formData.status || 'ACTIVE',
             period: formData.period || '',
             context: formData.context,
         };
@@ -312,11 +313,9 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                                 <div className="flex items-center gap-2">
                                     <Badge variant="secondary" className={cn(
                                         "rounded-full px-2.5 py-1 text-[10px] font-bold border-0 uppercase tracking-wide",
-                                        cv.status === 'active' ? "bg-emerald-50 text-emerald-700" :
-                                        cv.status === 'scheduled' ? "bg-blue-50 text-blue-700" : "bg-neutral-100 text-neutral-500"
+                                        cv.status === 'ACTIVE' ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"
                                     )}>
-                                        {cv.status === 'active' ? '公開中' : 
-                                         cv.status === 'scheduled' ? '予約済み' : '終了'}
+                                        {cv.status === 'ACTIVE' ? '公開中' : '非公開'}
                                     </Badge>
                                     <span className="text-[10px] text-neutral-400 font-medium hidden xl:inline-block truncate max-w-[100px]">
                                         {cv.type}
@@ -405,17 +404,16 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="status" className="text-xs font-bold text-neutral-500">ステータス</Label>
-                                <Select 
-                                    value={formData.status} 
+                                <Select
+                                    value={formData.status}
                                     onValueChange={(v: any) => setFormData({...formData, status: v})}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="ステータスを選択" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="active">公開中</SelectItem>
-                                        <SelectItem value="scheduled">予約済み</SelectItem>
-                                        <SelectItem value="ended">終了</SelectItem>
+                                        <SelectItem value="ACTIVE">公開中</SelectItem>
+                                        <SelectItem value="INACTIVE">非公開</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -432,10 +430,15 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                         <div className="grid gap-2">
                             <Label className="text-xs font-bold text-neutral-500">サムネイル画像</Label>
                             <div className="flex items-start gap-4">
-                                {formData.thumbnail ? (
+                                {uploadMedia.isPending ? (
+                                    <div className="w-40 h-24 rounded-lg border border-neutral-200 flex flex-col items-center justify-center text-neutral-400 bg-neutral-50">
+                                        <Loader2 size={20} className="animate-spin mb-1" />
+                                        <span className="text-[10px] font-bold">アップロード中...</span>
+                                    </div>
+                                ) : formData.thumbnail ? (
                                     <div className="relative w-40 h-24 rounded-lg overflow-hidden border border-neutral-200 group">
                                         <img src={formData.thumbnail} alt="Preview" className="w-full h-full object-cover" />
-                                        <button 
+                                        <button
                                             onClick={() => setFormData({...formData, thumbnail: undefined})}
                                             className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all"
                                         >
@@ -443,26 +446,32 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                                         </button>
                                     </div>
                                 ) : (
-                                    <div 
-                                        className="w-40 h-24 rounded-lg border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center text-neutral-400 bg-neutral-50 hover:bg-neutral-100 hover:border-neutral-300 transition-colors cursor-pointer" 
-                                        onClick={() => document.getElementById('file-upload')?.click()}
+                                    <div
+                                        className="w-40 h-24 rounded-lg border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center text-neutral-400 bg-neutral-50 hover:bg-neutral-100 hover:border-neutral-300 transition-colors cursor-pointer"
+                                        onClick={() => document.getElementById('conversion-file-upload')?.click()}
                                     >
                                         <ImageIcon size={20} className="mb-1" />
                                         <span className="text-[10px] font-bold">画像を追加</span>
                                     </div>
                                 )}
-                                <input 
-                                    id="file-upload" 
-                                    type="file" 
-                                    accept="image/*" 
-                                    className="hidden" 
-                                    onChange={(e) => {
+                                <input
+                                    id="conversion-file-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={async (e) => {
                                         const file = e.target.files?.[0];
                                         if (file) {
-                                            const imageUrl = URL.createObjectURL(file);
-                                            setFormData({ ...formData, thumbnail: imageUrl });
+                                            try {
+                                                const result = await uploadMedia.mutateAsync({ file });
+                                                if (result.data?.url) {
+                                                    setFormData({ ...formData, thumbnail: result.data.url });
+                                                }
+                                            } catch {
+                                                // エラーは useUploadMedia の onError で処理される
+                                            }
                                         }
-                                    }} 
+                                    }}
                                 />
                                 <div className="flex-1 pt-1">
                                     <p className="text-[11px] text-neutral-400 leading-tight">
@@ -497,8 +506,23 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
-                        <Button onClick={handleSave} className="bg-neutral-900 text-white hover:bg-neutral-800">保存</Button>
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={uploadMedia.isPending}>キャンセル</Button>
+                        <Button
+                            onClick={handleSave}
+                            className="bg-neutral-900 text-white hover:bg-neutral-800"
+                            disabled={uploadMedia.isPending || createConversion.isPending || updateConversion.isPending}
+                        >
+                            {(createConversion.isPending || updateConversion.isPending) ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    保存中...
+                                </>
+                            ) : uploadMedia.isPending ? (
+                                "画像アップロード中..."
+                            ) : (
+                                "保存"
+                            )}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

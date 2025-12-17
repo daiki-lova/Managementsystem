@@ -79,7 +79,7 @@ const updateAuthorSchemaWriter = z.object({
 
 // 監修者更新スキーマ（オーナー用）
 const updateAuthorSchemaOwner = updateAuthorSchemaWriter.extend({
-  systemPrompt: z.string().min(1).optional(),
+  systemPrompt: z.string().optional().nullable(), // 空文字列も許可（削除用）
 });
 
 // 監修者更新
@@ -106,7 +106,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       // systemPromptフィールドの取得（オーナースキーマのみに存在）
-      const systemPromptValue = "systemPrompt" in data ? data.systemPrompt as string | undefined : undefined;
+      const hasSystemPrompt = "systemPrompt" in data;
+      const systemPromptValue = hasSystemPrompt ? (data.systemPrompt as string | null | undefined) : undefined;
       // フィールド名のエイリアス解決
       const resolvedImageUrl = data.imageUrl !== undefined ? data.imageUrl : data.avatarUrl;
 
@@ -124,7 +125,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           socialLinks: data.socialLinks === null
             ? Prisma.JsonNull
             : data.socialLinks as unknown as Prisma.InputJsonValue | undefined,
-          ...(systemPromptValue !== undefined && { systemPrompt: systemPromptValue }),
+          // systemPromptはフィールドが存在する場合のみ更新（空文字列/nullで削除可能）
+          ...(hasSystemPrompt && { systemPrompt: systemPromptValue || "" }),
         },
         select: {
           id: true,
