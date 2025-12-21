@@ -1,15 +1,18 @@
-// 3ステップ記事生成パイプライン
+// 3.5ステップ記事生成パイプライン（検索意図分析追加版）
 
 import { inngest } from "../../client";
 import prisma from "@/lib/prisma";
 import { ArticleStatus, GenerationJobStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { getDecryptedSettings } from "@/lib/settings";
+import { getSerpAnalysis } from "@/lib/dataforseo";
 import {
+  type Stage0Output,
   type Stage1Input,
   type Stage1Output,
   type Stage2Input,
   type Stage2Output,
+  type QualityCheckResult,
   type AllStageOutputs,
   STAGE_PROGRESS,
   STAGE_LABELS,
@@ -25,6 +28,7 @@ import {
   extractImagePlaceholders,
   replacePromptVariables,
   cleanGeneratedHtml,
+  performQualityCheck,
 } from "./common/prompts";
 
 // 記事生成パイプライン
@@ -148,6 +152,93 @@ export const generateArticlePipeline = inngest.createFunction(
     const stageOutputs: AllStageOutputs = {};
 
     // ========================================
+    // Step 0: 検索意図分析（PAA・競合タイトル取得）
+    // ========================================
+    await step.run("update-stage-0-progress", async () => {
+      await updateProgress(0, STAGE_LABELS[0]);
+    });
+
+    const stage0Result = await step.run("execute-stage-0-search-intent", async () => {
+      console.log(`[Pipeline] Stage 0: Fetching search intent for "${keyword}"`);
+
+      // DataForSEO APIキーがあれば検索意図分析を実行
+      if (!pipelineData.settings.dataForSEOApiKey) {
+        console.log("[Pipeline] Stage 0: No DataForSEO API key, skipping SERP analysis");
+        return {
+          success: true as const,
+          data: {
+            peopleAlsoAsk: [],
+            topResults: [],
+            relatedSearches: [],
+            fetchedAt: new Date(),
+            isFallback: true,
+          } as Stage0Output,
+        };
+      }
+
+      try {
+        const serpResult = await getSerpAnalysis(
+          pipelineData.settings.dataForSEOApiKey,
+          keyword
+        );
+
+        const output: Stage0Output = {
+          peopleAlsoAsk: serpResult.peopleAlsoAsk.map(paa => ({
+            question: paa.question,
+            answer: paa.answer,
+          })),
+          topResults: serpResult.topResults.map(r => ({
+            rank: r.rank,
+            title: r.title,
+            url: r.url,
+          })),
+          relatedSearches: serpResult.relatedSearches,
+          fetchedAt: serpResult.fetchedAt,
+          isFallback: false,
+        };
+
+        console.log(`[Pipeline] Stage 0 completed: ${output.peopleAlsoAsk.length} PAA, ${output.topResults.length} competitors`);
+
+        // ステージ記録を保存
+        await prisma.generation_stages.create({
+          data: {
+            id: randomUUID(),
+            jobId,
+            stage: 0,
+            stageName: "search_intent_analysis",
+            status: "COMPLETED",
+            input: { keyword } as Prisma.InputJsonValue,
+            output: {
+              paaCount: output.peopleAlsoAsk.length,
+              competitorCount: output.topResults.length,
+              relatedSearchCount: output.relatedSearches.length,
+            } as Prisma.InputJsonValue,
+            tokensUsed: 0, // APIコールなのでトークン使用なし
+            completedAt: new Date(),
+          },
+        });
+
+        return { success: true as const, data: output };
+      } catch (error) {
+        // Graceful Degradation: エラーでもパイプラインは継続
+        console.error("[Pipeline] Stage 0 failed (continuing with fallback):", error);
+        return {
+          success: true as const,
+          data: {
+            peopleAlsoAsk: [],
+            topResults: [],
+            relatedSearches: [],
+            fetchedAt: new Date(),
+            isFallback: true,
+          } as Stage0Output,
+        };
+      }
+    });
+
+    // Stage 0の結果を保存（成功でもフォールバックでも）
+    stageOutputs.stage0 = stage0Result.data;
+
+    // ========================================
     // Step 1: タイトル生成
     // ========================================
     await step.run("update-stage-1-progress", async () => {
@@ -164,6 +255,8 @@ export const generateArticlePipeline = inngest.createFunction(
         categoryName: pipelineData.category.name,
         brandName: pipelineData.brand.name,
         brandDomain: siteDomain,
+        // 検索意図分析結果を渡す（Stage 0から）
+        searchAnalysis: stageOutputs.stage0,
       };
 
       const prompt = buildStage1Prompt(input);
@@ -260,6 +353,8 @@ export const generateArticlePipeline = inngest.createFunction(
           tone: pipelineData.brand.tone || undefined,
         },
         conversionGoal: pipelineData.conversions[0]?.name,
+        // 検索意図分析結果を渡す（Stage 0から）
+        searchAnalysis: stageOutputs.stage0,
       };
 
       // 設定のsystemPromptをテンプレートとして使用し、変数を置換
@@ -323,6 +418,42 @@ export const generateArticlePipeline = inngest.createFunction(
       throw new Error(`Stage 2 failed: ${stage2Result.error || "Unknown error"}`);
     }
     stageOutputs.stage2 = stage2Result.data;
+
+    // ========================================
+    // Step 2.5: 品質チェック（LLM不要・軽量版）
+    // ========================================
+    const qualityCheckResult = await step.run("execute-quality-check", async () => {
+      console.log("[Pipeline] Executing quality check...");
+
+      const qc = performQualityCheck(stageOutputs.stage2!.html, keyword);
+
+      console.log(`[Pipeline] Quality check: score=${qc.overallScore}, warnings=${qc.warnings.length}`);
+
+      // 品質チェック結果をステージ記録に保存
+      await prisma.generation_stages.create({
+        data: {
+          id: randomUUID(),
+          jobId,
+          stage: 2, // Stage 2の付属として記録
+          stageName: "quality_check",
+          status: qc.needsRevision ? "WARNING" : "COMPLETED",
+          input: { keyword } as Prisma.InputJsonValue,
+          output: qc as unknown as Prisma.InputJsonValue,
+          tokensUsed: 0,
+          completedAt: new Date(),
+        },
+      });
+
+      // 警告がある場合はジョブに記録（記事生成自体は継続）
+      if (qc.warnings.length > 0) {
+        console.log(`[Pipeline] Quality warnings: ${qc.warnings.join(", ")}`);
+      }
+
+      return qc;
+    });
+
+    // 品質チェック結果を保存
+    stageOutputs.qualityCheck = qualityCheckResult;
 
     // ========================================
     // Step 3: 記事を保存 & 画像生成イベント発火
@@ -438,15 +569,26 @@ export const generateArticlePipeline = inngest.createFunction(
         },
       });
 
-      // 通知を作成
+      // 品質スコア情報を取得
+      const qualityScore = stageOutputs.qualityCheck?.overallScore || 0;
+      const qualityWarnings = stageOutputs.qualityCheck?.warnings || [];
+
+      // 通知を作成（品質スコア付き）
+      const qualityLabel = qualityScore >= 80 ? "高品質" : qualityScore >= 60 ? "標準" : "要確認";
       await prisma.notifications.create({
         data: {
           id: randomUUID(),
           userId,
           type: "GENERATION_COMPLETE",
           title: "記事生成完了",
-          message: `「${article.title}」の生成が完了しました`,
-          metadata: { articleId: article.id, jobId, totalTokens },
+          message: `「${article.title}」の生成が完了しました（品質スコア: ${qualityScore}点/${qualityLabel}）`,
+          metadata: {
+            articleId: article.id,
+            jobId,
+            totalTokens,
+            qualityScore,
+            qualityWarnings,
+          },
         },
       });
     });
@@ -454,6 +596,7 @@ export const generateArticlePipeline = inngest.createFunction(
     return {
       articleId: article.id,
       title: article.title,
+      qualityScore: stageOutputs.qualityCheck?.overallScore || 0,
       stageOutputs,
     };
   }

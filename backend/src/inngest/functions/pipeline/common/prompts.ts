@@ -1,6 +1,29 @@
-// 3ステップパイプライン用プロンプト
+// 3.5ステップパイプライン用プロンプト（検索意図分析対応版）
 
-import type { Stage1Input, Stage2Input, Stage3Input } from "./types";
+import { createHash } from "crypto";
+import type { Stage0Output, Stage1Input, Stage2Input, Stage3Input } from "./types";
+
+/**
+ * 決定的パターン選択（再現性確保）
+ * Math.random() の代わりにキーワード+カテゴリから決定的にパターンを選択
+ */
+function selectPattern<T>(patterns: T[], keyword: string, categoryName: string, salt: string = ""): T {
+  const hash = createHash("sha256")
+    .update(keyword + categoryName + salt)
+    .digest("hex");
+  const index = parseInt(hash.slice(0, 8), 16) % patterns.length;
+  return patterns[index];
+}
+
+/**
+ * 決定的シード値の生成（再現性確保）
+ */
+function generateDeterministicSeed(keyword: string, categoryName: string): number {
+  const hash = createHash("sha256")
+    .update(keyword + categoryName + "seed")
+    .digest("hex");
+  return parseInt(hash.slice(0, 8), 16) % 10000;
+}
 
 /**
  * 監修者データからテンプレート変数を構築するヘルパー関数群
@@ -63,9 +86,9 @@ export function replacePromptVariables(
   template: string,
   input: Stage2Input
 ): string {
-  const { title, keyword, categoryName, supervisor, infoBank, brand, conversionGoal } = input;
+  const { title, keyword, categoryName, supervisor, infoBank, brand, conversionGoal, searchAnalysis } = input;
 
-  // 多様性のためのランダム要素
+  // 多様性のためのパターン（決定的ハッシュで選択 = 再現可能）
   const introPatterns = [
     "読者への問いかけから入る",
     "監修者の体験談から入る",
@@ -80,9 +103,11 @@ export function replacePromptVariables(
     "Q&A発展型",
     "ケーススタディ型",
   ];
-  const randomIntro = introPatterns[Math.floor(Math.random() * introPatterns.length)];
-  const randomStructure = structurePatterns[Math.floor(Math.random() * structurePatterns.length)];
-  const randomSeed = Math.floor(Math.random() * 1000);
+
+  // 決定的パターン選択（同じキーワード+カテゴリなら同じ結果）
+  const selectedIntro = selectPattern(introPatterns, keyword, categoryName, "intro");
+  const selectedStructure = selectPattern(structurePatterns, keyword, categoryName, "structure");
+  const deterministicSeed = generateDeterministicSeed(keyword, categoryName);
 
   // 情報バンクを種類別に分類
   const customerVoices = infoBank
@@ -117,6 +142,20 @@ export function replacePromptVariables(
     ? supervisor.influences.join('、')
     : '（設定なし）';
 
+  // 検索意図分析結果から情報を抽出
+  const paaQuestions = searchAnalysis?.peopleAlsoAsk
+    ?.map((paa, i) => `${i + 1}. ${paa.question}`)
+    .join('\n') || '（検索意図分析データなし）';
+
+  const competitorTitles = searchAnalysis?.topResults
+    ?.slice(0, 5)
+    .map((r, i) => `${i + 1}位: ${r.title}`)
+    .join('\n') || '（競合データなし）';
+
+  const relatedSearches = searchAnalysis?.relatedSearches
+    ?.slice(0, 5)
+    .join('、') || '（関連検索なし）';
+
   // 変数置換マップ
   const replacements: Record<string, string> = {
     '{{SUPERVISOR_NAME}}': supervisor.name,
@@ -143,10 +182,14 @@ export function replacePromptVariables(
     '{{MEDIA_NAME}}': brand.name,
     '{{DOMAIN}}': brand.domain,
     '{{SLUG}}': '{{SLUG}}', // これはStage1で生成されるため、そのまま残す
-    // 多様性のためのランダム変数
-    '{{RANDOM_INTRO_STYLE}}': randomIntro,
-    '{{RANDOM_STRUCTURE}}': randomStructure,
-    '{{VARIATION_SEED}}': String(randomSeed),
+    // 多様性のための決定的変数（再現可能）
+    '{{RANDOM_INTRO_STYLE}}': selectedIntro,
+    '{{RANDOM_STRUCTURE}}': selectedStructure,
+    '{{VARIATION_SEED}}': String(deterministicSeed),
+    // 検索意図分析結果（Stage 0から）
+    '{{PAA_QUESTIONS}}': paaQuestions,
+    '{{COMPETITOR_TITLES}}': competitorTitles,
+    '{{RELATED_SEARCHES}}': relatedSearches,
   };
 
   let result = template;
@@ -189,10 +232,14 @@ JSONのみで出力。説明文は不要。
 }
 
 /**
- * Stage 2: 記事生成プロンプト
+ * Stage 2: 記事生成プロンプト（強化版）
+ * - 検索意図分析結果を反映
+ * - 要約ボックス必須
+ * - 人間らしさ強化
+ * - 決定的パターン選択
  */
 export function buildStage2Prompt(input: Stage2Input): string {
-  const { title, keyword, categoryName, supervisor, infoBank, brand, conversionGoal } = input;
+  const { title, keyword, categoryName, supervisor, infoBank, brand, conversionGoal, searchAnalysis } = input;
 
   // 情報バンクを種類別に分類
   const customerVoices = infoBank
@@ -274,7 +321,7 @@ export function buildStage2Prompt(input: Stage2Input): string {
     ? supervisor.influences.join('、')
     : '';
 
-  // ランダムな導入パターンと構成を選択（多様性のため）
+  // 決定的パターン選択（再現可能）
   const introPatterns = [
     "【導入スタイル：問いかけ】読者に「〜ではありませんか？」と問いかけ、共感を得る形で始める",
     "【導入スタイル：体験談】監修者自身の具体的なエピソードから始める。情景描写を含める",
@@ -289,9 +336,20 @@ export function buildStage2Prompt(input: Stage2Input): string {
     "【構成：Q&A発展型】よくある疑問から深堀りしていく形式",
     "【構成：ケーススタディ型】具体的な事例を中心に展開する",
   ];
-  const randomIntro = introPatterns[Math.floor(Math.random() * introPatterns.length)];
-  const randomStructure = structurePatterns[Math.floor(Math.random() * structurePatterns.length)];
-  const randomSeed = Math.floor(Math.random() * 1000);
+  const selectedIntro = selectPattern(introPatterns, keyword, categoryName, "intro");
+  const selectedStructure = selectPattern(structurePatterns, keyword, categoryName, "structure");
+  const deterministicSeed = generateDeterministicSeed(keyword, categoryName);
+
+  // 検索意図分析結果を抽出
+  const paaQuestions = searchAnalysis?.peopleAlsoAsk?.slice(0, 5) || [];
+  const paaText = paaQuestions.length > 0
+    ? paaQuestions.map((paa, i) => `${i + 1}. ${paa.question}`).join('\n')
+    : '';
+
+  const competitorTitles = searchAnalysis?.topResults?.slice(0, 5) || [];
+  const competitorText = competitorTitles.length > 0
+    ? competitorTitles.map((r, i) => `${i + 1}位: ${r.title}`).join('\n')
+    : '';
 
   return `## 役割
 
@@ -299,10 +357,10 @@ export function buildStage2Prompt(input: Stage2Input): string {
 
 ---
 
-## 【今回の記事の個性】VariationSeed: ${randomSeed}
+## 【今回の記事の個性】VariationSeed: ${deterministicSeed}
 
-${randomIntro}
-${randomStructure}
+${selectedIntro}
+${selectedStructure}
 
 上記のスタイルと構成で、他の記事とは異なる個性的な記事を書いてください。
 
@@ -337,6 +395,8 @@ ${avoidWordsText ? `**使用禁止ワード**: 以下の言葉・表現は絶対
 キーワード：${keyword}
 カテゴリ：${categoryName}
 
+${competitorText ? `### 競合記事のタイトル（差別化のため参考にすること）\n${competitorText}\n\n**これらと被らない独自の切り口で書いてください。**\n` : ''}
+
 検索意図を深く理解し、メインテーマから派生した語句を3つ抽出したうえで、検索1位を取るためのSEO記事を書いてください。
 
 ---
@@ -364,9 +424,44 @@ ${supervisorContent || 'なし'}
 
 上記の一次情報を本文中に自然に織り込んでください。引用時は「〇〇さん（受講歴△年）」「監修者の${supervisor.name}先生によると」のように出典を明示すること。
 
+${paaText ? `---
+
+## よく検索される関連質問（FAQに必ず含めること）
+
+${paaText}
+
+**上記の質問に必ず回答するFAQセクションを作成してください。**
+` : ''}
+
+---
+
+## ★★★ 人間らしさの演出（最重要）★★★
+
+**AIが書いた感を消すために、以下を必ず実行すること：**
+
+1. **余談を1箇所入れる**: 「余談ですが」「ちなみに」で始まる脱線を1段落入れる
+2. **失敗談を入れる**: 監修者自身の失敗や苦労話を1箇所含める
+3. **主観的意見を入れる**: 「正直に言うと」「私の経験では」で始まる意見を1-2箇所
+4. **完璧すぎない文章**: 口語表現OK、言い淀みOK、「〜なんですよね」「〜だったりします」
+5. **断定を避ける箇所を作る**: 「〜かもしれません」「〜と思います」を2-3箇所使う
+6. **段落の長さをバラバラに**: 短い段落（50字）と長い段落（200字）を混ぜる
+
+**❌ AI臭い表現（使用禁止）:**
+- 「基本的に」「一般的に」「様々な」の多用
+- 「重要です」「大切です」の連発
+- 全ての文が同じ長さ
+- 全ての段落が同じ構成
+
 ---
 
 ## OUTPUT仕様（最重要：必ず従うこと）
+
+### 文字数の目安
+- **総文字数: 4000〜6000字**
+- 導入: 200-300字
+- 各章: 400-800字
+- FAQ: 各100-200字
+- まとめ: 200-300字
 
 **⚠️ 絶対に以下を含めないこと：**
 - \`<!DOCTYPE html>\`, \`<html>\`, \`<head>\`, \`<body>\`, \`<meta>\`, \`<title>\`
@@ -381,6 +476,16 @@ ${supervisorContent || 'なし'}
 <article style="max-width:800px;margin:0 auto;padding:24px;font-family:'Hiragino Sans','ヒラギノ角ゴ Pro W3','Noto Sans JP',sans-serif;line-height:1.8;color:#333;">
 
 <!-- IMAGE_PLACEHOLDER: position="hero" context="[テーマを表すイメージ]" alt_hint="[alt属性]" -->
+
+<!-- ★★★ 要約ボックス（LLMO対策・必須）★★★ -->
+<div style="margin:24px 0 32px;padding:20px 24px;background:linear-gradient(135deg,#F5F3FF 0%,#EDE9FE 100%);border-radius:12px;border:1px solid #DDD6FE;">
+  <h2 style="font-size:1.1em;font-weight:bold;margin:0 0 12px;color:#5B21B6;display:flex;align-items:center;gap:8px;">📌 この記事のポイント</h2>
+  <ul style="margin:0;padding-left:20px;color:#374151;">
+    <li style="margin-bottom:8px;">[キーワードとは何か、一言で定義]</li>
+    <li style="margin-bottom:8px;">[この記事で分かる主なメリット・効果]</li>
+    <li style="margin-bottom:8px;">[読者へのアクション提案（初心者は〇〇から始めるのがおすすめ等）]</li>
+  </ul>
+</div>
 
 <p style="font-size:1.1em;color:#444;margin-bottom:32px;border-left:4px solid #8B5CF6;padding-left:16px;background:#FAFAFA;padding:16px 16px 16px 20px;border-radius:0 8px 8px 0;">[導入文：読者の悩みに共感し、監修者の体験を1文入れる。150〜250字]</p>
 
@@ -731,4 +836,128 @@ export function replacePlaceholderWithImage(
 </figure>`;
 
   return html.replace(placeholder, imgTag);
+}
+
+// ========================================
+// 品質チェック（LLM不要・軽量版）
+// ========================================
+
+import type { QualityCheckResult } from "./types";
+
+/**
+ * 生成された記事の品質を軽量チェック
+ * LLMを使わず、正規表現とカウントのみで高速に評価
+ */
+export function performQualityCheck(html: string, keyword: string): QualityCheckResult {
+  const warnings: string[] = [];
+
+  // HTMLタグを除去したテキスト
+  const textContent = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // 基本メトリクス
+  const wordCount = textContent.length;
+  const keywordLower = keyword.toLowerCase();
+  const textLower = textContent.toLowerCase();
+
+  // キーワード出現回数（部分一致）
+  let keywordCount = 0;
+  let searchIndex = 0;
+  while ((searchIndex = textLower.indexOf(keywordLower, searchIndex)) !== -1) {
+    keywordCount++;
+    searchIndex += keywordLower.length;
+  }
+
+  const keywordDensity = wordCount > 0 ? (keywordCount * keyword.length / wordCount) * 100 : 0;
+
+  // 見出しカウント
+  const h2Matches = html.match(/<h2[^>]*>/gi) || [];
+  const h3Matches = html.match(/<h3[^>]*>/gi) || [];
+  const h2Count = h2Matches.length;
+  const h3Count = h3Matches.length;
+
+  // 構造チェック
+  const hasSummaryBox = /この記事のポイント|まとめ|要約|ポイント/.test(textContent) ||
+                        /class="[^"]*summary[^"]*"/.test(html) ||
+                        /📌/.test(html);
+
+  const hasFaq = /よくある質問|FAQ|Q&A|質問と回答/.test(textContent) ||
+                 /<details[^>]*>/.test(html);
+
+  const hasImages = /IMAGE_PLACEHOLDER|<img[^>]*src=/.test(html);
+
+  const hasSupervisorProfile = /監修者プロフィール|監修者|プロフィール/.test(textContent);
+
+  // 警告の生成
+  if (wordCount < 3000) {
+    warnings.push(`文字数が少なめです（${wordCount}字）。4000字以上を推奨。`);
+  }
+  if (wordCount > 8000) {
+    warnings.push(`文字数が多すぎます（${wordCount}字）。6000字以下を推奨。`);
+  }
+  if (keywordCount < 3) {
+    warnings.push(`キーワード「${keyword}」の出現が少ないです（${keywordCount}回）。`);
+  }
+  if (keywordDensity > 5) {
+    warnings.push(`キーワード密度が高すぎます（${keywordDensity.toFixed(1)}%）。自然な文章を心がけて。`);
+  }
+  if (h2Count < 3) {
+    warnings.push(`h2見出しが少ないです（${h2Count}個）。4-6個を推奨。`);
+  }
+  if (!hasSummaryBox) {
+    warnings.push('要約ボックス（この記事のポイント）がありません。LLMO対策に必須。');
+  }
+  if (!hasFaq) {
+    warnings.push('FAQセクションがありません。');
+  }
+  if (!hasImages) {
+    warnings.push('画像プレースホルダーがありません。');
+  }
+  if (!hasSupervisorProfile) {
+    warnings.push('監修者プロフィールがありません。E-E-A-T対策に重要。');
+  }
+
+  // スコア計算（100点満点）
+  let score = 100;
+
+  // 文字数
+  if (wordCount < 3000) score -= 15;
+  else if (wordCount < 4000) score -= 5;
+  else if (wordCount > 7000) score -= 5;
+  else if (wordCount > 8000) score -= 10;
+
+  // キーワード
+  if (keywordCount < 3) score -= 10;
+  else if (keywordCount < 5) score -= 5;
+  if (keywordDensity > 5) score -= 10;
+
+  // 見出し
+  if (h2Count < 3) score -= 10;
+  else if (h2Count < 4) score -= 5;
+
+  // 構造
+  if (!hasSummaryBox) score -= 15;
+  if (!hasFaq) score -= 10;
+  if (!hasImages) score -= 5;
+  if (!hasSupervisorProfile) score -= 10;
+
+  // 最低0点
+  score = Math.max(0, score);
+
+  // 自動修正が必要かの判定（60点未満）
+  const needsRevision = score < 60;
+
+  return {
+    wordCount,
+    keywordCount,
+    keywordDensity: Math.round(keywordDensity * 100) / 100,
+    h2Count,
+    h3Count,
+    hasSummaryBox,
+    hasFaq,
+    hasImages,
+    hasSupervisorProfile,
+    overallScore: score,
+    warnings,
+    needsRevision,
+  };
 }

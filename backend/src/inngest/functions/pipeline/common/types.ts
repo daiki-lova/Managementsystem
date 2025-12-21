@@ -1,7 +1,8 @@
-// 3ステップパイプラインの型定義
+// 3.5ステップパイプラインの型定義（検索意図分析追加版）
 
 // ステージ名定義
 export const STAGE_NAMES = {
+  0: "search_intent_analysis",  // 新規: 検索意図分析
   1: "title_generation",
   2: "article_generation",
   3: "image_generation",
@@ -11,7 +12,7 @@ export type StageName = (typeof STAGE_NAMES)[keyof typeof STAGE_NAMES];
 
 // 進捗率定義
 export const STAGE_PROGRESS = {
-  0: 0,    // 未開始
+  0: 5,    // 検索意図分析完了
   1: 20,   // タイトル生成完了
   2: 80,   // 記事生成完了
   3: 100,  // 画像生成・挿入完了
@@ -19,10 +20,39 @@ export const STAGE_PROGRESS = {
 
 // ステージラベル（UI表示用）
 export const STAGE_LABELS = {
+  0: "検索意図を分析中...",
   1: "タイトル生成中...",
   2: "記事を執筆中...",
   3: "画像を生成中...",
 } as const;
+
+// ========================================
+// Stage 0: 検索意図分析（新規）
+// ========================================
+export interface Stage0Input {
+  keyword: string;
+  categoryId: string;
+}
+
+export interface Stage0Output {
+  // PAA（People Also Ask）
+  peopleAlsoAsk: Array<{
+    question: string;
+    answer?: string;
+  }>;
+  // 上位記事のタイトル
+  topResults: Array<{
+    rank: number;
+    title: string;
+    url: string;
+  }>;
+  // 関連検索クエリ
+  relatedSearches: string[];
+  // 分析メタデータ
+  fetchedAt: Date;
+  // APIエラーの場合はフォールバックフラグ
+  isFallback: boolean;
+}
 
 // ========================================
 // Stage 1: タイトル生成
@@ -33,6 +63,8 @@ export interface Stage1Input {
   categoryName: string;
   brandName: string;
   brandDomain: string;
+  // 検索意図分析結果（Stage 0から）
+  searchAnalysis?: Stage0Output;
 }
 
 export interface Stage1Output {
@@ -111,6 +143,8 @@ export interface Stage2Input {
   };
   // コンバージョン目標（オプション）
   conversionGoal?: string;
+  // 検索意図分析結果（Stage 0から）
+  searchAnalysis?: Stage0Output;
 }
 
 export interface ImagePlaceholder {
@@ -169,7 +203,36 @@ export interface StageResult<T> {
 
 // 全ステージの出力を保持
 export interface AllStageOutputs {
+  stage0?: Stage0Output;  // 検索意図分析
   stage1?: Stage1Output;
   stage2?: Stage2Output;
   stage3?: Stage3Output;
+  qualityCheck?: QualityCheckResult;  // 品質チェック結果
+}
+
+// ========================================
+// 品質チェック結果
+// ========================================
+export interface QualityCheckResult {
+  // 基本メトリクス
+  wordCount: number;
+  keywordCount: number;
+  keywordDensity: number;  // キーワード出現率（%）
+  h2Count: number;
+  h3Count: number;
+
+  // 構造チェック
+  hasSummaryBox: boolean;      // 要約ボックスあり
+  hasFaq: boolean;             // FAQセクションあり
+  hasImages: boolean;          // 画像プレースホルダーあり
+  hasSupervisorProfile: boolean; // 監修者プロフィールあり
+
+  // スコア（0-100）
+  overallScore: number;
+
+  // 警告
+  warnings: string[];
+
+  // 自動修正が必要か
+  needsRevision: boolean;
 }
