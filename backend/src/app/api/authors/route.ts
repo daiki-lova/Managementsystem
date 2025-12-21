@@ -14,6 +14,7 @@ import { validateBody } from "@/lib/validation";
 import { isAppError, handlePrismaError } from "@/lib/errors";
 import { auditLog } from "@/lib/audit-log";
 import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
 
 // 監修者一覧取得
 export async function GET(request: NextRequest) {
@@ -33,70 +34,41 @@ export async function GET(request: NextRequest) {
           name: true,
           slug: true,
           role: true,
-          qualifications: true,
           bio: true,
           imageUrl: true,
-          socialLinks: true,
-          categories: true, // Explicit categories
-          tags: true,       // Explicit tags
-          systemPrompt: true,
+          // キャリアデータフィールド
+          careerStartYear: true,
+          teachingStartYear: true,
+          totalStudentsTaught: true,
+          graduatesCount: true,
+          weeklyLessons: true,
+          certifications: true,
+          episodes: true,
+          signaturePhrases: true,
+          specialties: true,
+          // パーソナリティフィールド
+          writingStyle: true,
+          philosophy: true,
+          avoidWords: true,
+          targetAudience: true,
+          teachingApproach: true,
+          influences: true,
+          locationContext: true,
           createdAt: true,
           updatedAt: true,
           _count: {
             select: { articles: true },
           },
-          articles: {
-            select: {
-              categories: { select: { name: true } },
-              article_tags: { select: { tags: { select: { name: true } } } },
-            },
-            take: 20, // Limit to recent articles for performance
-          }
         },
         orderBy: { name: "asc" },
       });
 
-      // Type helper for the complex Prisma result
-      type AuthorWithRelations = typeof authors[number];
-
       return paginatedResponse({
-        items: authors.map((a: AuthorWithRelations) => {
-          // Use explicit categories/tags if available, otherwise fallback to computed or empty
-          const explicitCategories = (a.categories as string[]) || [];
-          const explicitTags = (a.tags as string[]) || [];
-
-          // Compute unique categories and tags from articles safely (for reference or fallback)
-          const computedCategories = Array.from(new Set(
-            a.articles
-              .filter(article => article.categories) // Filter out null categories
-              .map(article => article.categories.name)
-          )).sort();
-
-          const computedTags = Array.from(new Set(
-            a.articles.flatMap(article =>
-              article.article_tags.map(at => at.tags.name)
-            )
-          )).sort();
-
-          return {
-            ...a,
-            articlesCount: a._count.articles,
-            // Return explicit ones as primary, or merge? User wants to "enter" them, so return explicit.
-            // If explicit is empty, maybe we shouldn't show computed in the "edit" field, but we might want to show them in "display".
-            // For now, let's return explicit keys.
-            categories: explicitCategories.length > 0 ? explicitCategories : computedCategories,
-            tags: explicitTags.length > 0 ? explicitTags : computedTags,
-
-            // Also return raw values for UI to distinguish
-            explicitCategories,
-            explicitTags,
-            computedCategories,
-            computedTags,
-
-            _count: undefined,
-            articles: undefined, // Remove raw articles data from response
-          };
-        }),
+        items: authors.map((a) => ({
+          ...a,
+          articlesCount: a._count.articles,
+          _count: undefined,
+        })),
         total,
         page,
         limit,
@@ -119,20 +91,47 @@ const optionalString = (maxLength?: number) => {
   return schema.optional().transform(v => v === '' ? undefined : v);
 };
 
+// 資格情報スキーマ
+const certificationSchema = z.object({
+  name: z.string(),
+  year: z.number().optional(),
+  location: z.string().optional(),
+});
+
+// エピソードスキーマ
+const episodeSchema = z.object({
+  type: z.enum(['transformation', 'student', 'teaching', 'other']),
+  title: z.string(),
+  content: z.string(),
+});
+
 // 監修者作成スキーマ
 const createAuthorSchema = z.object({
   name: z.string().min(1).max(100),
   slug: z.string().max(100).regex(/^[a-z0-9-]+$/, "小文字英数字とハイフンのみ使用できます").optional()
     .or(z.literal('')).transform(v => v === '' ? undefined : v),
   role: optionalString(100),
-  qualifications: z.array(z.string()).default([]),
-  categories: z.array(z.string()).default([]),
-  tags: z.array(z.string()).default([]),
   bio: optionalString(),
   avatarUrl: optionalString(),
   imageUrl: optionalString(),
-  socialLinks: z.record(z.string()).optional(),
-  systemPrompt: optionalString(),
+  // キャリアデータフィールド
+  careerStartYear: z.number().int().min(1950).max(new Date().getFullYear()).optional().nullable(),
+  teachingStartYear: z.number().int().min(1950).max(new Date().getFullYear()).optional().nullable(),
+  totalStudentsTaught: z.number().int().min(0).optional().nullable(),
+  graduatesCount: z.number().int().min(0).optional().nullable(),
+  weeklyLessons: z.number().int().min(0).optional().nullable(),
+  certifications: z.array(certificationSchema).optional().nullable(),
+  episodes: z.array(episodeSchema).optional().nullable(),
+  signaturePhrases: z.array(z.string()).optional().nullable(),
+  specialties: z.array(z.string()).optional().nullable(),
+  // パーソナリティフィールド
+  writingStyle: z.enum(['formal', 'casual', 'professional']).optional().nullable(),
+  philosophy: optionalString(),
+  avoidWords: z.array(z.string()).optional().nullable(),
+  targetAudience: optionalString(200),
+  teachingApproach: optionalString(200),
+  influences: z.array(z.string()).optional().nullable(),
+  locationContext: optionalString(100),
 });
 
 // 監修者作成（オーナーのみ）
@@ -153,25 +152,54 @@ export async function POST(request: NextRequest) {
           name: data.name,
           slug: resolvedSlug,
           role: data.role || "ライター",
-          qualifications: data.qualifications ?? [],
-          categories: data.categories ?? [],
-          tags: data.tags ?? [],
+          qualifications: [],
           bio: data.bio || "",
           imageUrl: resolvedImageUrl,
-          socialLinks: data.socialLinks ?? {},
-          systemPrompt: data.systemPrompt || "あなたは専門家として、正確で有益な記事を執筆してください。",
+          socialLinks: {},
+          // キャリアデータフィールド
+          careerStartYear: data.careerStartYear ?? null,
+          teachingStartYear: data.teachingStartYear ?? null,
+          totalStudentsTaught: data.totalStudentsTaught ?? null,
+          graduatesCount: data.graduatesCount ?? null,
+          weeklyLessons: data.weeklyLessons ?? null,
+          certifications: data.certifications ? data.certifications : Prisma.JsonNull,
+          episodes: data.episodes ? data.episodes : Prisma.JsonNull,
+          signaturePhrases: data.signaturePhrases ? data.signaturePhrases : Prisma.JsonNull,
+          specialties: data.specialties ? data.specialties : Prisma.JsonNull,
+          // パーソナリティフィールド
+          writingStyle: data.writingStyle ?? null,
+          philosophy: data.philosophy ?? null,
+          avoidWords: data.avoidWords ? data.avoidWords : Prisma.JsonNull,
+          targetAudience: data.targetAudience ?? null,
+          teachingApproach: data.teachingApproach ?? null,
+          influences: data.influences ? data.influences : Prisma.JsonNull,
+          locationContext: data.locationContext ?? null,
         },
         select: {
           id: true,
           name: true,
+          slug: true,
           role: true,
-          qualifications: true,
-          categories: true,
-          tags: true,
           bio: true,
           imageUrl: true,
-          socialLinks: true,
-          systemPrompt: true,
+          // キャリアデータ
+          careerStartYear: true,
+          teachingStartYear: true,
+          totalStudentsTaught: true,
+          graduatesCount: true,
+          weeklyLessons: true,
+          certifications: true,
+          episodes: true,
+          signaturePhrases: true,
+          specialties: true,
+          // パーソナリティ
+          writingStyle: true,
+          philosophy: true,
+          avoidWords: true,
+          targetAudience: true,
+          teachingApproach: true,
+          influences: true,
+          locationContext: true,
           createdAt: true,
         },
       });

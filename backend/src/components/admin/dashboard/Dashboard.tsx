@@ -88,7 +88,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab);
   const userRole: UserRole = user?.role === 'OWNER' ? 'owner' : 'writer';
-  const [previewArticle, setPreviewArticle] = useState<(Article & { category?: string, categories?: string[] }) | null>(null);
+  const [previewArticleId, setPreviewArticleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Sync activeTab with initialTab when it changes
@@ -126,15 +126,11 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
   return (
     <div className="h-full w-full bg-[#F5F7FA] flex text-neutral-900 font-sans">
       {/* Preview Modal */}
-      {previewArticle && (
+      {previewArticleId && (
         <ArticlePreviewModal
-          article={{
-            ...previewArticle,
-            // Compatibility adapter for preview modal which expects single category string
-            category: previewArticle.categories?.[0] || previewArticle.category || ''
-          }}
-          isOpen={!!previewArticle}
-          onClose={() => setPreviewArticle(null)}
+          articleId={previewArticleId}
+          isOpen={!!previewArticleId}
+          onClose={() => setPreviewArticleId(null)}
         />
       )}
 
@@ -323,7 +319,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 <PostsView
                   onNavigateToEditor={onNavigateToEditor}
                   userRole={userRole}
-                  onPreview={setPreviewArticle}
+                  onPreview={(article) => setPreviewArticleId(article.id)}
                   onSwitchToStrategy={() => setActiveTab('strategy')}
                 />
               </div>

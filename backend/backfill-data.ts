@@ -6,13 +6,12 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('Starting Data Backfill...');
 
-    // 1. Authors: Ensure explicit categories, tags, and systemPrompt
+    // 1. Authors: Ensure explicit categories and tags
     const authors = await prisma.authors.findMany();
     for (const author of authors) {
         const updates: any = {};
         if (!author.categories) updates.categories = ['General'];
         if (!author.tags) updates.tags = ['Expert'];
-        if (!author.systemPrompt || author.systemPrompt === '') updates.systemPrompt = 'You are an expert in your field. Write with authority and clarity.';
 
         if (Object.keys(updates).length > 0) {
             await prisma.authors.update({

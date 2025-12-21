@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
-import { withAuth, withOwnerAuth, AuthUser } from "@/lib/auth";
+import { withAuth, AuthUser } from "@/lib/auth";
 import {
   successResponse,
   ApiErrors,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/api-response";
 import { validateBody, commonSchemas } from "@/lib/validation";
 import { isAppError, handlePrismaError, NotFoundError } from "@/lib/errors";
-import { UserRole, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit-log";
 
 interface RouteParams {
@@ -27,15 +27,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         select: {
           id: true,
           name: true,
+          slug: true,
           role: true,
-          qualifications: true,
           bio: true,
           imageUrl: true,
-          socialLinks: true,
-          categories: true, // Explicit
-          tags: true,       // Explicit
-          // systemPromptはオーナーのみ閲覧可
-          ...(user.role === UserRole.OWNER && { systemPrompt: true }),
+          // キャリアデータフィールド
+          careerStartYear: true,
+          teachingStartYear: true,
+          totalStudentsTaught: true,
+          graduatesCount: true,
+          weeklyLessons: true,
+          certifications: true,
+          episodes: true,
+          signaturePhrases: true,
+          specialties: true,
+          // パーソナリティフィールド
+          writingStyle: true,
+          philosophy: true,
+          avoidWords: true,
+          targetAudience: true,
+          teachingApproach: true,
+          influences: true,
+          locationContext: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -63,23 +76,46 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// 監修者更新スキーマ（ライター用）
-const updateAuthorSchemaWriter = z.object({
+// 資格情報スキーマ
+const certificationSchema = z.object({
+  name: z.string(),
+  year: z.number().optional(),
+  location: z.string().optional(),
+});
+
+// エピソードスキーマ
+const episodeSchema = z.object({
+  type: z.enum(['transformation', 'student', 'teaching', 'other']),
+  title: z.string(),
+  content: z.string(),
+});
+
+// 監修者更新スキーマ
+const updateAuthorSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   slug: commonSchemas.slug.optional(),
   role: z.string().max(100).optional(),
-  qualifications: z.array(z.string()).optional(),
-  categories: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
   bio: z.string().optional(),
   imageUrl: commonSchemas.url.optional().nullable(),
   avatarUrl: commonSchemas.url.optional().nullable(), // imageUrlのエイリアス
-  socialLinks: z.record(z.string()).optional().nullable(),
-});
-
-// 監修者更新スキーマ（オーナー用）
-const updateAuthorSchemaOwner = updateAuthorSchemaWriter.extend({
-  systemPrompt: z.string().optional().nullable(), // 空文字列も許可（削除用）
+  // キャリアデータフィールド
+  careerStartYear: z.number().int().min(1950).max(new Date().getFullYear()).optional().nullable(),
+  teachingStartYear: z.number().int().min(1950).max(new Date().getFullYear()).optional().nullable(),
+  totalStudentsTaught: z.number().int().min(0).optional().nullable(),
+  graduatesCount: z.number().int().min(0).optional().nullable(),
+  weeklyLessons: z.number().int().min(0).optional().nullable(),
+  certifications: z.array(certificationSchema).optional().nullable(),
+  episodes: z.array(episodeSchema).optional().nullable(),
+  signaturePhrases: z.array(z.string()).optional().nullable(),
+  specialties: z.array(z.string()).optional().nullable(),
+  // パーソナリティフィールド
+  writingStyle: z.enum(['formal', 'casual', 'professional']).optional().nullable(),
+  philosophy: z.string().optional().nullable(),
+  avoidWords: z.array(z.string()).optional().nullable(),
+  targetAudience: z.string().max(200).optional().nullable(),
+  teachingApproach: z.string().max(200).optional().nullable(),
+  influences: z.array(z.string()).optional().nullable(),
+  locationContext: z.string().max(100).optional().nullable(),
 });
 
 // 監修者更新
@@ -88,13 +124,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return await withAuth(request, async (user: AuthUser) => {
       const { id } = await params;
 
-      // ライターはsystemPromptを更新不可
-      const schema =
-        user.role === UserRole.OWNER
-          ? updateAuthorSchemaOwner
-          : updateAuthorSchemaWriter;
-
-      const data = await validateBody(request, schema);
+      const data = await validateBody(request, updateAuthorSchema);
 
       // 存在確認
       const existing = await prisma.authors.findUnique({
@@ -105,9 +135,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         throw new NotFoundError("監修者");
       }
 
-      // systemPromptフィールドの取得（オーナースキーマのみに存在）
-      const hasSystemPrompt = "systemPrompt" in data;
-      const systemPromptValue = hasSystemPrompt ? (data.systemPrompt as string | null | undefined) : undefined;
       // フィールド名のエイリアス解決
       const resolvedImageUrl = data.imageUrl !== undefined ? data.imageUrl : data.avatarUrl;
 
@@ -117,28 +144,64 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           name: data.name,
           slug: data.slug,
           role: data.role,
-          qualifications: data.qualifications,
-          categories: data.categories,
-          tags: data.tags,
           bio: data.bio,
           imageUrl: resolvedImageUrl,
-          socialLinks: data.socialLinks === null
-            ? Prisma.JsonNull
-            : data.socialLinks as unknown as Prisma.InputJsonValue | undefined,
-          // systemPromptはフィールドが存在する場合のみ更新（空文字列/nullで削除可能）
-          ...(hasSystemPrompt && { systemPrompt: systemPromptValue || "" }),
+          // キャリアデータフィールド
+          ...(data.careerStartYear !== undefined && { careerStartYear: data.careerStartYear }),
+          ...(data.teachingStartYear !== undefined && { teachingStartYear: data.teachingStartYear }),
+          ...(data.totalStudentsTaught !== undefined && { totalStudentsTaught: data.totalStudentsTaught }),
+          ...(data.graduatesCount !== undefined && { graduatesCount: data.graduatesCount }),
+          ...(data.weeklyLessons !== undefined && { weeklyLessons: data.weeklyLessons }),
+          ...(data.certifications !== undefined && {
+            certifications: data.certifications === null ? Prisma.JsonNull : data.certifications
+          }),
+          ...(data.episodes !== undefined && {
+            episodes: data.episodes === null ? Prisma.JsonNull : data.episodes
+          }),
+          ...(data.signaturePhrases !== undefined && {
+            signaturePhrases: data.signaturePhrases === null ? Prisma.JsonNull : data.signaturePhrases
+          }),
+          ...(data.specialties !== undefined && {
+            specialties: data.specialties === null ? Prisma.JsonNull : data.specialties
+          }),
+          // パーソナリティフィールド
+          ...(data.writingStyle !== undefined && { writingStyle: data.writingStyle }),
+          ...(data.philosophy !== undefined && { philosophy: data.philosophy }),
+          ...(data.avoidWords !== undefined && {
+            avoidWords: data.avoidWords === null ? Prisma.JsonNull : data.avoidWords
+          }),
+          ...(data.targetAudience !== undefined && { targetAudience: data.targetAudience }),
+          ...(data.teachingApproach !== undefined && { teachingApproach: data.teachingApproach }),
+          ...(data.influences !== undefined && {
+            influences: data.influences === null ? Prisma.JsonNull : data.influences
+          }),
+          ...(data.locationContext !== undefined && { locationContext: data.locationContext }),
         },
         select: {
           id: true,
           name: true,
+          slug: true,
           role: true,
-          qualifications: true,
-          categories: true,
-          tags: true,
           bio: true,
           imageUrl: true,
-          socialLinks: true,
-          ...(user.role === UserRole.OWNER && { systemPrompt: true }),
+          // キャリアデータ
+          careerStartYear: true,
+          teachingStartYear: true,
+          totalStudentsTaught: true,
+          graduatesCount: true,
+          weeklyLessons: true,
+          certifications: true,
+          episodes: true,
+          signaturePhrases: true,
+          specialties: true,
+          // パーソナリティ
+          writingStyle: true,
+          philosophy: true,
+          avoidWords: true,
+          targetAudience: true,
+          teachingApproach: true,
+          influences: true,
+          locationContext: true,
           updatedAt: true,
         },
       });

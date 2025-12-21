@@ -1,16 +1,16 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Loader2, Check, Circle, Sparkles } from 'lucide-react';
+import { Loader2, Check, Sparkles, FileText, PenTool, ImageIcon } from 'lucide-react';
 import { cn } from '@/app/admin/lib/utils';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { GenerationErrorState } from './GenerationErrorState';
 
-export type GenerationStep = 'analyzing' | 'structuring' | 'writing' | 'editing' | 'seo' | 'finalizing';
+export type GenerationStep = 'title' | 'article' | 'image';
 
 interface GenerationProgressModalProps {
     isOpen: boolean;
-    currentStepIndex: number; // 0-5
+    currentStepIndex: number; // 0-2 (3ステップパイプライン)
     progress: number; // 0-100
     articleCount: number;
     status: 'processing' | 'error' | 'completed';
@@ -22,13 +22,29 @@ interface GenerationProgressModalProps {
     successCount?: number;
 }
 
+// 3ステップパイプラインに合わせたステップ定義
 const STEPS = [
-    { label: '構成案の生成', description: '見出し構成と論理展開を設計中...' },
-    { label: '本文執筆', description: 'AIが記事の内容をライティング中...' },
-    { label: '校正・推敲', description: '誤字脱字のチェックと表現の調整...' },
-    { label: 'SEO・LLMO最適化', description: '検索エンジンおよびAI検索への最適化...' },
-    { label: 'メタデータ生成', description: 'タグ設定とキーワード調整...' },
-    { label: '公開準備完了', description: '記事データの最終保存処理...' },
+    {
+        label: 'タイトル生成',
+        description: 'SEOに最適化されたタイトルを生成中...',
+        icon: FileText,
+        progressRange: [0, 20],
+        color: 'blue'
+    },
+    {
+        label: '記事執筆',
+        description: '監修者の声を反映した記事を執筆中...',
+        icon: PenTool,
+        progressRange: [20, 80],
+        color: 'violet'
+    },
+    {
+        label: '画像生成',
+        description: '記事に合わせた画像を生成中...',
+        icon: ImageIcon,
+        progressRange: [80, 100],
+        color: 'emerald'
+    },
 ];
 
 export function GenerationProgressModal({
@@ -83,80 +99,164 @@ export function GenerationProgressModal({
                         </div>
                     ) : (
                         <div className="flex flex-col">
+                            {/* Header with animated gradient */}
                             <div className="flex items-center justify-between mb-6">
                                 <div>
-                                    <h3 className="text-lg font-bold text-neutral-900">AI記事生成中...</h3>
+                                    <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                                        <motion.span
+                                            animate={{ opacity: [1, 0.5, 1] }}
+                                            transition={{ duration: 2, repeat: Infinity }}
+                                            className="inline-block w-2 h-2 rounded-full bg-blue-500"
+                                        />
+                                        AI記事生成中
+                                    </h3>
                                     <p className="text-xs text-neutral-500 mt-1 font-medium">
-                                        {articleCount}記事を生成しています
+                                        {articleCount}件の記事を生成しています
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-2xl font-bold text-blue-600 font-mono">{Math.round(progress)}%</span>
+                                    <motion.span
+                                        key={Math.round(progress)}
+                                        initial={{ scale: 1.2, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent font-mono"
+                                    >
+                                        {Math.round(progress)}%
+                                    </motion.span>
                                 </div>
                             </div>
 
-                            {/* Progress Bar */}
-                            <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden mb-8">
-                                <motion.div 
-                                    className="h-full bg-blue-600 rounded-full"
+                            {/* Multi-color Progress Bar */}
+                            <div className="h-2 w-full bg-neutral-100 rounded-full overflow-hidden mb-8 relative">
+                                <motion.div
+                                    className="h-full rounded-full bg-gradient-to-r from-blue-500 via-violet-500 to-emerald-500"
                                     initial={{ width: 0 }}
                                     animate={{ width: `${progress}%` }}
-                                    transition={{ duration: 0.5 }}
+                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                                {/* Shimmer effect */}
+                                <motion.div
+                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                                    animate={{ x: ['-100%', '200%'] }}
+                                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                    style={{ width: '50%' }}
                                 />
                             </div>
 
-                            {/* Steps List */}
-                            <div className="space-y-5 relative pl-2">
-                                {/* Connector Line */}
-                                <div className="absolute left-[19px] top-2 bottom-4 w-px bg-neutral-100" />
-
+                            {/* 3 Steps with cards */}
+                            <div className="space-y-3">
                                 {STEPS.map((step, index) => {
                                     const isCompleted = index < currentStepIndex;
                                     const isCurrent = index === currentStepIndex;
                                     const isPending = index > currentStepIndex;
+                                    const Icon = step.icon;
+
+                                    // Calculate step-specific progress
+                                    let stepProgress = 0;
+                                    if (isCompleted) {
+                                        stepProgress = 100;
+                                    } else if (isCurrent) {
+                                        const [start, end] = step.progressRange;
+                                        stepProgress = Math.min(100, Math.max(0, ((progress - start) / (end - start)) * 100));
+                                    }
 
                                     return (
-                                        <div key={index} className="relative flex items-start gap-4 z-10">
-                                            <div className={cn(
-                                                "w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300 ring-4 ring-white",
-                                                isCompleted ? "bg-green-500 text-white" : 
-                                                isCurrent ? "bg-blue-600 text-white shadow-lg shadow-blue-200" : 
-                                                "bg-neutral-100 text-neutral-300"
-                                            )}>
-                                                {isCompleted ? (
-                                                    <Check size={12} strokeWidth={3} />
-                                                ) : isCurrent ? (
-                                                    <Loader2 size={12} className="animate-spin" />
-                                                ) : (
-                                                    <div className="w-2 h-2 rounded-full bg-neutral-300" />
-                                                )}
-                                            </div>
-                                            
-                                            <div className={cn(
-                                                "flex-1 transition-opacity duration-300",
-                                                isPending ? "opacity-40" : "opacity-100"
-                                            )}>
-                                                <h4 className={cn(
-                                                    "text-xs font-bold mb-0.5",
-                                                    isCurrent ? "text-blue-600" : "text-neutral-900"
+                                        <motion.div
+                                            key={index}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: index * 0.1 }}
+                                            className={cn(
+                                                "relative rounded-xl p-4 transition-all duration-500",
+                                                isCurrent ? "bg-gradient-to-r from-blue-50 to-violet-50 shadow-sm border border-blue-100" :
+                                                isCompleted ? "bg-emerald-50/50 border border-emerald-100" :
+                                                "bg-neutral-50/50 border border-transparent"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                {/* Icon */}
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500",
+                                                    isCompleted ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" :
+                                                    isCurrent ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white shadow-lg shadow-blue-200" :
+                                                    "bg-neutral-200 text-neutral-400"
                                                 )}>
-                                                    {step.label}
-                                                </h4>
-                                                {isCurrent && (
-                                                    <p className="text-[10px] text-neutral-500 animate-pulse">
-                                                        {step.description}
-                                                    </p>
-                                                )}
+                                                    {isCompleted ? (
+                                                        <motion.div
+                                                            initial={{ scale: 0 }}
+                                                            animate={{ scale: 1 }}
+                                                            transition={{ type: "spring", stiffness: 300 }}
+                                                        >
+                                                            <Check size={20} strokeWidth={3} />
+                                                        </motion.div>
+                                                    ) : isCurrent ? (
+                                                        <motion.div
+                                                            animate={{ rotate: 360 }}
+                                                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                                        >
+                                                            <Loader2 size={20} />
+                                                        </motion.div>
+                                                    ) : (
+                                                        <Icon size={18} />
+                                                    )}
+                                                </div>
+
+                                                {/* Content */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className={cn(
+                                                            "text-sm font-bold transition-colors",
+                                                            isCurrent ? "text-blue-700" :
+                                                            isCompleted ? "text-emerald-700" :
+                                                            "text-neutral-400"
+                                                        )}>
+                                                            {step.label}
+                                                        </h4>
+                                                        {isCurrent && (
+                                                            <span className="text-xs font-medium text-blue-500">
+                                                                {Math.round(stepProgress)}%
+                                                            </span>
+                                                        )}
+                                                        {isCompleted && (
+                                                            <span className="text-xs font-medium text-emerald-500">完了</span>
+                                                        )}
+                                                    </div>
+
+                                                    <AnimatePresence mode="wait">
+                                                        {isCurrent && (
+                                                            <motion.p
+                                                                initial={{ opacity: 0, height: 0 }}
+                                                                animate={{ opacity: 1, height: 'auto' }}
+                                                                exit={{ opacity: 0, height: 0 }}
+                                                                className="text-xs text-neutral-500 mt-1"
+                                                            >
+                                                                {step.description}
+                                                            </motion.p>
+                                                        )}
+                                                    </AnimatePresence>
+
+                                                    {/* Step progress bar */}
+                                                    {isCurrent && (
+                                                        <div className="h-1 w-full bg-blue-100 rounded-full overflow-hidden mt-2">
+                                                            <motion.div
+                                                                className="h-full bg-gradient-to-r from-blue-500 to-violet-500 rounded-full"
+                                                                initial={{ width: 0 }}
+                                                                animate={{ width: `${stepProgress}%` }}
+                                                                transition={{ duration: 0.3 }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
+                                        </motion.div>
                                     );
                                 })}
                             </div>
 
-                            <div className="mt-8 pt-4 border-t border-neutral-50 text-center">
-                                <button 
+                            <div className="mt-6 pt-4 border-t border-neutral-100 text-center">
+                                <button
                                     onClick={onCancel}
-                                    className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors font-medium"
+                                    className="text-xs text-neutral-400 hover:text-red-500 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-red-50"
                                 >
                                     処理を中断してキャンセル
                                 </button>

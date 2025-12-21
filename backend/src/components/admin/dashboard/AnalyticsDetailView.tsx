@@ -107,7 +107,7 @@ export function AnalyticsDetailView({ onBack, isMobile }: AnalyticsDetailViewPro
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[200px] relative">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                                         <PieChart>
                                             <Pie
                                                 data={USER_TYPE_DATA}
@@ -186,7 +186,7 @@ export function AnalyticsDetailView({ onBack, isMobile }: AnalyticsDetailViewPro
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[220px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                                         <BarChart
                                             data={DEMOGRAPHICS_DATA}
                                             layout="vertical"
@@ -264,7 +264,7 @@ export function AnalyticsDetailView({ onBack, isMobile }: AnalyticsDetailViewPro
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px] w-full flex items-center justify-center">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                                         <PieChart>
                                             <Pie
                                                 data={SOURCE_DATA}
@@ -293,7 +293,7 @@ export function AnalyticsDetailView({ onBack, isMobile }: AnalyticsDetailViewPro
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                                         <BarChart
                                             data={[
                                                 { name: 'Mon', organic: 400, social: 240, direct: 240 },

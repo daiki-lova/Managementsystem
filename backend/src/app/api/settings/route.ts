@@ -43,11 +43,8 @@ const updateSettingsSchema = z.object({
   // System Prompts
   keywordPrompt: z.string().optional().nullable(),
   keywordSuggestPrompt: z.string().optional().nullable(),
-  structurePrompt: z.string().optional().nullable(),
-  draftPrompt: z.string().optional().nullable(),
-  proofreadingPrompt: z.string().optional().nullable(),
-  seoPrompt: z.string().optional().nullable(),
   imagePrompt: z.string().optional().nullable(),
+  systemPrompt: z.string().optional().nullable(),  // 3ステップパイプライン用
 
   // 検索ボリューム設定
   minSearchVolume: z.number().int().min(0).optional(),

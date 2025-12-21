@@ -90,7 +90,14 @@ export default function AdminPage() {
       setTitle(articleData.title);
 
       // Merge inserted images into blocks
-      const baseBlocks = (articleData.blocks as BlockData[]) || [];
+      // Ensure all blocks have valid IDs (fix for AI-generated content that may have undefined IDs)
+      const rawBlocks = (articleData.blocks as BlockData[]) || [];
+      const baseBlocks = rawBlocks
+        .filter(b => b && typeof b === 'object')
+        .map((b, index) => ({
+          ...b,
+          id: b.id || `block-${Date.now()}-${index}`
+        }));
       const insertedImages = articleData.images || [];
 
       if (insertedImages.length > 0) {

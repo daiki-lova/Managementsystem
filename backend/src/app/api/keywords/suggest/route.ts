@@ -101,7 +101,6 @@ function buildUserPrompt(params: {
     role: string;
     qualifications: unknown;
     bio: string;
-    systemPrompt: string;
   };
   knowledgeItems: Array<{ type: string; title: string; content: string }>;
   seedKeywords: string[];
@@ -141,7 +140,6 @@ function buildUserPrompt(params: {
 役職: ${author.role}
 資格: ${qualificationsStr}
 専門分野: ${author.bio}
-${author.systemPrompt ? `システムプロンプト: ${author.systemPrompt.slice(0, 300)}...` : ""}
 
 【監修者の情報バンク（専門知識）】
 ${knowledgeSummary || "（なし）"}
@@ -398,7 +396,6 @@ export async function POST(request: NextRequest) {
           role: author.role,
           qualifications: author.qualifications,
           bio: author.bio,
-          systemPrompt: author.systemPrompt,
         },
         knowledgeItems: author.knowledge_items.map((k) => ({
           type: k.type,
@@ -415,7 +412,7 @@ export async function POST(request: NextRequest) {
         {
           apiKey: settings.openRouterApiKey,
           model: settings.analysisModel || "openai/gpt-4o",
-          maxTokens: 3000,
+          maxTokens: 6000, // 25個のキーワード+理由を生成するのに十分なトークン数
           temperature: 0.6,
         }
       );
@@ -452,6 +449,9 @@ export async function POST(request: NextRequest) {
         };
       });
 
+      // DataForSEOエラー時の警告メッセージ
+      let volumeDataWarning: string | undefined;
+
       if (settings.dataforSeoApiKey) {
         // デバッグ: APIキーの形式を確認（最初と最後の4文字のみ表示）
         const keyPreview = settings.dataforSeoApiKey.length > 8
@@ -471,6 +471,7 @@ export async function POST(request: NextRequest) {
         }> = [];
 
         let hasAuthError = false;
+        let hasPaymentError = false;
         for (const batch of batches) {
           try {
             const data = await client.getKeywordData({ keywords: batch });
@@ -484,12 +485,22 @@ export async function POST(request: NextRequest) {
               hasAuthError = true;
               console.error("DataForSEO認証エラー: APIキーの形式を確認してください。'login:password'形式またはBase64エンコード済みの形式が必要です。");
             }
+            // 残高不足エラーの場合
+            if (errorMessage.includes('402') || errorMessage.includes('Payment Required')) {
+              hasPaymentError = true;
+              console.error("DataForSEO残高不足: アカウントにクレジットを追加してください。");
+            }
             // 失敗したバッチはスキップして続行
           }
         }
 
-        if (hasAuthError && allVolumeData.length === 0) {
-          console.warn("DataForSEO APIの認証に失敗しました。検索ボリュームは0として処理されます。");
+        // エラー時の警告メッセージを設定
+        if (hasPaymentError && allVolumeData.length === 0) {
+          volumeDataWarning = "DataForSEOアカウントの残高が不足しています。検索ボリュームを取得できません。設定画面でアカウントのクレジットを確認してください。";
+          console.warn(volumeDataWarning);
+        } else if (hasAuthError && allVolumeData.length === 0) {
+          volumeDataWarning = "DataForSEO APIの認証に失敗しました。APIキーを確認してください。";
+          console.warn(volumeDataWarning);
         }
 
         // AIキーワードとボリュームデータをマージ（カニバリ情報を保持）
@@ -561,6 +572,7 @@ export async function POST(request: NextRequest) {
         volumeRange,
         generatedCount: aiKeywords.length,
         tokensUsed: aiResult.tokensUsed,
+        warning: volumeDataWarning,
       });
     });
   } catch (error) {

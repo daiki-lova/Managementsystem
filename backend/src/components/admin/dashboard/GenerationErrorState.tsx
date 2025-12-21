@@ -1,6 +1,10 @@
 import React from 'react';
-import { XCircle, RefreshCw, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { XCircle, RefreshCw, CheckCircle2, FileText, PenTool, ImageIcon } from 'lucide-react';
 import { Button } from '../ui/button';
+
+// 3ステップパイプラインのステップ名
+const STEP_NAMES = ['タイトル生成', '記事執筆', '画像生成'] as const;
+const STEP_ICONS = [FileText, PenTool, ImageIcon] as const;
 
 interface GenerationErrorStateProps {
     errorMessage?: string;
@@ -11,27 +15,31 @@ interface GenerationErrorStateProps {
     onSavePartial: () => void;
 }
 
-export function GenerationErrorState({ 
-    errorMessage = "処理中に予期せぬエラーが発生しました。", 
-    failedStepIndex, 
+export function GenerationErrorState({
+    errorMessage = "処理中に予期せぬエラーが発生しました。",
+    failedStepIndex,
     successCount,
     onRetry,
     onCancel,
     onSavePartial
 }: GenerationErrorStateProps) {
+    const stepName = STEP_NAMES[failedStepIndex] || 'Unknown';
+    const StepIcon = STEP_ICONS[failedStepIndex] || FileText;
+
     return (
         <div className="flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
             <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
                 <XCircle size={32} className="text-red-500" />
             </div>
-            
+
             <h3 className="text-lg font-bold text-neutral-900 mb-2">生成に失敗しました</h3>
-            <p className="text-sm text-neutral-500 max-w-[280px] leading-relaxed mb-6">
-                {errorMessage}<br/>
-                <span className="text-xs mt-1 block text-neutral-400">
-                    ステップ {failedStepIndex + 1} で中断されました。
-                </span>
+            <p className="text-sm text-neutral-500 max-w-[280px] leading-relaxed mb-3">
+                {errorMessage}
             </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-xs font-medium mb-6">
+                <StepIcon size={12} />
+                「{stepName}」で中断
+            </div>
 
             <div className="w-full space-y-3">
                 <Button 

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback } from 'react';
-import { User, PenTool, Plus, Trash2, Search, Instagram, Facebook, Award, MoreHorizontal, Link as LinkIcon, Tag, Hash, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy, Loader2, AlertTriangle } from 'lucide-react';
+import { User, PenTool, Plus, Trash2, Search, MoreHorizontal, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy, Loader2, AlertTriangle, Calendar, Users, GraduationCap, BookOpen, Sparkles } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Input } from '../ui/input';
@@ -26,9 +26,15 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '../ui/popover';
+import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+} from '../ui/tabs';
 import { cn } from '@/app/admin/lib/utils';
 import { ConfirmDialog } from '../ui/confirm-dialog';
-import type { Profile } from '@/app/admin/lib/types';
+import type { Profile, Certification, Episode } from '@/app/admin/lib/types';
 import { useAuthors, useCreateAuthor, useUpdateAuthor, useDeleteAuthor, useUploadMedia } from '@/app/admin/lib/hooks';
 
 interface AuthorsViewProps {
@@ -46,31 +52,40 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
 
     // Map API data to Profile format
     const profiles: Profile[] = (authorsData?.data || []).map((author: any) => {
-        // Handle socialLinks potentially being a string (JSON) or object
-        const socialLinks = typeof author.socialLinks === 'string'
-            ? JSON.parse(author.socialLinks)
-            : author.socialLinks || {};
-
-        // Handle qualifications being an array or string
-        const qualificationsRaw = author.qualifications || [];
-        const qualificationsStr = Array.isArray(qualificationsRaw)
-            ? qualificationsRaw.join(', ')
-            : String(qualificationsRaw);
+        // Handle JSON fields
+        const parseJsonField = <T,>(field: any): T | undefined => {
+            if (!field) return undefined;
+            if (typeof field === 'string') {
+                try { return JSON.parse(field); } catch { return undefined; }
+            }
+            return field as T;
+        };
 
         return {
             id: author.id,
             name: author.name,
             slug: author.slug,
-            role: author.role || (author as any).title || '', // Fallback for API mismatch
-            qualifications: qualificationsStr,
-            categories: (author.categories && author.categories.length > 0) ? author.categories : (author.computedCategories || []),
-            tags: (author.tags && author.tags.length > 0) ? author.tags : (author.computedTags || []),
-            instagram: socialLinks.instagram,
-            facebook: socialLinks.facebook,
-            twitter: socialLinks.twitter,
+            role: author.role || '',
             avatar: author.imageUrl || author.avatarUrl,
             bio: author.bio,
-            systemPrompt: author.systemPrompt,
+            // キャリアデータ
+            careerStartYear: author.careerStartYear,
+            teachingStartYear: author.teachingStartYear,
+            totalStudentsTaught: author.totalStudentsTaught,
+            graduatesCount: author.graduatesCount,
+            weeklyLessons: author.weeklyLessons,
+            certifications: parseJsonField<Certification[]>(author.certifications),
+            episodes: parseJsonField<Episode[]>(author.episodes),
+            signaturePhrases: parseJsonField<string[]>(author.signaturePhrases),
+            specialties: parseJsonField<string[]>(author.specialties),
+            // 新しいパーソナリティフィールド
+            writingStyle: author.writingStyle as Profile['writingStyle'],
+            philosophy: author.philosophy,
+            avoidWords: parseJsonField<string[]>(author.avoidWords),
+            targetAudience: author.targetAudience,
+            teachingApproach: author.teachingApproach,
+            influences: parseJsonField<string[]>(author.influences),
+            locationContext: author.locationContext,
         };
     });
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -101,8 +116,25 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
     const handleOpenCreate = () => {
         setEditingProfile(null);
         setFormData({
-            name: '', slug: '', role: '', qualifications: '', categories: [], tags: [],
-            bio: '', avatar: '', instagram: '', facebook: '', twitter: '', systemPrompt: ''
+            name: '', slug: '', role: '', bio: '', avatar: '',
+            // キャリアデータ
+            careerStartYear: undefined,
+            teachingStartYear: undefined,
+            totalStudentsTaught: undefined,
+            graduatesCount: undefined,
+            weeklyLessons: undefined,
+            certifications: [],
+            episodes: [],
+            signaturePhrases: [],
+            specialties: [],
+            // パーソナリティ
+            writingStyle: undefined,
+            philosophy: '',
+            avoidWords: [],
+            targetAudience: '',
+            teachingApproach: '',
+            influences: [],
+            locationContext: '',
         });
         setIsDialogOpen(true);
     };
@@ -171,22 +203,26 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
             name: formData.name.trim(),
             slug: formData.slug?.trim() || undefined,
             role: formData.role?.trim() || undefined,
-            // Convert comma-separated string back to array for API
-            qualifications: typeof formData.qualifications === 'string'
-                ? formData.qualifications.split(/[,、]/).map(s => s.trim()).filter(Boolean)
-                : formData.qualifications || [],
-            categories: formData.categories || [],
-            tags: formData.tags || [],
-            socialLinks: {
-                instagram: formData.instagram || '',
-                facebook: formData.facebook || '',
-                twitter: formData.twitter || '',
-            },
-            // 画像URL: Base64はスキップ、有効なURLのみ送信
             imageUrl: getImageUrl(),
             bio: cleanString(formData.bio),
-            // systemPromptは明示的に空文字列を許可（削除するため）
-            systemPrompt: formData.systemPrompt?.trim() ?? '',
+            // キャリアデータ
+            careerStartYear: formData.careerStartYear || undefined,
+            teachingStartYear: formData.teachingStartYear || undefined,
+            totalStudentsTaught: formData.totalStudentsTaught || undefined,
+            graduatesCount: formData.graduatesCount || undefined,
+            weeklyLessons: formData.weeklyLessons || undefined,
+            certifications: formData.certifications?.length ? formData.certifications : undefined,
+            episodes: formData.episodes?.length ? formData.episodes : undefined,
+            signaturePhrases: formData.signaturePhrases?.length ? formData.signaturePhrases : undefined,
+            specialties: formData.specialties?.length ? formData.specialties : undefined,
+            // パーソナリティ
+            writingStyle: formData.writingStyle || undefined,
+            philosophy: cleanString(formData.philosophy),
+            avoidWords: formData.avoidWords?.length ? formData.avoidWords : undefined,
+            targetAudience: cleanString(formData.targetAudience),
+            teachingApproach: cleanString(formData.teachingApproach),
+            influences: formData.influences?.length ? formData.influences : undefined,
+            locationContext: cleanString(formData.locationContext),
         };
 
         if (editingProfile) {
@@ -200,8 +236,6 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
         }
     };
 
-    const uniqueCategories = Array.from(new Set(profiles.flatMap(p => p.categories))).sort();
-    const uniqueTags = Array.from(new Set(profiles.flatMap(p => p.tags))).sort();
     const uniqueRoles = Array.from(new Set(profiles.map(p => p.role))).sort();
 
     const filteredProfiles = profiles.filter(profile => {
@@ -399,10 +433,7 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                             {renderHeaderCell("名前", "name", 180)}
                             {renderHeaderCell("スラッグ", "slug", 120)}
                             {renderHeaderCell("肩書き", "role", 140, uniqueRoles)}
-                            {renderHeaderCell("得意カテゴリ", "categories", 160, uniqueCategories)}
-                            {renderHeaderCell("タグ", "tags", 160, uniqueTags)}
-                            <th className="px-4 py-2.5 bg-neutral-50/80 text-xs text-neutral-500 font-medium border-b border-neutral-200 border-r border-neutral-100/50 w-[180px]">保有資格</th>
-                            <th className="px-4 py-2.5 bg-neutral-50/80 text-xs text-neutral-500 font-medium border-b border-neutral-200 border-r border-neutral-100/50 w-[100px]">SNS</th>
+                            <th className="px-4 py-2.5 bg-neutral-50/80 text-xs text-neutral-500 font-medium border-b border-neutral-200 border-r border-neutral-100/50 w-[120px]">資格数</th>
                             <th className="px-4 py-2.5 bg-neutral-50/80 text-xs text-neutral-500 font-medium border-b border-neutral-200 w-auto">自己紹介</th>
                         </tr>
                     </thead>
@@ -424,25 +455,12 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-32">
                                             <DropdownMenuItem onSelect={() => {
-                                                // 正しいフィールド名でAPIに送信
-                                                const qualificationsArray = typeof profile.qualifications === 'string'
-                                                    ? profile.qualifications.split(/[,、]/).map(s => s.trim()).filter(Boolean)
-                                                    : [];
                                                 createAuthor.mutate({
                                                     name: `${profile.name} (コピー)`,
                                                     slug: `${profile.slug}-copy-${Date.now()}`,
                                                     role: profile.role,
-                                                    qualifications: qualificationsArray,
-                                                    categories: profile.categories || [],
-                                                    tags: profile.tags || [],
-                                                    socialLinks: {
-                                                        instagram: profile.instagram || '',
-                                                        facebook: profile.facebook || '',
-                                                        twitter: profile.twitter || '',
-                                                    },
                                                     imageUrl: profile.avatar || undefined,
                                                     bio: profile.bio,
-                                                    systemPrompt: profile.systemPrompt,
                                                 });
                                             }}>
                                                 <Copy size={14} className="mr-2" /> 複製
@@ -491,54 +509,8 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                     </div>
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
-                                    <div className="flex flex-wrap gap-1">
-                                        {profile.categories?.slice(0, 2).map((cat, i) => (
-                                            <span key={i} className="px-1.5 py-0.5 bg-neutral-100 text-neutral-600 text-[10px] rounded border border-neutral-200 whitespace-nowrap">
-                                                {cat}
-                                            </span>
-                                        ))}
-                                        {(profile.categories?.length || 0) > 2 && (
-                                            <span className="text-[10px] text-neutral-400">+{profile.categories.length - 2}</span>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
-                                    <div className="flex flex-wrap gap-1">
-                                        {profile.tags?.slice(0, 2).map((tag, i) => (
-                                            <span key={i} className="flex items-center gap-0.5 text-[10px] text-neutral-500 whitespace-nowrap">
-                                                <Hash size={8} className="text-neutral-300" />
-                                                {tag}
-                                            </span>
-                                        ))}
-                                        {(profile.tags?.length || 0) > 2 && (
-                                            <span className="text-[10px] text-neutral-400">+{profile.tags.length - 2}</span>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
-                                    {profile.qualifications && typeof profile.qualifications === 'string' && (
-                                        <div className="flex flex-wrap gap-1">
-                                            {profile.qualifications.split(/[,、]/).slice(0, 2).map((q, i) => (
-                                                <span key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 text-orange-700 text-[10px] rounded border border-orange-100 whitespace-nowrap">
-                                                    <Award size={10} className="text-orange-400" />
-                                                    {q.trim()}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </td>
-                                <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
-                                    <div className="flex gap-1.5">
-                                        {profile.instagram && (
-                                            <a href={profile.instagram} target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-pink-600 transition-colors">
-                                                <Instagram size={14} />
-                                            </a>
-                                        )}
-                                        {profile.facebook && (
-                                            <a href={profile.facebook} target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-blue-600 transition-colors">
-                                                <Facebook size={14} />
-                                            </a>
-                                        )}
+                                    <div className="text-xs text-neutral-600">
+                                        {profile.certifications?.length || 0}件
                                     </div>
                                 </td>
                                 <td className="px-4 py-3.5 align-middle bg-white group-hover:bg-neutral-50/80 transition-colors border-r border-neutral-100/50">
@@ -554,135 +526,448 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
 
             {/* Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+                <DialogContent className="!w-[950px] !max-w-[950px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingProfile ? '監修者を編集' : '新しい監修者を追加'}</DialogTitle>
                         <DialogDescription>
-                            信頼性の高い監修者情報を作成してください。スラグはURLに使用されます。
+                            AI記事生成の品質を高めるため、詳細な情報を入力してください。
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="grid gap-6 py-4">
-                        <div className="flex items-start gap-6">
-                            <div className="w-24 flex flex-col items-center gap-2 pt-2">
-                                <Avatar className="h-24 w-24 border border-neutral-200">
-                                    <AvatarImage src={formData.avatar} />
-                                    <AvatarFallback className="text-2xl bg-neutral-50">
-                                        {formData.name ? formData.name.slice(0, 2) : <User />}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="w-full">
-                                    <Label htmlFor="avatar-upload" className={cn(
-                                        "block text-[10px] text-center cursor-pointer hover:underline mb-1",
-                                        uploadMedia.isPending ? "text-neutral-400 pointer-events-none" : "text-blue-600"
-                                    )}>
-                                        {uploadMedia.isPending ? "アップロード中..." : "画像を変更"}
-                                    </Label>
-                                    <Input
-                                        id="avatar-upload"
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        disabled={uploadMedia.isPending}
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                try {
-                                                    const result = await uploadMedia.mutateAsync({ file });
-                                                    if (result.data?.url) {
-                                                        setFormData({ ...formData, avatar: result.data.url });
+                    <Tabs defaultValue="basic" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 mb-4">
+                            <TabsTrigger value="basic" className="text-xs">基本情報</TabsTrigger>
+                            <TabsTrigger value="career" className="text-xs">キャリア・資格</TabsTrigger>
+                            <TabsTrigger value="personality" className="text-xs">パーソナリティ</TabsTrigger>
+                        </TabsList>
+
+                        {/* 基本情報タブ */}
+                        <TabsContent value="basic" className="space-y-4">
+                            <div className="grid grid-cols-2 gap-6">
+                                {/* 左カラム: プロフィール写真と基本情報 */}
+                                <div className="space-y-4">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-24 flex flex-col items-center gap-2 pt-1 shrink-0">
+                                            <Avatar className="h-24 w-24 border border-neutral-200">
+                                                <AvatarImage src={formData.avatar} />
+                                                <AvatarFallback className="text-xl bg-neutral-50">
+                                                    {formData.name ? formData.name.slice(0, 2) : <User />}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <Label htmlFor="avatar-upload" className={cn(
+                                                "text-[10px] text-center cursor-pointer hover:underline",
+                                                uploadMedia.isPending ? "text-neutral-400 pointer-events-none" : "text-blue-600"
+                                            )}>
+                                                {uploadMedia.isPending ? "アップロード中..." : "画像を変更"}
+                                            </Label>
+                                            <Input
+                                                id="avatar-upload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                disabled={uploadMedia.isPending}
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        try {
+                                                            const result = await uploadMedia.mutateAsync({ file });
+                                                            if (result.data?.url) {
+                                                                setFormData({ ...formData, avatar: result.data.url });
+                                                            }
+                                                        } catch {
+                                                            // エラーは useUploadMedia の onError で処理される
+                                                        }
                                                     }
-                                                } catch {
-                                                    // エラーは useUploadMedia の onError で処理される
-                                                }
-                                            }
-                                        }}
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="flex-1 space-y-3">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="name" className="text-xs">名前 <span className="text-red-500">*</span></Label>
+                                                <Input id="name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} className="h-8 text-sm" placeholder="例: 山田 花子" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="slug" className="text-xs">スラグ (URL用ID)</Label>
+                                                <Input id="slug" value={formData.slug || ''} onChange={e => setFormData({ ...formData, slug: e.target.value })} className="h-8 text-sm font-mono" placeholder="例: hanako-yamada" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="role" className="text-xs">肩書き</Label>
+                                                <Input id="role" value={formData.role || ''} onChange={e => setFormData({ ...formData, role: e.target.value })} className="h-8 text-sm" placeholder="例: ヨガインストラクター" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="locationContext" className="text-xs">活動拠点</Label>
+                                        <Input
+                                            id="locationContext"
+                                            value={formData.locationContext || ''}
+                                            onChange={e => setFormData({ ...formData, locationContext: e.target.value })}
+                                            className="h-8 text-sm"
+                                            placeholder="例: 東京・渋谷区を中心に活動"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 右カラム: 自己紹介文 */}
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="bio" className="text-xs">自己紹介文（記事に使用されます）</Label>
+                                    <Textarea
+                                        id="bio"
+                                        value={formData.bio || ''}
+                                        onChange={e => setFormData({ ...formData, bio: e.target.value })}
+                                        className="text-sm min-h-[200px]"
+                                        placeholder="読者に向けた自己紹介メッセージを入力してください。経歴や想いなど。"
                                     />
                                 </div>
                             </div>
-                            <div className="flex-1 space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="name" className="text-xs">名前 <span className="text-red-500">*</span></Label>
-                                        <Input id="name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} className="h-8 text-sm" placeholder="例: 山田 花子" />
+                        </TabsContent>
+
+                        {/* キャリアタブ */}
+                        <TabsContent value="career" className="space-y-4">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <p className="text-xs text-blue-700">
+                                    <Calendar className="inline mr-1" size={12} />
+                                    具体的な数字を入力することで、AIがより信頼性の高い記事を生成します。
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                {/* 左カラム: キャリアデータと資格 */}
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="careerStartYear" className="text-xs flex items-center gap-1">
+                                                <Calendar size={12} /> ヨガ開始年
+                                            </Label>
+                                            <Input
+                                                id="careerStartYear"
+                                                type="number"
+                                                min="1950"
+                                                max={new Date().getFullYear()}
+                                                value={formData.careerStartYear || ''}
+                                                onChange={e => setFormData({ ...formData, careerStartYear: e.target.value ? parseInt(e.target.value) : undefined })}
+                                                className="h-8 text-sm"
+                                                placeholder="例: 2005"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="teachingStartYear" className="text-xs flex items-center gap-1">
+                                                <GraduationCap size={12} /> 指導開始年
+                                            </Label>
+                                            <Input
+                                                id="teachingStartYear"
+                                                type="number"
+                                                min="1950"
+                                                max={new Date().getFullYear()}
+                                                value={formData.teachingStartYear || ''}
+                                                onChange={e => setFormData({ ...formData, teachingStartYear: e.target.value ? parseInt(e.target.value) : undefined })}
+                                                className="h-8 text-sm"
+                                                placeholder="例: 2010"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="totalStudentsTaught" className="text-xs flex items-center gap-1">
+                                                <Users size={12} /> 累計指導人数
+                                            </Label>
+                                            <Input
+                                                id="totalStudentsTaught"
+                                                type="number"
+                                                min="0"
+                                                value={formData.totalStudentsTaught || ''}
+                                                onChange={e => setFormData({ ...formData, totalStudentsTaught: e.target.value ? parseInt(e.target.value) : undefined })}
+                                                className="h-8 text-sm"
+                                                placeholder="例: 5000"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="graduatesCount" className="text-xs flex items-center gap-1">
+                                                <GraduationCap size={12} /> 養成講座卒業生
+                                            </Label>
+                                            <Input
+                                                id="graduatesCount"
+                                                type="number"
+                                                min="0"
+                                                value={formData.graduatesCount || ''}
+                                                onChange={e => setFormData({ ...formData, graduatesCount: e.target.value ? parseInt(e.target.value) : undefined })}
+                                                className="h-8 text-sm"
+                                                placeholder="例: 200"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="weeklyLessons" className="text-xs flex items-center gap-1">
+                                                <BookOpen size={12} /> 週レッスン数
+                                            </Label>
+                                            <Input
+                                                id="weeklyLessons"
+                                                type="number"
+                                                min="0"
+                                                value={formData.weeklyLessons || ''}
+                                                onChange={e => setFormData({ ...formData, weeklyLessons: e.target.value ? parseInt(e.target.value) : undefined })}
+                                                className="h-8 text-sm"
+                                                placeholder="例: 15"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="slug" className="text-xs">スラグ (ID)</Label>
-                                        <Input id="slug" value={formData.slug || ''} onChange={e => setFormData({ ...formData, slug: e.target.value })} className="h-8 text-sm font-mono" placeholder="例: hanako-yamada (空欄で自動生成)" />
+
+                                    {/* 専門分野 */}
+                                    <div className="space-y-1.5 pt-2 border-t">
+                                        <Label htmlFor="specialties" className="text-xs">専門・得意分野（カンマ区切り）</Label>
+                                        <Input
+                                            id="specialties"
+                                            value={formData.specialties?.join(', ') || ''}
+                                            onChange={e => setFormData({ ...formData, specialties: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                                            className="h-8 text-sm"
+                                            placeholder="例: マタニティヨガ, シニアヨガ"
+                                        />
+                                    </div>
+
+                                    {/* 資格情報 */}
+                                    <div className="space-y-3 pt-2 border-t">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-medium">保有資格</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        onClick={() => setFormData({
+                                            ...formData,
+                                            certifications: [...(formData.certifications || []), { name: '', year: undefined, location: '' }]
+                                        })}
+                                    >
+                                        <Plus size={12} className="mr-1" /> 資格を追加
+                                    </Button>
+                                </div>
+                                {(formData.certifications || []).map((cert, idx) => (
+                                    <div key={idx} className="flex gap-2 items-start p-2 bg-neutral-50 rounded">
+                                        <div className="flex-1 space-y-1">
+                                            <Input
+                                                value={cert.name}
+                                                onChange={e => {
+                                                    const newCerts = [...(formData.certifications || [])];
+                                                    newCerts[idx] = { ...newCerts[idx], name: e.target.value };
+                                                    setFormData({ ...formData, certifications: newCerts });
+                                                }}
+                                                className="h-7 text-sm"
+                                                placeholder="資格名 (例: RYT200)"
+                                            />
+                                            <div className="grid grid-cols-2 gap-1">
+                                                <Input
+                                                    type="number"
+                                                    value={cert.year || ''}
+                                                    onChange={e => {
+                                                        const newCerts = [...(formData.certifications || [])];
+                                                        newCerts[idx] = { ...newCerts[idx], year: e.target.value ? parseInt(e.target.value) : undefined };
+                                                        setFormData({ ...formData, certifications: newCerts });
+                                                    }}
+                                                    className="h-7 text-sm"
+                                                    placeholder="取得年"
+                                                />
+                                                <Input
+                                                    value={cert.location || ''}
+                                                    onChange={e => {
+                                                        const newCerts = [...(formData.certifications || [])];
+                                                        newCerts[idx] = { ...newCerts[idx], location: e.target.value };
+                                                        setFormData({ ...formData, certifications: newCerts });
+                                                    }}
+                                                    className="h-7 text-sm"
+                                                    placeholder="取得場所"
+                                                />
+                                            </div>
+                                        </div>
+                                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500"
+                                            onClick={() => setFormData({ ...formData, certifications: (formData.certifications || []).filter((_, i) => i !== idx) })}>
+                                            <Trash2 size={12} />
+                                        </Button>
+                                    </div>
+                                ))}
                                     </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="role" className="text-xs">肩書き</Label>
-                                    <Input id="role" value={formData.role || ''} onChange={e => setFormData({ ...formData, role: e.target.value })} className="h-8 text-sm" placeholder="例: ヨガインストラクター" />
+
+                                {/* 右カラム: エピソード、フレーズ */}
+                                <div className="space-y-4">
+                                    {/* エピソード */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-xs font-medium">経験エピソード</Label>
+                                            <Button type="button" variant="outline" size="sm" className="h-7 text-xs"
+                                                onClick={() => setFormData({ ...formData, episodes: [...(formData.episodes || []), { type: 'transformation', title: '', content: '' }] })}>
+                                                <Plus size={12} className="mr-1" /> 追加
+                                            </Button>
+                                        </div>
+                                        {(formData.episodes || []).map((ep, idx) => (
+                                            <div key={idx} className="p-2 bg-neutral-50 rounded space-y-1">
+                                                <div className="flex gap-1 items-center">
+                                                    <select value={ep.type} onChange={e => {
+                                                        const newEps = [...(formData.episodes || [])];
+                                                        newEps[idx] = { ...newEps[idx], type: e.target.value as Episode['type'] };
+                                                        setFormData({ ...formData, episodes: newEps });
+                                                    }} className="h-7 text-xs border rounded px-1 bg-white">
+                                                        <option value="transformation">自身の変化</option>
+                                                        <option value="student">生徒の変化</option>
+                                                        <option value="teaching">指導での気づき</option>
+                                                        <option value="other">その他</option>
+                                                    </select>
+                                                    <Input value={ep.title} onChange={e => {
+                                                        const newEps = [...(formData.episodes || [])];
+                                                        newEps[idx] = { ...newEps[idx], title: e.target.value };
+                                                        setFormData({ ...formData, episodes: newEps });
+                                                    }} className="flex-1 h-7 text-sm" placeholder="タイトル" />
+                                                    <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500"
+                                                        onClick={() => setFormData({ ...formData, episodes: (formData.episodes || []).filter((_, i) => i !== idx) })}>
+                                                        <Trash2 size={12} />
+                                                    </Button>
+                                                </div>
+                                                <Textarea value={ep.content} onChange={e => {
+                                                    const newEps = [...(formData.episodes || [])];
+                                                    newEps[idx] = { ...newEps[idx], content: e.target.value };
+                                                    setFormData({ ...formData, episodes: newEps });
+                                                }} className="text-sm min-h-[60px]" placeholder="エピソード内容..." />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* よく使うフレーズ */}
+                                    <div className="space-y-2 pt-2 border-t">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-xs font-medium">よく使うフレーズ</Label>
+                                            <Button type="button" variant="outline" size="sm" className="h-7 text-xs"
+                                                onClick={() => setFormData({ ...formData, signaturePhrases: [...(formData.signaturePhrases || []), ''] })}>
+                                                <Plus size={12} className="mr-1" /> 追加
+                                            </Button>
+                                        </div>
+                                        {(formData.signaturePhrases || []).map((phrase, idx) => (
+                                            <div key={idx} className="flex gap-1 items-center">
+                                                <Input value={phrase} onChange={e => {
+                                                    const newPhrases = [...(formData.signaturePhrases || [])];
+                                                    newPhrases[idx] = e.target.value;
+                                                    setFormData({ ...formData, signaturePhrases: newPhrases });
+                                                }} className="h-7 text-sm" placeholder="例: 呼吸を大切に" />
+                                                <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500"
+                                                    onClick={() => setFormData({ ...formData, signaturePhrases: (formData.signaturePhrases || []).filter((_, i) => i !== idx) })}>
+                                                    <Trash2 size={12} />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="qualifications" className="text-xs">保有資格 (カンマ区切り)</Label>
-                                    <Input id="qualifications" value={formData.qualifications || ''} onChange={e => setFormData({ ...formData, qualifications: e.target.value })} className="h-8 text-sm" placeholder="例: RYT200, 管理栄養士" />
+                            </div>
+                        </TabsContent>
+
+                        {/* パーソナリティタブ */}
+                        <TabsContent value="personality" className="space-y-4">
+                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                                <p className="text-xs text-purple-700">
+                                    <Sparkles className="inline mr-1" size={12} />
+                                    パーソナリティ設定は、AI検知を下げ「この人らしさ」を出すために重要です。
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                {/* 左カラム: 文体と理念 */}
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="writingStyle" className="text-xs">文体スタイル</Label>
+                                        <select
+                                            id="writingStyle"
+                                            value={formData.writingStyle || ''}
+                                            onChange={e => setFormData({ ...formData, writingStyle: e.target.value as Profile['writingStyle'] || undefined })}
+                                            className="w-full h-8 text-sm border rounded px-2 bg-white"
+                                        >
+                                            <option value="">選択してください</option>
+                                            <option value="formal">丁寧・フォーマル</option>
+                                            <option value="casual">親しみやすい・カジュアル</option>
+                                            <option value="professional">専門的・プロフェッショナル</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="philosophy" className="text-xs">指導理念・信念</Label>
+                                        <Textarea
+                                            id="philosophy"
+                                            value={formData.philosophy || ''}
+                                            onChange={e => setFormData({ ...formData, philosophy: e.target.value })}
+                                            className="text-sm min-h-[120px]"
+                                            placeholder="なぜヨガを教えるのか、大切にしていることなど"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="targetAudience" className="text-xs">主な指導対象</Label>
+                                        <Input
+                                            id="targetAudience"
+                                            value={formData.targetAudience || ''}
+                                            onChange={e => setFormData({ ...formData, targetAudience: e.target.value })}
+                                            className="h-8 text-sm"
+                                            placeholder="例: 20〜40代の働く女性、シニア層、初心者"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="teachingApproach" className="text-xs">指導スタイル</Label>
+                                        <Input
+                                            id="teachingApproach"
+                                            value={formData.teachingApproach || ''}
+                                            onChange={e => setFormData({ ...formData, teachingApproach: e.target.value })}
+                                            className="h-8 text-sm"
+                                            placeholder="例: 寄り添い型、理論重視、実践重視"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="influences" className="text-xs">影響を受けた先生・流派（カンマ区切り）</Label>
+                                        <Input
+                                            id="influences"
+                                            value={formData.influences?.join(', ') || ''}
+                                            onChange={e => setFormData({ ...formData, influences: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                                            className="h-8 text-sm"
+                                            placeholder="例: 綿本彰, アイアンガーヨガ"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 右カラム: 使わない言葉 */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-medium">使わない言葉・表現（AIっぽさを避ける）</Label>
+                                        <Button type="button" variant="outline" size="sm" className="h-7 text-xs"
+                                            onClick={() => setFormData({ ...formData, avoidWords: [...(formData.avoidWords || []), ''] })}>
+                                            <Plus size={12} className="mr-1" /> 追加
+                                        </Button>
+                                    </div>
+                                    {(formData.avoidWords || []).map((word, idx) => (
+                                        <div key={idx} className="flex gap-1 items-center">
+                                            <Input value={word} onChange={e => {
+                                                const newWords = [...(formData.avoidWords || [])];
+                                                newWords[idx] = e.target.value;
+                                                setFormData({ ...formData, avoidWords: newWords });
+                                            }} className="h-7 text-sm" placeholder="例: 是非、まさに、実際に" />
+                                            <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500"
+                                                onClick={() => setFormData({ ...formData, avoidWords: (formData.avoidWords || []).filter((_, i) => i !== idx) })}>
+                                                <Trash2 size={12} />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                        {['是非', 'まさに', '実際に', 'いかがでしょうか', '〜と言えるでしょう'].map((word) => (
+                                            <button key={word} type="button"
+                                                className="text-[10px] px-1.5 py-0.5 bg-white border border-neutral-200 rounded hover:bg-neutral-100"
+                                                onClick={() => {
+                                                    if (!(formData.avoidWords || []).includes(word)) {
+                                                        setFormData({ ...formData, avoidWords: [...(formData.avoidWords || []), word] });
+                                                    }
+                                                }}>
+                                            + {word}
+                                        </button>
+                                    ))}
+                                </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="categories" className="text-xs">得意カテゴリー (カンマ区切り)</Label>
-                                <Input
-                                    id="categories"
-                                    value={formData.categories?.join(', ') || ''}
-                                    onChange={e => setFormData({ ...formData, categories: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                                    className="h-8 text-sm"
-                                    placeholder="例: ヨガ, 瞑想"
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="tags" className="text-xs">タグ (カンマ区切り)</Label>
-                                <Input
-                                    id="tags"
-                                    value={formData.tags?.join(', ') || ''}
-                                    onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                                    className="h-8 text-sm"
-                                    placeholder="例: 初心者歓迎, 30代向け"
-                                />
-                            </div>
-                        </div>
+                        </TabsContent>
+                    </Tabs>
 
-                        <div className="space-y-1.5">
-                            <Label htmlFor="systemPrompt" className="text-xs">システムプロンプト (専門性・トーンの指定)</Label>
-                            <Textarea
-                                id="systemPrompt"
-                                value={formData.systemPrompt || ''}
-                                onChange={e => setFormData({ ...formData, systemPrompt: e.target.value })}
-                                className="text-sm min-h-[120px] font-mono"
-                                placeholder="例: あなたはヨガのプロフェッショナルです。初心者にも分かりやすく、かつ解剖学的な根拠に基づいた解説を行ってください..."
-                            />
-                            <p className="text-[10px] text-neutral-500">
-                                ※ 記事生成時にAIの役割（Role）として設定されます。E-E-A-T（経験・専門性・権威性・信頼性）を高めるための指示を記述してください。
-                            </p>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label htmlFor="bio" className="text-xs">自己紹介文</Label>
-                            <Textarea
-                                id="bio"
-                                value={formData.bio || ''}
-                                onChange={e => setFormData({ ...formData, bio: e.target.value })}
-                                className="text-sm min-h-[80px]"
-                                placeholder="読者に向けた自己紹介メッセージを入力してください。"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="instagram" className="text-xs flex items-center gap-1"><Instagram size={12} /> Instagram URL</Label>
-                                <Input id="instagram" value={formData.instagram || ''} onChange={e => setFormData({ ...formData, instagram: e.target.value })} className="h-8 text-xs font-mono" placeholder="https://instagram.com/..." />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="facebook" className="text-xs flex items-center gap-1"><Facebook size={12} /> Facebook URL</Label>
-                                <Input id="facebook" value={formData.facebook || ''} onChange={e => setFormData({ ...formData, facebook: e.target.value })} className="h-8 text-xs font-mono" placeholder="https://facebook.com/..." />
-                            </div>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
+                    <DialogFooter className="mt-4">
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={uploadMedia.isPending}>キャンセル</Button>
                         <Button
                             onClick={handleSubmit}

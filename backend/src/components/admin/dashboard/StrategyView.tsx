@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import { Sparkles, UserCheck, ChevronRight, CheckCircle2, Check, Copy, CalendarDays, Globe, Lightbulb, Loader2, Zap, User, Search, RefreshCw, X, AlertCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '@/app/admin/lib/utils';
 import { Button } from '../ui/button';
@@ -111,10 +112,12 @@ export function StrategyView({
 
     const knowledgeItems: KnowledgeItem[] = (knowledgeData?.data || []).map((item: any) => ({
         id: item.id,
+        title: item.title || item.content?.substring(0, 50) || '無題',
         content: item.content,
         source: item.sourceUrl || 'manual',
         kind: item.kind,
         brand: item.brandId || null,
+        categoryId: item.categoryId || null,
         createdAt: item.createdAt || new Date().toISOString(),
         usageCount: item.usageCount || 0,
     }));
@@ -249,6 +252,11 @@ export function StrategyView({
             });
 
             if (result.data) {
+                // DataForSEOの警告がある場合は表示
+                if (result.data.warning) {
+                    toast.warning(result.data.warning, { duration: 10000 });
+                }
+
                 // APIレスポンスをKeywordCandidate型に変換
                 const candidates: KeywordCandidate[] = result.data.keywords.map((kw, index) => ({
                     id: `ai-${index}`,
@@ -347,14 +355,14 @@ export function StrategyView({
 
         setProgress(avgProgress);
 
-        // Map progress to steps
+        // Map progress to 3 steps (新3ステップパイプライン)
+        // 0-20%: タイトル生成 (step 0)
+        // 20-80%: 記事執筆 (step 1)
+        // 80-100%: 画像生成 (step 2)
         let step = 0;
-        if (avgProgress < 15) step = 0;
-        else if (avgProgress < 30) step = 1;
-        else if (avgProgress < 55) step = 2;
-        else if (avgProgress < 75) step = 3;
-        else if (avgProgress < 90) step = 4;
-        else step = 5;
+        if (avgProgress < 20) step = 0;
+        else if (avgProgress < 80) step = 1;
+        else step = 2;
 
         setCurrentStep(step);
 
@@ -395,7 +403,7 @@ export function StrategyView({
                 <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
                     <div className="flex flex-col gap-1">
                         <h1 className="text-xl font-bold tracking-tight text-neutral-900">AI記事企画</h1>
-                        <p className="text-sm text-neutral-500 font-medium">カテゴリーとコンバージョンを選択して記事構成を一括生成</p>
+                        <p className="text-sm text-neutral-500 font-medium">設定を選択 → キーワード分析 → 記事生成</p>
                     </div>
                 </header>
                 <div className="flex-1 flex items-center justify-center">
@@ -414,148 +422,176 @@ export function StrategyView({
             <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-bold tracking-tight text-neutral-900">AI記事企画</h1>
-                    <p className="text-sm text-neutral-500 font-medium">カテゴリーとコンバージョンを選択して記事構成を一括生成</p>
+                    <p className="text-sm text-neutral-500 font-medium">設定を選択 → キーワード分析 → 記事生成</p>
                 </div>
             </header>
 
             <div className="flex-1 min-h-0 bg-white flex overflow-hidden relative">
                 {/* Left Column: Selection Area (Scrollable) */}
                 <div className="flex-1 overflow-y-auto p-6">
-                    <div className="max-w-3xl space-y-8">
+                    <div className="max-w-4xl space-y-6">
 
-                        {/* Step 1: Category */}
-                        <section className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">1</span>
-                                    <h2 className="text-sm font-bold text-neutral-900">カテゴリー</h2>
+                        {/* Setup Section - Category, Conversion, Author in one card */}
+                        <div className="bg-gradient-to-br from-neutral-50 to-white rounded-2xl border border-neutral-200 p-6 shadow-sm">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center">
+                                    <Sparkles size={18} className="text-white" />
                                 </div>
-                                <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
-                                    {selectedCategoryIds.size} 選択中
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                                {categories.map(cat => {
-                                    const isSelected = selectedCategoryIds.has(cat.id);
-                                    return (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => genStatus !== 'processing' && toggleCategory(cat.id)}
-                                            disabled={genStatus === 'processing'}
-                                            className={cn(
-                                                "relative p-3 rounded-lg border text-left transition-all group flex items-center justify-between",
-                                                isSelected
-                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
-                                                    : "border-neutral-100 bg-white hover:border-neutral-300"
-                                            )}
-                                        >
-                                            <div className="min-w-0 flex-1 mr-2">
-                                                <h3 className={cn("font-bold text-xs mb-0.5 truncate", isSelected ? "text-neutral-900" : "text-neutral-900")}>{cat.name}</h3>
-                                                <div className="flex items-center gap-1 text-[10px] text-neutral-500 truncate">
-                                                    <UserCheck size={10} />
-                                                    <span>{cat.supervisorName || '未設定'}</span>
-                                                </div>
-                                            </div>
-                                            {isSelected && (
-                                                <div className="bg-neutral-900 text-white rounded-full p-0.5 shrink-0">
-                                                    <Check size={10} strokeWidth={3} />
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </section>
-
-                        {/* Step 2: CV */}
-                        <section className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">2</span>
-                                    <h2 className="text-sm font-bold text-neutral-900">コンバージョン</h2>
-                                </div>
-                                <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
-                                    {selectedConversionIds.size} 選択中
+                                <div>
+                                    <h2 className="text-base font-bold text-neutral-900">記事の設定</h2>
+                                    <p className="text-xs text-neutral-500">カテゴリー、コンバージョン、監修者を選択してください</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                                {conversions.map((cv) => {
-                                    const isSelected = selectedConversionIds.has(cv.id);
-                                    return (
-                                        <button
-                                            key={cv.id}
-                                            onClick={() => genStatus !== 'processing' && toggleConversion(cv.id)}
-                                            disabled={genStatus === 'processing'}
-                                            className={cn(
-                                                "px-3 py-2.5 rounded-lg border text-xs font-bold transition-all text-left flex items-center justify-between",
-                                                isSelected
-                                                    ? "border-neutral-900 bg-neutral-900 text-white shadow-sm shadow-neutral-200"
-                                                    : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300"
-                                            )}
-                                        >
-                                            <span className="truncate mr-2">{cv.name}</span>
-                                            {isSelected && <CheckCircle2 size={12} className="shrink-0" />}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </section>
-
-                        {/* Step 3: Supervisor */}
-                        <section className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">3</span>
-                                    <h2 className="text-sm font-bold text-neutral-900">監修者</h2>
-                                </div>
-                                {selectedAuthorId && (
-                                    <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
-                                        選択済み
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Category Selection */}
+                                <div className="space-y-3">
+                                    <Label className="text-xs font-bold text-neutral-700 flex items-center justify-between">
+                                        <span>カテゴリー</span>
+                                        {selectedCategoryIds.size > 0 && (
+                                            <span className="text-[10px] font-medium text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
+                                                {selectedCategoryIds.size} 選択中
+                                            </span>
+                                        )}
+                                    </Label>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                        {categories.map(cat => {
+                                            const isSelected = selectedCategoryIds.has(cat.id);
+                                            return (
+                                                <button
+                                                    key={cat.id}
+                                                    onClick={() => genStatus !== 'processing' && toggleCategory(cat.id)}
+                                                    disabled={genStatus === 'processing'}
+                                                    className={cn(
+                                                        "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
+                                                        isSelected
+                                                            ? "border-violet-500 bg-violet-50 shadow-sm"
+                                                            : "border-neutral-200 bg-white hover:border-violet-300 hover:bg-violet-50/30"
+                                                    )}
+                                                >
+                                                    <div className="min-w-0 flex-1 mr-2">
+                                                        <h3 className={cn("font-bold text-xs truncate", isSelected ? "text-violet-700" : "text-neutral-700")}>{cat.name}</h3>
+                                                        <div className="flex items-center gap-1 text-[10px] text-neutral-500 truncate">
+                                                            <UserCheck size={10} />
+                                                            <span>{cat.supervisorName || '未設定'}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className={cn(
+                                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+                                                        isSelected ? "border-violet-500 bg-violet-500" : "border-neutral-300 group-hover:border-violet-300"
+                                                    )}>
+                                                        {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-                                )}
+                                </div>
+
+                                {/* Conversion Selection */}
+                                <div className="space-y-3">
+                                    <Label className="text-xs font-bold text-neutral-700 flex items-center justify-between">
+                                        <span>コンバージョン</span>
+                                        {selectedConversionIds.size > 0 && (
+                                            <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                                {selectedConversionIds.size} 選択中
+                                            </span>
+                                        )}
+                                    </Label>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                        {conversions.map((cv) => {
+                                            const isSelected = selectedConversionIds.has(cv.id);
+                                            return (
+                                                <button
+                                                    key={cv.id}
+                                                    onClick={() => genStatus !== 'processing' && toggleConversion(cv.id)}
+                                                    disabled={genStatus === 'processing'}
+                                                    className={cn(
+                                                        "w-full px-3 py-2.5 rounded-xl border text-xs font-bold transition-all text-left flex items-center justify-between",
+                                                        isSelected
+                                                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm"
+                                                            : "border-neutral-200 bg-white text-neutral-600 hover:border-emerald-300 hover:bg-emerald-50/30"
+                                                    )}
+                                                >
+                                                    <span className="truncate mr-2">{cv.name}</span>
+                                                    <div className={cn(
+                                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+                                                        isSelected ? "border-emerald-500 bg-emerald-500" : "border-neutral-300"
+                                                    )}>
+                                                        {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Author Selection */}
+                                <div className="space-y-3">
+                                    <Label className="text-xs font-bold text-neutral-700 flex items-center justify-between">
+                                        <span>監修者</span>
+                                        {selectedAuthorId && (
+                                            <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                                                選択済み
+                                            </span>
+                                        )}
+                                    </Label>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                        {authors.map((author) => {
+                                            const isSelected = selectedAuthorId === author.id;
+                                            return (
+                                                <button
+                                                    key={author.id}
+                                                    onClick={() => genStatus !== 'processing' && setSelectedAuthorId(isSelected ? null : author.id)}
+                                                    disabled={genStatus === 'processing'}
+                                                    className={cn(
+                                                        "w-full p-2.5 rounded-xl border text-left transition-all flex items-center gap-3",
+                                                        isSelected
+                                                            ? "border-blue-500 bg-blue-50 shadow-sm"
+                                                            : "border-neutral-200 bg-white hover:border-blue-300 hover:bg-blue-50/30"
+                                                    )}
+                                                >
+                                                    <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+                                                        <AvatarImage src={author.avatar} alt={author.name} />
+                                                        <AvatarFallback className="text-[10px] bg-blue-100 text-blue-600 font-bold">
+                                                            {author.name.substring(0, 2)}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="min-w-0 flex-1">
+                                                        <h3 className={cn("font-bold text-xs truncate", isSelected ? "text-blue-700" : "text-neutral-700")}>
+                                                            {author.name}
+                                                        </h3>
+                                                        <p className="text-[10px] text-neutral-500 truncate">{author.role}</p>
+                                                    </div>
+                                                    <div className={cn(
+                                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+                                                        isSelected ? "border-blue-500 bg-blue-500" : "border-neutral-300"
+                                                    )}>
+                                                        {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                                {authors.map((author) => {
-                                    const isSelected = selectedAuthorId === author.id;
-                                    return (
-                                        <button
-                                            key={author.id}
-                                            onClick={() => genStatus !== 'processing' && setSelectedAuthorId(isSelected ? null : author.id)}
-                                            disabled={genStatus === 'processing'}
-                                            className={cn(
-                                                "p-2 rounded-lg border text-left transition-all flex items-center gap-3 group",
-                                                isSelected
-                                                    ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
-                                                    : "border-neutral-200 bg-white hover:border-neutral-300"
-                                            )}
-                                        >
-                                            <Avatar className="h-8 w-8 border border-neutral-100">
-                                                <AvatarImage src={author.avatar} alt={author.name} />
-                                                <AvatarFallback className="text-[10px] bg-neutral-100 text-neutral-500">
-                                                    {author.name.substring(0, 2)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="min-w-0 flex-1">
-                                                <h3 className={cn("font-bold text-xs truncate", isSelected ? "text-neutral-900" : "text-neutral-700")}>
-                                                    {author.name}
-                                                </h3>
-                                                <p className="text-[10px] text-neutral-500 truncate">{author.role}</p>
-                                            </div>
-                                            {isSelected && (
-                                                <div className="bg-neutral-900 text-white rounded-full p-0.5 shrink-0">
-                                                    <Check size={10} strokeWidth={3} />
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </section>
+                            {/* Selection Summary */}
+                            {isStep123Complete && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="mt-6 p-4 bg-gradient-to-r from-violet-50 via-emerald-50 to-blue-50 rounded-xl border border-neutral-200"
+                                >
+                                    <div className="flex items-center gap-2 text-xs font-medium text-neutral-700">
+                                        <CheckCircle2 size={14} className="text-emerald-500" />
+                                        <span>設定完了 — キーワード分析の準備ができました</span>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </div>
 
-                        {/* Keyword Selection Action */}
+                        {/* Keyword Analysis Button - Prominent CTA */}
                         <AnimatePresence mode="wait">
                             {!showKeywords && (
                                 <motion.div
@@ -617,20 +653,27 @@ export function StrategyView({
                                 </motion.div>
                             )}
 
-                            {/* Step 5: Keywords (After Selection) */}
+                            {/* Keywords Section (After Analysis) */}
                             {showKeywords && (
-                                <motion.section
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    className="space-y-3"
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.4, ease: "easeOut" }}
+                                    className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-2xl border border-violet-200 p-6 shadow-sm"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">4</span>
-                                            <h2 className="text-sm font-bold text-neutral-900">キーワード設定</h2>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-violet-200">
+                                                <Search size={18} className="text-white" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-base font-bold text-neutral-900">キーワード選択</h2>
+                                                <p className="text-xs text-neutral-500">検索ボリュームを参考にキーワードを選んでください</p>
+                                            </div>
                                         </div>
-                                        <div className="text-[10px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
-                                            {selectedKeywordIds.size} / 5 選択中
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-violet-600">{selectedKeywordIds.size}</span>
+                                            <span className="text-xs text-neutral-400">/ 5 選択中</span>
                                         </div>
                                     </div>
 
@@ -864,7 +907,7 @@ export function StrategyView({
                                             </Button>
                                         </div>
                                     </div>
-                                </motion.section>
+                                </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
@@ -875,7 +918,6 @@ export function StrategyView({
 
                     <div className={cn("p-6 space-y-6 flex-1 overflow-y-auto transition-opacity duration-300", genStatus === 'processing' ? "opacity-30 pointer-events-none" : "opacity-100")}>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-900 text-white font-bold text-[10px]">5</span>
                             <h2 className="text-sm font-bold text-neutral-900">生成オプション</h2>
                         </div>
 

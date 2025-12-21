@@ -12,6 +12,7 @@ export interface SystemSettings {
   dataforSeoApiKey: string | null;
   openRouterApiKey: string | null;
   openaiApiKey: string | null;
+  geminiApiKey: string | null;  // Google AI Studio API Key (Nano Banana用)
   aiModel: string | null;
   imageModel: string | null;
   articleModel: string | null;
@@ -19,11 +20,8 @@ export interface SystemSettings {
   // プロンプト
   keywordPrompt: string | null;
   keywordSuggestPrompt: string | null;
-  structurePrompt: string | null;
-  draftPrompt: string | null;
-  proofreadingPrompt: string | null;
-  seoPrompt: string | null;
   imagePrompt: string | null;
+  systemPrompt: string | null;  // 3ステップパイプライン用
   minSearchVolume: number;
   maxSearchVolume: number;
   volumeZones: unknown;
@@ -33,7 +31,7 @@ export interface SystemSettings {
 
 // 復号済み設定の型
 export interface DecryptedSettings extends Omit<SystemSettings,
-  "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "dataforSeoApiKey" | "openRouterApiKey" | "openaiApiKey"
+  "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "dataforSeoApiKey" | "openRouterApiKey" | "openaiApiKey" | "geminiApiKey"
 > {
   gaApiKey: string | null;
   searchConsoleApiKey: string | null;
@@ -41,6 +39,7 @@ export interface DecryptedSettings extends Omit<SystemSettings,
   dataforSeoApiKey: string | null;
   openRouterApiKey: string | null;
   openaiApiKey: string | null;
+  geminiApiKey: string | null;
 }
 
 /**
@@ -74,6 +73,9 @@ export async function getDecryptedSettings(): Promise<DecryptedSettings | null> 
     openaiApiKey: settings.openaiApiKey
       ? safeDecrypt(settings.openaiApiKey)
       : null,
+    geminiApiKey: (settings as { geminiApiKey?: string }).geminiApiKey
+      ? safeDecrypt((settings as { geminiApiKey: string }).geminiApiKey)
+      : null,
   };
 }
 
@@ -81,7 +83,7 @@ export async function getDecryptedSettings(): Promise<DecryptedSettings | null> 
  * 特定のAPIキーのみを取得（復号済み）
  */
 export async function getApiKey(
-  keyName: "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "dataforSeoApiKey" | "openRouterApiKey" | "openaiApiKey"
+  keyName: "gaApiKey" | "searchConsoleApiKey" | "searchVolumeApiKey" | "dataforSeoApiKey" | "openRouterApiKey" | "openaiApiKey" | "geminiApiKey"
 ): Promise<string | null> {
   const settings = await prisma.system_settings.findUnique({
     where: { id: "default" },

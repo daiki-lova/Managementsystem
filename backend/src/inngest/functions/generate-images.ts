@@ -4,28 +4,28 @@ import { MediaSource, ArticleImageType, Prisma } from "@prisma/client";
 import { uploadImage } from "@/lib/supabase";
 import { randomUUID } from "crypto";
 import { getDecryptedSettings } from "@/lib/settings";
+import { buildImagePrompt, replacePlaceholderWithImage } from "./pipeline/common/prompts";
 
-// image_jobの型定義（パイプラインから渡される）
-interface ImageJob {
-  slot: string;   // "cover", "inserted_1", "inserted_2", etc.
-  prompt: string; // 画像生成プロンプト
-  alt: string;    // alt属性
+// 画像プレースホルダーの型定義
+interface ImagePlaceholder {
+  position: string;
+  context: string;
+  altHint: string;
+}
+
+// 旧形式（後方互換用）
+interface LegacyImageJob {
+  slot: string;
+  prompt: string;
+  alt: string;
 }
 
 // 生成結果の型
 interface GeneratedImage {
-  slot: string;
+  position: string;
   url: string;
   alt: string;
   mediaAssetId: string;
-}
-
-function getMetadataString(
-  metadata: Record<string, unknown> | undefined,
-  key: string
-): string | undefined {
-  const value = metadata?.[key];
-  return typeof value === "string" ? value : undefined;
 }
 
 // 画像生成関数
@@ -39,10 +39,8 @@ export const generateImages = inngest.createFunction(
       const articleId = eventData?.articleId;
       const jobId = eventData?.jobId;
       console.error("Image generation failed:", error?.message, "Article:", articleId);
-      // ジョブがある場合はステータスを更新（画像生成は任意なのでFAILEDにはしない）
       try {
         if (jobId) {
-          // ジョブは既にCOMPLETEDの可能性があるので、画像生成失敗は別途通知
           const job = await prisma.generation_jobs.findUnique({
             where: { id: jobId },
             select: { userId: true },
@@ -73,10 +71,24 @@ export const generateImages = inngest.createFunction(
   },
   { event: "article/generate-images" },
   async ({ event, step }) => {
-    const { articleId, jobId, imageJobs } = event.data as {
+    const {
+      articleId,
+      jobId,
+      // 新形式
+      imagePlaceholders,
+      articleTitle,
+      categoryName,
+      brandTone,
+      // 旧形式（後方互換）
+      imageJobs,
+    } = event.data as {
       articleId: string;
       jobId: string;
-      imageJobs?: ImageJob[];
+      imagePlaceholders?: ImagePlaceholder[];
+      articleTitle?: string;
+      categoryName?: string;
+      brandTone?: string;
+      imageJobs?: LegacyImageJob[];
     };
 
     // 記事データを取得
@@ -93,92 +105,93 @@ export const generateImages = inngest.createFunction(
       throw new Error("Article not found");
     }
 
-    // 設定を取得（暗号化されたAPIキーを復号）
+    // 設定を取得
     const settings = await step.run("fetch-settings", async () => {
       return getDecryptedSettings();
     });
 
+    // OpenRouter APIキーがあれば画像生成可能（Nano Banana経由）
     if (!settings?.openRouterApiKey) {
       console.log("OpenRouter API key not configured, skipping image generation");
-      return { skipped: true };
+      return { skipped: true, reason: "No OpenRouter API key" };
     }
 
-    // システムプロンプトを取得
-    const systemPrompt = settings.imagePrompt || "ヨガやウェルネスに関連する、落ち着いた色調でプロフェッショナルな雰囲気の画像を生成してください。";
-
-    // 生成結果を格納
+    // 短いプロンプトでトークン制限を回避
+    const systemPrompt = "Create a yoga illustration.";
     const generatedImages: GeneratedImage[] = [];
 
     // ========================================
-    // imageJobsベースの画像生成（パイプラインから渡された場合）
+    // 新形式: imagePlaceholdersベースの画像生成
     // ========================================
-    if (imageJobs && imageJobs.length > 0) {
-      console.log(`[ImageGeneration] Processing ${imageJobs.length} image jobs from pipeline`);
+    if (imagePlaceholders && imagePlaceholders.length > 0) {
+      console.log(`[ImageGeneration] Processing ${imagePlaceholders.length} image placeholders`);
 
-      for (let i = 0; i < imageJobs.length; i++) {
-        const job = imageJobs[i];
-        const stepName = `generate-image-${job.slot}-${i}`;
+      for (let i = 0; i < imagePlaceholders.length; i++) {
+        const placeholder = imagePlaceholders[i];
+        const stepName = `generate-image-${placeholder.position}-${i}`;
 
         const imageUrl = await step.run(stepName, async () => {
-          // パイプラインのプロンプトにシステムプロンプトを追加
-          const fullPrompt = `${systemPrompt}\n\n${job.prompt}`;
+          // プロンプトを構築
+          const prompt = buildImagePrompt({
+            position: placeholder.position,
+            context: placeholder.context,
+            altHint: placeholder.altHint,
+            articleTitle: articleTitle || article.title,
+            categoryName: categoryName || article.categories.name,
+            brandTone,
+          });
+
+          const fullPrompt = `${systemPrompt}\n\n${prompt}`;
           return generateImage({
             prompt: fullPrompt,
-            apiKey: settings.openRouterApiKey!,
-            model: settings.imageModel || "google/gemini-3-pro-image-preview",
+            openRouterApiKey: settings.openRouterApiKey || undefined,
           });
         });
 
         if (imageUrl) {
-          const saveStepName = `save-image-${job.slot}-${i}`;
+          const saveStepName = `save-image-${placeholder.position}-${i}`;
           const savedImage = await step.run(saveStepName, async () => {
-            // media_assetを作成
             const mediaAsset = await prisma.media_assets.create({
               data: {
                 id: randomUUID(),
                 url: imageUrl,
-                fileName: `${job.slot}-${articleId}.png`,
-                altText: job.alt,
+                fileName: `${placeholder.position}-${articleId}.png`,
+                altText: placeholder.altHint,
                 source: MediaSource.AI_GENERATED,
-                showInLibrary: true, // ライブラリで差し替え可能にする
+                showInLibrary: true,
               },
             });
 
-            // スロットに応じた処理
-            if (job.slot === "cover" || job.slot === "thumbnail") {
-              // カバー/サムネイルは記事のthumbnailIdに設定
+            // heroはサムネイルとして設定
+            if (placeholder.position === "hero") {
               await prisma.articles.update({
                 where: { id: articleId },
                 data: { thumbnailId: mediaAsset.id },
               });
-            } else {
-              // それ以外はarticle_imagesに追加
-              // スロット名からArticleImageTypeを決定
-              let imageType: ArticleImageType;
-              if (job.slot === "inserted_1" || job.slot === "insert_1") {
-                imageType = ArticleImageType.INSERTED_1;
-              } else if (job.slot === "inserted_2" || job.slot === "insert_2") {
-                imageType = ArticleImageType.INSERTED_2;
-              } else {
-                // その他のスロットはINSERTED_1として扱う（拡張性のため）
-                imageType = ArticleImageType.INSERTED_1;
-              }
-
-              await prisma.article_images.create({
-                data: {
-                  id: randomUUID(),
-                  articleId,
-                  mediaAssetId: mediaAsset.id,
-                  type: imageType,
-                  position: i,
-                },
-              });
             }
 
+            // article_imagesに追加
+            let imageType: ArticleImageType = ArticleImageType.INSERTED_1;
+            if (placeholder.position === "section_1") {
+              imageType = ArticleImageType.INSERTED_1;
+            } else if (placeholder.position === "section_2") {
+              imageType = ArticleImageType.INSERTED_2;
+            }
+
+            await prisma.article_images.create({
+              data: {
+                id: randomUUID(),
+                articleId,
+                mediaAssetId: mediaAsset.id,
+                type: imageType,
+                position: i,
+              },
+            });
+
             return {
-              slot: job.slot,
+              position: placeholder.position,
               url: imageUrl,
-              alt: job.alt,
+              alt: placeholder.altHint,
               mediaAssetId: mediaAsset.id,
             };
           });
@@ -187,59 +200,27 @@ export const generateImages = inngest.createFunction(
         }
       }
 
-      // 記事のブロックを更新（imageブロックに実際のURLを設定）
+      // 記事のHTMLを更新（プレースホルダーを実際の画像に置換）
       if (generatedImages.length > 0) {
-        await step.run("update-article-blocks", async () => {
-          const currentBlocks = article.blocks as { id: string; type: string; content: string; metadata?: Record<string, unknown>; src?: string; alt?: string }[];
+        await step.run("update-article-html", async () => {
+          const currentBlocks = article.blocks as { id: string; type: string; content: string }[];
 
-          // 使用済み画像を追跡（重複適用を防止）
-          const usedImageSlots = new Set<string>();
+          // HTMLブロックを探して更新
+          const updatedBlocks = currentBlocks.map((block) => {
+            if (block.type === "html") {
+              let updatedHtml = block.content;
 
-          // 各画像ブロックのsrcを更新
-          const updatedBlocks = currentBlocks.map((block, blockIndex) => {
-            if (block.type === "image") {
-              // 1. metadata.slotでマッチング（優先）
-              const blockSlot = getMetadataString(block.metadata, "slot") || "";
-              let matchingImage = blockSlot
-                ? generatedImages.find((img) => img.slot === blockSlot && !usedImageSlots.has(img.slot))
-                : null;
-
-              // 2. slotがない場合、altテキストの部分一致でマッチング
-              const blockAlt =
-                block.alt
-                || getMetadataString(block.metadata, "alt")
-                || getMetadataString(block.metadata, "altText");
-              if (!matchingImage && blockAlt) {
-                const blockAltLower = blockAlt.toLowerCase();
-                matchingImage = generatedImages.find(
-                  (img) => !usedImageSlots.has(img.slot) && img.alt.toLowerCase().includes(blockAltLower.slice(0, 10))
+              // 各生成画像でプレースホルダーを置換
+              for (const image of generatedImages) {
+                updatedHtml = replacePlaceholderWithImage(
+                  updatedHtml,
+                  image.position,
+                  image.url,
+                  image.alt
                 );
               }
 
-              // 3. それでもマッチしない場合、画像ブロックの出現順でマッチング
-              if (!matchingImage) {
-                const unusedImages = generatedImages.filter((img) => !usedImageSlots.has(img.slot));
-                if (unusedImages.length > 0) {
-                  matchingImage = unusedImages[0];
-                  console.log(
-                    `[ImageGeneration] Fallback matching: block[${blockIndex}] → ${matchingImage.slot} (by order)`
-                  );
-                }
-              }
-
-              if (matchingImage) {
-                usedImageSlots.add(matchingImage.slot);
-                return {
-                  ...block,
-                  src: matchingImage.url,
-                  alt: matchingImage.alt || block.alt || "",
-                  content: matchingImage.url, // contentにもURLを設定（フォールバック用）
-                  metadata: {
-                    ...block.metadata,
-                    slot: matchingImage.slot, // slotを保持/追加
-                  },
-                };
-              }
+              return { ...block, content: updatedHtml };
             }
             return block;
           });
@@ -256,30 +237,104 @@ export const generateImages = inngest.createFunction(
       return {
         articleId,
         generatedCount: generatedImages.length,
-        totalJobs: imageJobs.length,
+        totalPlaceholders: imagePlaceholders.length,
         generatedImages: generatedImages.map((img) => ({
-          slot: img.slot,
+          position: img.position,
           url: img.url,
         })),
       };
     }
 
     // ========================================
-    // フォールバック: imageJobsがない場合は従来のロジック
+    // 旧形式: imageJobsベースの画像生成（後方互換）
     // ========================================
-    console.log("[ImageGeneration] No imageJobs provided, using fallback generation");
+    if (imageJobs && imageJobs.length > 0) {
+      console.log(`[ImageGeneration] Processing ${imageJobs.length} legacy image jobs`);
 
-    // アイキャッチ画像を生成
+      for (let i = 0; i < imageJobs.length; i++) {
+        const job = imageJobs[i];
+        const stepName = `generate-image-${job.slot}-${i}`;
+
+        const imageUrl = await step.run(stepName, async () => {
+          const fullPrompt = `${systemPrompt}\n\n${job.prompt}`;
+          return generateImage({
+            prompt: fullPrompt,
+            openRouterApiKey: settings.openRouterApiKey || undefined,
+          });
+        });
+
+        if (imageUrl) {
+          const saveStepName = `save-image-${job.slot}-${i}`;
+          const savedImage = await step.run(saveStepName, async () => {
+            const mediaAsset = await prisma.media_assets.create({
+              data: {
+                id: randomUUID(),
+                url: imageUrl,
+                fileName: `${job.slot}-${articleId}.png`,
+                altText: job.alt,
+                source: MediaSource.AI_GENERATED,
+                showInLibrary: true,
+              },
+            });
+
+            if (job.slot === "cover" || job.slot === "thumbnail") {
+              await prisma.articles.update({
+                where: { id: articleId },
+                data: { thumbnailId: mediaAsset.id },
+              });
+            } else {
+              let imageType: ArticleImageType = ArticleImageType.INSERTED_1;
+              if (job.slot === "inserted_2" || job.slot === "insert_2") {
+                imageType = ArticleImageType.INSERTED_2;
+              }
+
+              await prisma.article_images.create({
+                data: {
+                  id: randomUUID(),
+                  articleId,
+                  mediaAssetId: mediaAsset.id,
+                  type: imageType,
+                  position: i,
+                },
+              });
+            }
+
+            return {
+              position: job.slot,
+              url: imageUrl,
+              alt: job.alt,
+              mediaAssetId: mediaAsset.id,
+            };
+          });
+
+          generatedImages.push(savedImage);
+        }
+      }
+
+      return {
+        articleId,
+        generatedCount: generatedImages.length,
+        totalJobs: imageJobs.length,
+        generatedImages: generatedImages.map((img) => ({
+          position: img.position,
+          url: img.url,
+        })),
+      };
+    }
+
+    // ========================================
+    // フォールバック: デフォルトの画像生成
+    // ========================================
+    console.log("[ImageGeneration] No image data provided, using fallback generation");
+
     const thumbnailUrl = await step.run("generate-thumbnail", async () => {
       const userPrompt = `ブログ記事のアイキャッチ画像。タイトル: "${article.title}"。カテゴリ: ${article.categories.name}。`;
       return generateImage({
         prompt: `${systemPrompt}\n\n${userPrompt}`,
-        apiKey: settings.openRouterApiKey!,
-        model: settings.imageModel || "google/gemini-3-pro-image-preview",
+        openRouterApiKey: settings.openRouterApiKey || undefined,
       });
     });
 
-    // サムネイルをDBに保存
     if (thumbnailUrl) {
       await step.run("save-thumbnail", async () => {
         const mediaAsset = await prisma.media_assets.create({
@@ -288,7 +343,7 @@ export const generateImages = inngest.createFunction(
             url: thumbnailUrl,
             fileName: `thumbnail-${articleId}.png`,
             source: MediaSource.AI_GENERATED,
-            showInLibrary: true, // ライブラリで差し替え可能にする
+            showInLibrary: true,
           },
         });
 
@@ -299,181 +354,208 @@ export const generateImages = inngest.createFunction(
       });
     }
 
-    // 差し込み画像1を生成
-    const insertedImage1Url = await step.run("generate-inserted-1", async () => {
-      const userPrompt = `記事の本文中に挿入するイメージ画像。記事タイトル: "${article.title}"。記事序盤に配置。`;
-      return generateImage({
-        prompt: `${systemPrompt}\n\n${userPrompt}`,
-        apiKey: settings.openRouterApiKey!,
-        model: settings.imageModel || "google/gemini-3-pro-image-preview",
-      });
-    });
-
-    if (insertedImage1Url) {
-      await step.run("save-inserted-1", async () => {
-        const mediaAsset = await prisma.media_assets.create({
-          data: {
-            id: randomUUID(),
-            url: insertedImage1Url,
-            fileName: `inserted1-${articleId}.png`,
-            source: MediaSource.AI_GENERATED,
-            showInLibrary: true, // ライブラリで差し替え可能にする
-          },
-        });
-
-        await prisma.article_images.create({
-          data: {
-            id: randomUUID(),
-            articleId,
-            mediaAssetId: mediaAsset.id,
-            type: ArticleImageType.INSERTED_1,
-            position: 1,
-          },
-        });
-      });
-    }
-
-    // 差し込み画像2を生成
-    const insertedImage2Url = await step.run("generate-inserted-2", async () => {
-      const userPrompt = `記事の本文中に挿入するイメージ画像。記事タイトル: "${article.title}"。記事中盤に配置。明るく前向きな雰囲気。`;
-      return generateImage({
-        prompt: `${systemPrompt}\n\n${userPrompt}`,
-        apiKey: settings.openRouterApiKey!,
-        model: settings.imageModel || "google/gemini-3-pro-image-preview",
-      });
-    });
-
-    if (insertedImage2Url) {
-      await step.run("save-inserted-2", async () => {
-        const mediaAsset = await prisma.media_assets.create({
-          data: {
-            id: randomUUID(),
-            url: insertedImage2Url,
-            fileName: `inserted2-${articleId}.png`,
-            source: MediaSource.AI_GENERATED,
-            showInLibrary: true, // ライブラリで差し替え可能にする
-          },
-        });
-
-        await prisma.article_images.create({
-          data: {
-            id: randomUUID(),
-            articleId,
-            mediaAssetId: mediaAsset.id,
-            type: ArticleImageType.INSERTED_2,
-            position: 2,
-          },
-        });
-      });
-    }
-
     return {
       articleId,
       thumbnailGenerated: !!thumbnailUrl,
-      insertedImage1Generated: !!insertedImage1Url,
-      insertedImage2Generated: !!insertedImage2Url,
     };
   }
 );
 
-// 画像生成
+// 画像生成パラメータ
 interface GenerateImageParams {
   prompt: string;
-  apiKey: string;
-  model: string;
+  openRouterApiKey?: string;  // OpenRouter API Key
 }
 
-async function generateImage(params: GenerateImageParams): Promise<string | null> {
-  const { prompt, apiKey, model } = params;
+// OpenRouter経由のNano Banana (Gemini 2.5 Flash Image Preview)
+const NANO_BANANA_MODEL = "google/gemini-2.5-flash-image-preview";
 
+/**
+ * OpenRouter経由でNano Banana (Gemini) を使用して画像を生成
+ * https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+ */
+async function generateImageWithOpenRouter(prompt: string, apiKey: string): Promise<string | null> {
   try {
-    // OpenRouter経由で画像生成（chat completions APIを使用）
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXTAUTH_URL || "http://localhost:3001",
-      },
-      body: JSON.stringify({
-        model: model || "google/gemini-2.5-flash-image-preview",
-        modalities: ["image", "text"],
-        messages: [
-          {
-            role: "user",
-            content: `Generate an image: ${prompt}`,
-          },
-        ],
-      }),
-    });
+    console.log(`[NanoBanana] Generating image via OpenRouter: ${NANO_BANANA_MODEL}`);
+
+    // 120秒のタイムアウト（画像生成は時間がかかる場合がある）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+    // OpenRouter chat/completions エンドポイント
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          model: NANO_BANANA_MODEL,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          // 画像生成を有効にする
+          modalities: ["image", "text"],
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Image generation failed:", errorText);
+      console.error("[NanoBanana] OpenRouter API error:", response.status, errorText);
       return null;
     }
 
     const data = await response.json();
-    console.log("Image API response:", JSON.stringify(data, null, 2));
+    console.log("[NanoBanana] Response received from OpenRouter");
 
-    // OpenRouterはbase64エンコードされた画像をimages配列で返す
-    // 形式はモデルによって異なる場合がある
-    const imageData = data.choices?.[0]?.message?.images?.[0];
-
-    if (!imageData) {
-      console.error("No image data in response:", JSON.stringify(data));
+    // レスポンスから画像データを抽出
+    const message = data.choices?.[0]?.message;
+    if (!message) {
+      console.error("[NanoBanana] No message in response");
       return null;
     }
 
-    let imageBuffer: Buffer;
+    // OpenRouterの画像レスポンス形式: message.images または message.content内のbase64
+    // 形式1: message.images配列
+    if (message.images && message.images.length > 0) {
+      const imageData = message.images[0];
 
-    // imageDataがオブジェクトの場合（複数の形式に対応）
-    if (typeof imageData === "object" && imageData.b64_json) {
-      // OpenAI形式: {b64_json: "..."}
-      imageBuffer = Buffer.from(imageData.b64_json, "base64");
-    } else if (typeof imageData === "object" && imageData.image_url?.url) {
-      // Gemini/OpenRouter形式: {type: "image_url", image_url: {url: "data:image/png;base64,..."}}
-      const dataUrl = imageData.image_url.url;
-      const base64Match = dataUrl.match(/^data:image\/\w+;base64,(.+)$/);
-      if (base64Match) {
-        imageBuffer = Buffer.from(base64Match[1], "base64");
-      } else if (dataUrl.startsWith("http")) {
-        // 外部URLの場合はダウンロード
-        const imageResponse = await fetch(dataUrl);
-        imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-      } else {
-        console.error("Unknown image_url format:", dataUrl.substring(0, 100));
-        return null;
+      // 形式1a: オブジェクト形式 { type: "image_url", image_url: { url: "data:image/..." } }
+      if (typeof imageData === "object" && imageData.image_url?.url) {
+        const dataUrl = imageData.image_url.url;
+        if (typeof dataUrl === "string" && dataUrl.startsWith("data:image")) {
+          const base64Match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+          if (base64Match) {
+            const extension = base64Match[1] === "jpeg" ? "jpg" : base64Match[1];
+            const base64Data = base64Match[2];
+            const imageBuffer = Buffer.from(base64Data, "base64");
+
+            const filePath = `generated/${Date.now()}-${randomUUID()}.${extension}`;
+            const { url } = await uploadImage(
+              "MEDIA",
+              filePath,
+              imageBuffer,
+              `image/${base64Match[1]}`
+            );
+
+            console.log(`[NanoBanana] Image saved (object format): ${url}`);
+            return url;
+          }
+        }
       }
-    } else if (typeof imageData === "object" && imageData.url) {
-      // URLが返された場合はダウンロード
-      const imageResponse = await fetch(imageData.url);
-      imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-    } else if (typeof imageData === "string") {
-      // 文字列の場合（data URLまたは純粋なbase64）
-      const base64Match = imageData.match(/^data:image\/\w+;base64,(.+)$/);
-      if (base64Match) {
-        imageBuffer = Buffer.from(base64Match[1], "base64");
-      } else {
-        // 純粋なbase64の場合
-        imageBuffer = Buffer.from(imageData, "base64");
+
+      // 形式1b: 文字列形式 "data:image/png;base64,..."
+      if (typeof imageData === "string" && imageData.startsWith("data:image")) {
+        const base64Match = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (base64Match) {
+          const extension = base64Match[1] === "jpeg" ? "jpg" : base64Match[1];
+          const base64Data = base64Match[2];
+          const imageBuffer = Buffer.from(base64Data, "base64");
+
+          // Supabaseにアップロード
+          const filePath = `generated/${Date.now()}-${randomUUID()}.${extension}`;
+          const { url } = await uploadImage(
+            "MEDIA",
+            filePath,
+            imageBuffer,
+            `image/${base64Match[1]}`
+          );
+
+          console.log(`[NanoBanana] Image saved (string format): ${url}`);
+          return url;
+        }
       }
-    } else {
-      console.error("Unknown image data format:", typeof imageData, JSON.stringify(imageData).substring(0, 200));
-      return null;
     }
 
-    const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
-    const { url } = await uploadImage(
-      "MEDIA",
-      filePath,
-      imageBuffer,
-      "image/png"
-    );
+    // 形式2: contentがdata URL形式
+    if (typeof message.content === "string" && message.content.startsWith("data:image")) {
+      const base64Match = message.content.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (base64Match) {
+        const extension = base64Match[1] === "jpeg" ? "jpg" : base64Match[1];
+        const base64Data = base64Match[2];
+        const imageBuffer = Buffer.from(base64Data, "base64");
 
-    return url;
+        const filePath = `generated/${Date.now()}-${randomUUID()}.${extension}`;
+        const { url } = await uploadImage(
+          "MEDIA",
+          filePath,
+          imageBuffer,
+          `image/${base64Match[1]}`
+        );
+
+        console.log(`[NanoBanana] Image saved: ${url}`);
+        return url;
+      }
+    }
+
+    // 形式3: content配列内にimage_url
+    if (Array.isArray(message.content)) {
+      for (const part of message.content) {
+        if (part.type === "image_url" && part.image_url?.url) {
+          const imageUrl = part.image_url.url;
+          if (imageUrl.startsWith("data:image")) {
+            const base64Match = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (base64Match) {
+              const extension = base64Match[1] === "jpeg" ? "jpg" : base64Match[1];
+              const base64Data = base64Match[2];
+              const imageBuffer = Buffer.from(base64Data, "base64");
+
+              const filePath = `generated/${Date.now()}-${randomUUID()}.${extension}`;
+              const { url } = await uploadImage(
+                "MEDIA",
+                filePath,
+                imageBuffer,
+                `image/${base64Match[1]}`
+              );
+
+              console.log(`[NanoBanana] Image saved: ${url}`);
+              return url;
+            }
+          }
+        }
+      }
+    }
+
+    console.error("[NanoBanana] No image data found in response");
+    console.log("[NanoBanana] Response structure:", JSON.stringify(data).substring(0, 1000));
+    return null;
   } catch (error) {
-    console.error("Image generation error:", error);
+    if (error instanceof Error && error.name === "AbortError") {
+      console.error("[NanoBanana] Request timed out");
+    } else {
+      console.error("[NanoBanana] Error:", error);
+    }
     return null;
   }
+}
+
+/**
+ * 画像を生成するメイン関数
+ */
+async function generateImage(params: GenerateImageParams): Promise<string | null> {
+  const { prompt, openRouterApiKey } = params;
+
+  // OpenRouter経由でNano Banana (Gemini) を使用
+  if (openRouterApiKey) {
+    console.log("[ImageGeneration] Using Nano Banana via OpenRouter");
+    const result = await generateImageWithOpenRouter(prompt, openRouterApiKey);
+    if (result) return result;
+    console.log("[ImageGeneration] OpenRouter image generation failed");
+  } else {
+    console.log("[ImageGeneration] OpenRouter API Key not configured");
+  }
+
+  // APIキーがない場合はnullを返す
+  console.log("[ImageGeneration] No image API available - please configure OpenRouter API key in settings");
+  return null;
 }

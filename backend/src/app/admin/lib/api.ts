@@ -34,6 +34,12 @@ export interface PaginatedData<T> {
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
 
+// モジュール読み込み時に同期的にトークンをロード（SSR対策）
+if (typeof window !== 'undefined') {
+  accessToken = localStorage.getItem('accessToken');
+  refreshToken = localStorage.getItem('refreshToken');
+}
+
 export const tokenManager = {
   getAccessToken: () => accessToken,
   getRefreshToken: () => refreshToken,
@@ -417,7 +423,6 @@ export const authorsApi = {
       categories: string[];
       tags: string[];
       articlesCount: number;
-      systemPrompt: string | null;
       createdAt: string;
       updatedAt: string;
     }>>('/api/authors', params),
@@ -434,7 +439,6 @@ export const authorsApi = {
       socialLinks: Record<string, string>;
       categories: string[];
       tags: string[];
-      systemPrompt: string | null;
     }>(`/api/authors/${id}`),
 
   create: (data: {
@@ -447,7 +451,6 @@ export const authorsApi = {
     categories?: string[];
     tags?: string[];
     socialLinks?: Record<string, string>;
-    systemPrompt?: string;
   }) => api.post<{ id: string }>('/api/authors', data),
 
   update: (id: string, data: {
@@ -460,7 +463,6 @@ export const authorsApi = {
     categories?: string[];
     tags?: string[];
     socialLinks?: Record<string, string>;
-    systemPrompt?: string;
   }) => api.patch<{ id: string }>(`/api/authors/${id}`, data),
 
   delete: (id: string) => api.delete(`/api/authors/${id}`),
@@ -846,6 +848,7 @@ export interface KeywordSuggestResponse {
   volumeRange: { min: number; max: number };
   generatedCount: number;
   tokensUsed?: number;
+  warning?: string;
 }
 
 export const keywordsApi = {
@@ -937,11 +940,8 @@ export interface SystemSettings {
   analysisModel: string | null;
   keywordPrompt: string | null;
   keywordSuggestPrompt: string | null;
-  structurePrompt: string | null;
-  draftPrompt: string | null;
-  proofreadingPrompt: string | null;
-  seoPrompt: string | null;
   imagePrompt: string | null;
+  systemPrompt: string | null;
   updatedAt: string;
 }
 
@@ -964,11 +964,8 @@ export const settingsApi = {
     analysisModel?: string;
     keywordPrompt?: string;
     keywordSuggestPrompt?: string;
-    structurePrompt?: string;
-    draftPrompt?: string;
-    proofreadingPrompt?: string;
-    seoPrompt?: string;
     imagePrompt?: string;
+    systemPrompt?: string;
   }) => api.patch<SystemSettings>('/api/settings', data),
 };
 

@@ -131,42 +131,37 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
+// 許可されるブロックタイプ
+const blockTypes = [
+  "p",
+  "h2",
+  "h3",
+  "h4",
+  "image",
+  "html",
+  "blockquote",
+  "ul",
+  "ol",
+  "hr",
+  "table",
+  "code",
+  "callout",
+  "internal-link",
+  "paragraph",
+  "heading",
+  "list",
+] as const;
+
 // ブロックデータスキーマ
 const blockSchema = z.object({
   id: z.string(),
-  type: z.enum([
-    "p",
-    "h2",
-    "h3",
-    "h4",
-    "image",
-    "html",
-    "blockquote",
-    "ul",
-    "ol",
-    "hr",
-    "table",
-    "code",
-  ]),
+  type: z.enum(blockTypes),
   content: z.string().optional(),
   data: z.record(z.string(), z.any()).optional(),
 });
 
 const frontendBlockSchema = z.object({
-  type: z.enum([
-    "p",
-    "h2",
-    "h3",
-    "h4",
-    "image",
-    "html",
-    "blockquote",
-    "ul",
-    "ol",
-    "hr",
-    "table",
-    "code",
-  ]),
+  type: z.enum(blockTypes),
   content: z.string().optional(),
   order: z.number().int().nonnegative().optional(),
   metadata: z.record(z.string(), z.any()).optional(),

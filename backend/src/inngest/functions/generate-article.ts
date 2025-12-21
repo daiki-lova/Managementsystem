@@ -125,7 +125,6 @@ export const generateArticle = inngest.createFunction(
         authors: {
           name: author.name,
           role: author.role,
-          systemPrompt: author.systemPrompt,
         },
         conversions: conversions.map((c) => ({
           name: c.name,
@@ -244,7 +243,6 @@ interface GenerateContentParams {
   authors: {
     name: string;
     role: string;
-    systemPrompt: string;
   };
   conversions: { name: string; context: string }[];
   knowledgeItems: { title: string; content: string }[];
@@ -254,7 +252,8 @@ interface GenerateContentParams {
 
 interface GeneratedContent {
   title: string;
-  blocks: object[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blocks: any[];
   metaTitle: string;
   metaDescription: string;
 }
@@ -291,9 +290,7 @@ async function generateArticleContent(
    - 専門用語には補足を入れ、誰にでもわかる表現にする。
    - ユーザーの潜在的な悩み（インサイト）に寄り添い、感情を動かす執筆をする。`;
 
-  const systemPrompt = `${author.systemPrompt}
-
-${GLOBAL_RULES}
+  const systemPrompt = `${GLOBAL_RULES}
 
 あなたは「${author.name}」（${author.role}）として、ヨガに関する記事を執筆します。
 カテゴリ: ${category}
@@ -364,23 +361,34 @@ ${conversionContext}
   }
 
   try {
-    return JSON.parse(content) as GeneratedContent;
+    const parsed = JSON.parse(content) as GeneratedContent;
+    // Ensure all blocks have valid IDs
+    parsed.blocks = (parsed.blocks || [])
+      .filter(b => b && typeof b === 'object')
+      .map((block, index) => ({
+        ...block,
+        id: block.id || `block-${Date.now()}-${index}`
+      }));
+    return parsed;
   } catch {
     throw new Error("Failed to parse generated content");
   }
 }
 
-// スラッグ生成
+// スラッグ生成（アルファベットのみ）
 function generateSlug(keyword: string): string {
-  // キーワードをローマ字化（簡易実装）
-  const romanized = keyword
+  // 日本語を除去してアルファベット・数字のみに
+  const alphanumeric = keyword
     .toLowerCase()
-    .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g, "-")
+    .replace(/[^a-z0-9]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
   // ランダムIDを付与して一意性を確保
   const randomId = Math.random().toString(36).substring(2, 8);
 
-  return `${romanized}-${randomId}`;
+  // アルファベットが残っていない場合はarticle-をプレフィックスとして使用
+  const base = alphanumeric.length > 0 ? alphanumeric : "article";
+
+  return `${base}-${randomId}`;
 }

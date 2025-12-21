@@ -177,6 +177,7 @@ export async function POST(request: NextRequest) {
             searchVolume: keywordData.searchVolume,
             categoryId: validated.categoryId,
             authorId: validated.authorId,
+            brandId: validated.brandId,
             userId: user.id,
             publishStrategy: validated.publishStrategy as PublishStrategy,
             scheduledAt: validated.scheduledAt

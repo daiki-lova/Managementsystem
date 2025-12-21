@@ -157,7 +157,59 @@ model authors {
   socialLinks     Json?
   categories      Json?  // Array of strings: Author's specialized categories
   tags            Json?  // Array of strings: Author's specialized tags
-  systemPrompt    String
+
+  // === キャリアデータ（数値）===
+  careerStartYear     Int?      // ヨガ・フィットネス開始年（例: 2005）
+  teachingStartYear   Int?      // 指導開始年（例: 2010）
+  totalStudentsTaught Int?      // これまでの指導人数（累計）
+  graduatesCount      Int?      // インストラクター養成講座卒業生数
+  weeklyLessons       Int?      // 現在の週あたりレッスン本数
+
+  // === 資格情報 ===
+  // JSON配列: [{name: string, year: number?, location: string?}]
+  // 例: [{name: "全米ヨガアライアンスRYT200", year: 2010, location: "インド・リシケシュ"}]
+  certifications      Json?
+
+  // === エピソード・経験 ===
+  // JSON配列: [{type: string, title: string, content: string}]
+  // type: "transformation"(自身の変化), "student"(生徒の変化), "teaching"(指導での気づき)
+  // 例: [{type: "transformation", title: "ヨガとの出会い", content: "30代で体調を崩し..."}]
+  episodes            Json?
+
+  // === よく使うフレーズ・口癖 ===
+  // JSON配列: string[]
+  // 例: ["呼吸を大切に", "自分のペースで"]
+  signaturePhrases    Json?
+
+  // === 専門・得意分野 ===
+  // JSON配列: string[]
+  // 例: ["マタニティヨガ", "シニアヨガ", "リストラティブヨガ"]
+  specialties         Json?
+
+  // === 執筆スタイル・パーソナリティ ===
+  // 文体の好み: "formal"(丁寧), "casual"(親しみやすい), "professional"(専門的)
+  writingStyle        String?
+
+  // 指導理念・信念（なぜヨガを教えるのか、大切にしていること）
+  philosophy          String?   @db.Text
+
+  // 使わない言葉・表現（AIっぽい表現を避けるため）
+  // JSON配列: string[]
+  avoidWords          Json?
+
+  // 主な指導対象（例: "20〜40代の働く女性", "シニア層", "初心者"）
+  targetAudience      String?
+
+  // 指導スタイル・アプローチ（例: "寄り添い型", "厳しめ", "理論重視"）
+  teachingApproach    String?
+
+  // 師事した先生・影響を受けた流派
+  // JSON配列: string[]
+  influences          Json?
+
+  // 活動拠点（地域色を出すため）
+  locationContext     String?
+
   createdAt       DateTime          @default(now())
   updatedAt       DateTime @updatedAt
   articles        articles[]
@@ -176,6 +228,7 @@ model brands {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime @updatedAt
   articles        articles[]
+  generation_jobs generation_jobs[]
   knowledge_items knowledge_items[]
 
   @@index([slug])
@@ -251,6 +304,7 @@ model generation_jobs {
   errorMessage                   String?
   categoryId                     String
   authorId                       String
+  brandId                        String?
   publishStrategy                PublishStrategy                  @default(DRAFT)
   scheduledAt                    DateTime?
   totalArticles                  Int                              @default(1)
@@ -263,10 +317,12 @@ model generation_jobs {
   generation_job_knowledge_items generation_job_knowledge_items[]
   generation_stages              generation_stages[]
   authors                        authors                          @relation(fields: [authorId], references: [id])
+  brands                         brands?                          @relation(fields: [brandId], references: [id])
   categories                     categories                       @relation(fields: [categoryId], references: [id])
   users                          users                            @relation(fields: [userId], references: [id])
 
   @@index([authorId])
+  @@index([brandId])
   @@index([categoryId])
   @@index([createdAt])
   @@index([status])
@@ -387,17 +443,15 @@ model system_settings {
   dataforSeoApiKey     String?
   openRouterApiKey     String?
   openaiApiKey         String?
+  geminiApiKey         String?  // Google AI Studio API Key (Nano Banana画像生成用)
   aiModel              String?  @default("openai/gpt-4-turbo")
   imageModel           String?  @default("pro")
   articleModel         String?  @default("pro")
   analysisModel        String?  @default("banana")
   keywordPrompt        String?  @db.Text
   keywordSuggestPrompt String?  @db.Text
-  structurePrompt      String?  @db.Text
-  draftPrompt          String?  @db.Text
-  proofreadingPrompt   String?  @db.Text
-  seoPrompt            String?  @db.Text
   imagePrompt          String?  @db.Text
+  systemPrompt         String?  @db.Text  // 3ステップパイプライン用システムプロンプト
   minSearchVolume      Int      @default(300)
   maxSearchVolume      Int      @default(2000)
   volumeZones          Json?

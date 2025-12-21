@@ -9,7 +9,6 @@ async function main() {
         where: { id: 'default' },
         update: {
             keywordPrompt: 'PERSISTENCE_TEST_VALUE',
-            structurePrompt: 'STRUCTURE_TEST_VALUE',
         },
         create: {
             id: 'default',
@@ -28,9 +27,9 @@ async function main() {
         console.log('Current System Settings:');
         console.log('------------------------');
         console.log(`keywordPrompt: ${settings.keywordPrompt ? settings.keywordPrompt.substring(0, 50) + '...' : 'null'}`);
-        console.log(`structurePrompt: ${settings.structurePrompt ? settings.structurePrompt.substring(0, 50) + '...' : 'null'}`);
-        console.log(`proofreadingPrompt: ${settings.proofreadingPrompt ? settings.proofreadingPrompt.substring(0, 50) + '...' : 'null'}`);
-        console.log(`seoPrompt: ${settings.seoPrompt ? settings.seoPrompt.substring(0, 50) + '...' : 'null'}`);
+        console.log(`keywordSuggestPrompt: ${settings.keywordSuggestPrompt ? settings.keywordSuggestPrompt.substring(0, 50) + '...' : 'null'}`);
+        console.log(`imagePrompt: ${settings.imagePrompt ? settings.imagePrompt.substring(0, 50) + '...' : 'null'}`);
+        console.log(`systemPrompt: ${settings.systemPrompt ? settings.systemPrompt.substring(0, 50) + '...' : 'null'}`);
         console.log(`imageModel: ${settings.imageModel}`);
         console.log(`articleModel: ${settings.articleModel}`);
         console.log(`analysisModel: ${settings.analysisModel}`);

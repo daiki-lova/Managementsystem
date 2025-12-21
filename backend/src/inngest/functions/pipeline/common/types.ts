@@ -1,12 +1,10 @@
-// 6ステージパイプラインの型定義
+// 3ステップパイプラインの型定義
 
 // ステージ名定義
 export const STAGE_NAMES = {
-  1: "keyword_analysis",
-  2: "structure",
-  3: "draft",
-  4: "seo",
-  5: "proofreading",
+  1: "title_generation",
+  2: "article_generation",
+  3: "image_generation",
 } as const;
 
 export type StageName = (typeof STAGE_NAMES)[keyof typeof STAGE_NAMES];
@@ -14,250 +12,151 @@ export type StageName = (typeof STAGE_NAMES)[keyof typeof STAGE_NAMES];
 // 進捗率定義
 export const STAGE_PROGRESS = {
   0: 0,    // 未開始
-  1: 15,   // キーワード分析完了
-  2: 35,   // 構成設計完了
-  3: 60,   // 記事執筆完了
-  4: 80,   // SEO最適化完了
-  5: 95,   // 監修・校正完了
-  6: 100,  // 保存完了
+  1: 20,   // タイトル生成完了
+  2: 80,   // 記事生成完了
+  3: 100,  // 画像生成・挿入完了
 } as const;
 
 // ステージラベル（UI表示用）
 export const STAGE_LABELS = {
-  1: "キーワード分析中...",
-  2: "構成を設計中...",
-  3: "記事を執筆中...",
-  4: "SEO最適化中...",
-  5: "監修・校正中...",
-  6: "保存中...",
+  1: "タイトル生成中...",
+  2: "記事を執筆中...",
+  3: "画像を生成中...",
 } as const;
 
 // ========================================
-// Stage 1: キーワード分析・企画
+// Stage 1: タイトル生成
 // ========================================
 export interface Stage1Input {
   keyword: string;
   categoryId: string;
   categoryName: string;
-  conversionGoal: string;
-  existingArticles: {
-    slug: string;
-    title: string;
-    summary?: string;
-    categoryId: string;
-  }[];
+  brandName: string;
+  brandDomain: string;
+}
+
+export interface Stage1Output {
+  title: string;
+  slug: string;
+  metaTitle: string;
+  metaDescription: string;
+}
+
+// ========================================
+// Stage 2: 記事生成
+// ========================================
+
+// 資格情報
+export interface Certification {
+  name: string;
+  year?: number;
+  location?: string;
+}
+
+// エピソード
+export interface Episode {
+  type: 'transformation' | 'student' | 'teaching' | 'other';
+  title: string;
+  content: string;
+}
+
+// 監修者の詳細情報
+export interface SupervisorInfo {
+  id: string;
+  name: string;
+  profile: string;          // bio（経歴）
+  role: string;
+  // キャリアデータ（具体的な数値）
+  careerStartYear?: number;     // ヨガ開始年
+  teachingStartYear?: number;   // 指導開始年
+  totalStudentsTaught?: number; // 累計指導人数
+  graduatesCount?: number;      // 養成講座卒業生数
+  weeklyLessons?: number;       // 週あたりレッスン数
+  // 資格情報
+  certifications?: Certification[];
+  // エピソード（経験談）
+  episodes?: Episode[];
+  // よく使うフレーズ
+  signaturePhrases?: string[];
+  // 専門・得意分野
+  specialties?: string[];
+  // パーソナリティフィールド
+  writingStyle?: 'formal' | 'casual' | 'professional';
+  philosophy?: string;          // 指導理念・信念
+  avoidWords?: string[];        // 使わない言葉・表現
+  targetAudience?: string;      // 主な指導対象
+  teachingApproach?: string;    // 指導スタイル
+  influences?: string[];        // 師事した先生・流派
+  locationContext?: string;     // 活動拠点
+}
+
+export interface Stage2Input {
+  title: string;
+  keyword: string;
+  categoryName: string;
+  // 監修者情報（詳細）
+  supervisor: SupervisorInfo;
+  // 情報バンク（監修者でフィルタ済み）
   infoBank: {
     id: string;
     title: string;
     type: string;
     content: string;
   }[];
-  // オプション: GSC/GA4データ
-  gscData?: {
-    query: string;
-    clicks: number;
-    impressions: number;
-    ctr: number;
-    position: number;
-  }[];
-  ga4Data?: {
-    pagePath: string;
-    pageViews: number;
-    avgSessionDuration: number;
-  }[];
-}
-
-export interface Stage1Output {
-  date: string;
-  conversion_goal: string;
-  selected_topics: {
-    category: string;
-    primary_keyword: string;
-    secondary_keywords: string[];
-    search_intent: string;
-    angle: string;
-    title_candidates: string[];
-    why_now: string;
-    priority_score: number;
-    internal_link_candidates: string[];
-    missing_info_questions: string[];
-  }[];
-}
-
-// ========================================
-// Stage 2: 構成・安全設計
-// ========================================
-export interface Stage2Input {
-  topicBrief: Stage1Output["selected_topics"][0];
-  infoBank: Stage1Input["infoBank"];
-  reviewerProfile: {
-    id: string;
+  // ブランド情報
+  brand: {
     name: string;
-    role: string;
-    systemPrompt: string;
-  };
-  contentIndex: {
-    slug: string;
-    title: string;
-  }[];
-  brandRules: {
-    name: string;
-    description: string;
+    domain: string;
     tone?: string;
-    prohibitedExpressions?: string[];
   };
+  // コンバージョン目標（オプション）
+  conversionGoal?: string;
+}
+
+export interface ImagePlaceholder {
+  position: string;
+  context: string;
+  altHint: string;
 }
 
 export interface Stage2Output {
-  risk_level: "low" | "medium" | "high";
-  must_answer_questions: string[];
-  outline: {
-    h2: string;
-    purpose: string;
-    info_bank_refs: string[];
-    h3: {
-      title: string;
-      purpose: string;
-    }[];
-  }[];
-  citation_needs: {
-    claim: string;
-    preferred_source_type: string;
-  }[];
-  internal_link_plan: {
-    in_body_slots: number;
-    end_related_posts: number;
-    candidates: string[];
-  };
-  image_plan: {
-    slot: string;
-    intent: string;
-    avoid: string;
-    alt_hint: string;
-  }[];
-  open_questions: string[];
+  html: string;
+  imagePlaceholders: ImagePlaceholder[];
 }
 
 // ========================================
-// Stage 3: 記事執筆
+// Stage 3: 画像生成
 // ========================================
 export interface Stage3Input {
-  topicBrief: Stage1Output["selected_topics"][0];
-  outlinePackage: Stage2Output;
-  infoBank: Stage1Input["infoBank"];
-  reviewerProfile: Stage2Input["reviewerProfile"];
-  brandRules: Stage2Input["brandRules"];
+  articleHtml: string;
+  imagePlaceholders: ImagePlaceholder[];
+  articleTitle: string;
+  categoryName: string;
+  brandTone?: string;
+}
+
+export interface GeneratedImage {
+  position: string;
+  url: string;
+  alt: string;
+  prompt: string;
 }
 
 export interface Stage3Output {
-  meta: {
-    title: string;
-    metaTitle: string;
-    metaDescription: string;
-  };
-  blocks: {
-    id: string;
-    type: "p" | "h2" | "h3" | "h4" | "ul" | "ol" | "blockquote" | "callout" | "image";
-    content: string;
-    metadata?: Record<string, unknown>;
-  }[];
-  schema_jsonld: Record<string, unknown>;
-  internal_links: {
-    slug: string;
-    anchor: string;
-    position: string;
-  }[];
-  image_jobs: {
-    slot: string;
-    prompt: string;
-    alt: string;
-  }[];
-}
-
-// ========================================
-// Stage 4: SEO/LLMO最適化
-// ========================================
-export interface Stage4Input {
-  draft: Stage3Output;
-  topicBrief: Stage1Output["selected_topics"][0];
-  outlinePackage: Stage2Output;
-  infoBank: Stage1Input["infoBank"];
-  brandRules: Stage2Input["brandRules"];
-}
-
-export interface Stage4Output {
-  meta: Stage3Output["meta"];
-  optimized_blocks: Stage3Output["blocks"];
-  schema_jsonld: Record<string, unknown>;
-  llmo_snippets: {
-    short_summary: string;
-    key_takeaways: string[];
-  };
-  internal_links_used: {
-    slug: string;
-    anchor: string;
-  }[];
-  image_jobs: Stage3Output["image_jobs"];
-  issues: string[];
-}
-
-// ========================================
-// Stage 5: 監修・校正
-// ========================================
-export interface Stage5Input {
-  articlePackage: Stage4Output;
-  reviewerProfile: Stage2Input["reviewerProfile"];
-  infoBank: Stage1Input["infoBank"];
-  brandRules: Stage2Input["brandRules"];
-  conversionGoal: string;
-}
-
-export interface Stage5Output {
-  // 校正ステータス: approved=承認, needs_changes=要修正
-  status: "approved" | "needs_changes";
-  // 最終ブロック（承認時は必須）
-  final_blocks: Stage3Output["blocks"];
-  // 最終メタ情報（承認時は必須）
-  final_meta: Stage3Output["meta"];
-  // 変更内容
-  changes_made: {
-    original: string;
-    revised: string;
-    reason: string;
-  }[];
-  // 安全性に関する注記
-  safety_notes: string[];
-  // 免責事項が追加されたか
-  disclaimer_added: boolean;
-  // 品質スコア
-  quality_score: {
-    accuracy: number;
-    readability: number;
-    seo_optimization: number;
-    brand_alignment: number;
-    overall: number;
-  };
-  // 最終レビューコメント
-  final_review_comments: string[];
-  // 要修正時の必須変更点（status=needs_changesの場合）
-  required_changes?: {
-    location: string;
-    problem: string;
-    suggested_fix: string;
-  }[];
+  finalHtml: string;
+  generatedImages: GeneratedImage[];
 }
 
 // ========================================
 // パイプライン全体
 // ========================================
-export interface PipelineContext {
+export interface PipelineInput {
   jobId: string;
   keyword: string;
   categoryId: string;
   authorId: string;
   brandId: string;
-  conversionIds: string[];
-  knowledgeItemIds: string[];
+  conversionIds?: string[];
   userId: string;
 }
 
@@ -273,6 +172,4 @@ export interface AllStageOutputs {
   stage1?: Stage1Output;
   stage2?: Stage2Output;
   stage3?: Stage3Output;
-  stage4?: Stage4Output;
-  stage5?: Stage5Output;
 }

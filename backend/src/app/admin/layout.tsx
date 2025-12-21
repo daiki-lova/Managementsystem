@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
 import { AuthProvider } from "./lib/auth-context";
 import { QueryProvider } from "./lib/query-client";
+import { ToasterWrapper } from "./lib/toaster-wrapper";
 import "./admin.css";
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ export default function AdminLayout({
     <QueryProvider>
       <AuthProvider>
         {children}
-        <Toaster />
+        <ToasterWrapper />
       </AuthProvider>
     </QueryProvider>
   );

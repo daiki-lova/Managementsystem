@@ -35,11 +35,8 @@ export function SettingsView() {
         analysisModel: 'anthropic/claude-3.5-haiku',
         keywordPrompt: '',
         keywordSuggestPrompt: '',
-        structurePrompt: '',
-        draftPrompt: '',
-        proofreadingPrompt: '',
-        seoPrompt: '',
         imagePrompt: '',
+        systemPrompt: '',
     });
 
     // API key editing state
@@ -63,11 +60,8 @@ export function SettingsView() {
                 analysisModel: settings.analysisModel || 'anthropic/claude-3.5-haiku',
                 keywordPrompt: settings.keywordPrompt || '',
                 keywordSuggestPrompt: settings.keywordSuggestPrompt || '',
-                structurePrompt: settings.structurePrompt || '',
-                draftPrompt: settings.draftPrompt || '',
-                proofreadingPrompt: settings.proofreadingPrompt || '',
-                seoPrompt: settings.seoPrompt || '',
                 imagePrompt: settings.imagePrompt || '',
+                systemPrompt: settings.systemPrompt || '',
             });
         }
     }, [settings]);
@@ -675,72 +669,21 @@ export function SettingsView() {
                                 <p className="text-[10px] text-neutral-400 pl-1">AIがキーワード候補を提案する際に使用されます（戦略画面のAI提案）</p>
                             </div>
 
-                            {/* 構成案生成 */}
-                            <div className="space-y-3">
+                            {/* 記事生成システムプロンプト */}
+                            <div className="space-y-3 col-span-2">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-bold text-neutral-900">構成案生成</Label>
+                                    <Label className="text-sm font-bold text-neutral-900">記事生成システムプロンプト</Label>
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
                                 </div>
                                 <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
                                     <Textarea
                                         className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        value={formData.structurePrompt}
-                                        onChange={(e) => setFormData({...formData, structurePrompt: e.target.value})}
-                                        placeholder="構成案生成用のプロンプトを入力..."
+                                        value={formData.systemPrompt}
+                                        onChange={(e) => setFormData({...formData, systemPrompt: e.target.value})}
+                                        placeholder="記事生成パイプライン用のシステムプロンプトを入力..."
                                     />
                                 </div>
-                                <p className="text-[10px] text-neutral-400 pl-1">H2・H3見出しの階層構造を作成する際に使用されます</p>
-                            </div>
-
-                            {/* 2行目左：記事執筆 */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-bold text-neutral-900">記事執筆</Label>
-                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        value={formData.draftPrompt}
-                                        onChange={(e) => setFormData({...formData, draftPrompt: e.target.value})}
-                                        placeholder="記事執筆用のプロンプトを入力..."
-                                    />
-                                </div>
-                                <p className="text-[10px] text-neutral-400 pl-1">構成案に基づいて本文を執筆する際に使用されます</p>
-                            </div>
-
-                            {/* 2行目右：校正・推敲 */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-bold text-neutral-900">校正・推敲</Label>
-                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        value={formData.proofreadingPrompt}
-                                        onChange={(e) => setFormData({...formData, proofreadingPrompt: e.target.value})}
-                                        placeholder="校正・推敲用のプロンプトを入力..."
-                                    />
-                                </div>
-                                <p className="text-[10px] text-neutral-400 pl-1">誤字脱字、表記ゆれ、ファクトチェックの基準として使用されます</p>
-                            </div>
-
-                            {/* 2行目右：SEO最適化 */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-bold text-neutral-900">SEO最適化</Label>
-                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900">デフォルトに戻す</Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[180px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300"
-                                        value={formData.seoPrompt}
-                                        onChange={(e) => setFormData({...formData, seoPrompt: e.target.value})}
-                                        placeholder="SEO最適化用のプロンプトを入力..."
-                                    />
-                                </div>
-                                <p className="text-[10px] text-neutral-400 pl-1">メタ情報の生成、キーワード配置、内部リンク提案に使用されます</p>
+                                <p className="text-[10px] text-neutral-400 pl-1">3ステップパイプライン（タイトル生成→記事生成→保存）の全ステップで共通して使用されます。監修者のコンテキストと組み合わせてAIに送信されます。</p>
                             </div>
                         </div>
                     </section>

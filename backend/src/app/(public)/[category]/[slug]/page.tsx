@@ -243,7 +243,40 @@ function renderBlock(block: BlockData) {
         />
       );
     }
+    // 古い形式のブロックタイプ（introduction, section, conclusion）をサポート
+    case 'introduction':
+    case 'section':
+    case 'conclusion':
+      if (!block.content) return null;
+      return (
+        <p className="font-[var(--font-noto-sans-jp)] font-light leading-[1.8] text-[#1f1f1f] text-[16px] tracking-[0.4px] mb-6 whitespace-pre-line">
+          {block.content}
+        </p>
+      );
+    // callout/internal-linkタイプもサポート
+    case 'callout':
+      return (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
+          <p className="font-[var(--font-noto-sans-jp)] font-medium text-[#1f1f1f] text-[16px]">
+            {block.content}
+          </p>
+        </div>
+      );
+    case 'internal-link':
+      return (
+        <p className="font-[var(--font-noto-sans-jp)] font-light text-[#1f1f1f] text-[16px] mb-6">
+          {block.content}
+        </p>
+      );
     default:
+      // 未知のタイプでもcontentがあれば表示
+      if (block.content) {
+        return (
+          <p className="font-[var(--font-noto-sans-jp)] font-light leading-[1.8] text-[#1f1f1f] text-[16px] tracking-[0.4px] mb-6">
+            {block.content}
+          </p>
+        );
+      }
       return null;
   }
 }
