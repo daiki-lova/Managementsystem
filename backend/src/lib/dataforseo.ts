@@ -256,3 +256,180 @@ export function scoreKeyword(
 
   return score;
 }
+
+// ========================================
+// SERP API: 検索意図分析用
+// ========================================
+
+// People Also Ask（関連質問）
+export interface PeopleAlsoAskItem {
+  question: string;
+  answer?: string;
+}
+
+// 上位記事の情報
+export interface TopResultItem {
+  rank: number;
+  url: string;
+  title: string;
+  description?: string;
+}
+
+// SERP分析結果
+export interface SerpAnalysisResult {
+  keyword: string;
+  peopleAlsoAsk: PeopleAlsoAskItem[];
+  topResults: TopResultItem[];
+  relatedSearches: string[];
+  fetchedAt: Date;
+}
+
+// DataForSEO SERP APIレスポンスの型
+interface SerpOrgItem {
+  type: string;
+  rank_group?: number;
+  rank_absolute?: number;
+  url?: string;
+  title?: string;
+  description?: string;
+  items?: Array<{
+    question?: string;
+    answer?: string;
+    title?: string;
+  }>;
+}
+
+interface SerpTaskResult {
+  keyword: string;
+  items?: SerpOrgItem[];
+}
+
+interface SerpApiResponse {
+  status_code: number;
+  status_message: string;
+  tasks?: Array<{
+    status_code: number;
+    status_message: string;
+    result?: SerpTaskResult[];
+  }>;
+}
+
+// DataForSEOClient に SERP メソッドを追加
+export async function getSerpAnalysis(
+  authKey: string,
+  keyword: string,
+  locationCode = 2392
+): Promise<SerpAnalysisResult> {
+  const baseUrl = "https://api.dataforseo.com/v3";
+
+  // 認証キーの処理
+  let encodedKey = authKey.trim();
+  if (encodedKey.includes(':') && !isBase64(encodedKey)) {
+    encodedKey = Buffer.from(encodedKey).toString('base64');
+  }
+
+  const payload = [{
+    keyword,
+    location_code: locationCode,
+    language_code: "ja",
+    device: "desktop",
+    os: "windows",
+  }];
+
+  const response = await fetch(`${baseUrl}/serp/google/organic/live/advanced`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${encodedKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    console.error("DataForSEO SERP API error:", response.status, errorText.slice(0, 300));
+    // エラー時は空の結果を返す（Graceful Degradation）
+    return {
+      keyword,
+      peopleAlsoAsk: [],
+      topResults: [],
+      relatedSearches: [],
+      fetchedAt: new Date(),
+    };
+  }
+
+  const data: SerpApiResponse = await response.json();
+
+  if (data.status_code !== 20000 || !data.tasks?.[0]?.result?.[0]) {
+    console.warn("DataForSEO SERP: No results for keyword:", keyword);
+    return {
+      keyword,
+      peopleAlsoAsk: [],
+      topResults: [],
+      relatedSearches: [],
+      fetchedAt: new Date(),
+    };
+  }
+
+  const items = data.tasks[0].result[0].items || [];
+
+  // People Also Ask を抽出
+  const peopleAlsoAsk: PeopleAlsoAskItem[] = [];
+  const paaItems = items.filter(item => item.type === "people_also_ask");
+  for (const paaItem of paaItems) {
+    if (paaItem.items) {
+      for (const q of paaItem.items) {
+        if (q.question) {
+          peopleAlsoAsk.push({
+            question: q.question,
+            answer: q.answer,
+          });
+        }
+      }
+    }
+  }
+
+  // 上位オーガニック結果を抽出（最大10件）
+  const topResults: TopResultItem[] = items
+    .filter(item => item.type === "organic" && item.url && item.title)
+    .slice(0, 10)
+    .map((item, index) => ({
+      rank: item.rank_group || index + 1,
+      url: item.url!,
+      title: item.title!,
+      description: item.description,
+    }));
+
+  // 関連検索を抽出
+  const relatedSearches: string[] = [];
+  const relatedItems = items.filter(item => item.type === "related_searches");
+  for (const relItem of relatedItems) {
+    if (relItem.items) {
+      for (const r of relItem.items) {
+        if (r.title) {
+          relatedSearches.push(r.title);
+        }
+      }
+    }
+  }
+
+  return {
+    keyword,
+    peopleAlsoAsk: peopleAlsoAsk.slice(0, 8), // 最大8件
+    topResults,
+    relatedSearches: relatedSearches.slice(0, 10), // 最大10件
+    fetchedAt: new Date(),
+  };
+}
+
+// Base64チェック（モジュールレベル）
+function isBase64(str: string): boolean {
+  if (!str || str.length === 0) return false;
+  try {
+    const decoded = Buffer.from(str, 'base64').toString('utf8');
+    const reencoded = Buffer.from(decoded).toString('base64');
+    return reencoded === str && /^[A-Za-z0-9+/]*={0,2}$/.test(str);
+  } catch {
+    return false;
+  }
+}
