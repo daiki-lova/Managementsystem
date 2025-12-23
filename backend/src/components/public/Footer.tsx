@@ -1,21 +1,15 @@
 import Link from 'next/link';
 
-const CATEGORIES = [
-  { label: 'Yoga', slug: 'yoga' },
-  { label: 'Pilates', slug: 'pilates' },
-  { label: 'Diet', slug: 'diet' },
-  { label: 'Job', slug: 'job' },
-  { label: 'Beauty', slug: 'beauty' },
-  { label: 'Life', slug: 'life' },
-  { label: 'Sports', slug: 'sports' },
-  { label: 'Side Business', slug: 'side-business' },
-  { label: 'Skills', slug: 'skills' },
-];
+import { Category } from '@/lib/public-types';
 
-export function Footer() {
+interface FooterProps {
+  categories?: Category[];
+}
+
+export function Footer({ categories = [] }: FooterProps) {
   return (
     <footer className="bg-black text-white py-16 max-md:py-12 w-full">
-      <div className="max-w-[1552px] mx-auto px-[64px] max-md:px-[40px]">
+      <div className="mx-auto px-[64px] max-md:px-[40px]">
         {/* Logo Section */}
         <div className="text-center max-md:text-left mb-14 max-md:mb-8">
           <img
@@ -31,15 +25,15 @@ export function Footer() {
         {/* Category Grid - Desktop */}
         <div className="mb-14 max-md:hidden">
           <div className="flex justify-center items-center gap-8 flex-wrap">
-            {CATEGORIES.map((cat, index) => (
+            {categories.map((cat, index) => (
               <div key={cat.slug} className="flex items-center gap-8">
                 <Link
                   href={`/${cat.slug}`}
                   className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-[var(--font-noto-sans)] font-medium uppercase border-b border-transparent hover:border-white pb-1"
                 >
-                  {cat.label}
+                  {cat.name}
                 </Link>
-                {index < CATEGORIES.length - 1 && (
+                {index < categories.length - 1 && (
                   <span className="text-[#444] text-[13px]">|</span>
                 )}
               </div>
@@ -53,20 +47,20 @@ export function Footer() {
             カテゴリー
           </h3>
           <div className="flex flex-col gap-3">
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <Link
                 key={cat.slug}
                 href={`/${cat.slug}`}
                 className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-[var(--font-noto-sans)]"
               >
-                {cat.label}
+                {cat.name}
               </Link>
             ))}
           </div>
         </div>
 
         {/* Border Line */}
-        <div className="h-[1px] bg-[#333] mb-8 max-w-[800px] mx-auto max-md:mx-0 max-md:mb-6" />
+        <div className="h-[1px] bg-[#333] mb-8 w-full max-md:mb-6" />
 
         {/* Bottom Links */}
         <div className="flex justify-center items-center gap-8 mb-8 max-md:flex-col max-md:items-start max-md:gap-3 max-md:mb-6">

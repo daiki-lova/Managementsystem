@@ -4,7 +4,9 @@ import { MediaSource, ArticleImageType, Prisma } from "@prisma/client";
 import { uploadImage } from "@/lib/supabase";
 import { randomUUID } from "crypto";
 import { getDecryptedSettings } from "@/lib/settings";
-import { buildImagePrompt, replacePlaceholderWithImage } from "./pipeline/common/prompts";
+import { buildImagePrompt, replacePlaceholderWithImage, DEFAULT_IMAGE_PROMPT } from "./pipeline/common/prompts";
+import { STAGE_MODEL_CONFIG } from "./pipeline/common/openrouter";
+import sharp from "sharp";
 
 // 画像プレースホルダーの型定義
 interface ImagePlaceholder {
@@ -116,8 +118,10 @@ export const generateImages = inngest.createFunction(
       return { skipped: true, reason: "No OpenRouter API key" };
     }
 
-    // 短いプロンプトでトークン制限を回避
-    const systemPrompt = "Create a yoga illustration.";
+    // DB設定のimagePromptがあればそれを使用、なければデフォルト
+    // 手描き水彩スケッチ風のエディトリアルイラスト（16:9アスペクト比、文字なし）
+    const defaultImageStyle = "You are an editorial illustrator. Create images in hand-drawn watercolor sketch style with loose line art, rough outlines, pale transparent pastel colors, plain white background. Never include any text, letters, words, or typography in the image.";
+    const imageBasePrompt = settings.imagePrompt || defaultImageStyle;
     const generatedImages: GeneratedImage[] = [];
 
     // ========================================
@@ -141,7 +145,7 @@ export const generateImages = inngest.createFunction(
             brandTone,
           });
 
-          const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+          const fullPrompt = `${imageBasePrompt}\n\n${prompt}`;
           return generateImage({
             prompt: fullPrompt,
             openRouterApiKey: settings.openRouterApiKey || undefined,
@@ -256,7 +260,7 @@ export const generateImages = inngest.createFunction(
         const stepName = `generate-image-${job.slot}-${i}`;
 
         const imageUrl = await step.run(stepName, async () => {
-          const fullPrompt = `${systemPrompt}\n\n${job.prompt}`;
+          const fullPrompt = `${imageBasePrompt}\n\n${job.prompt}`;
           return generateImage({
             prompt: fullPrompt,
             openRouterApiKey: settings.openRouterApiKey || undefined,
@@ -328,9 +332,9 @@ export const generateImages = inngest.createFunction(
     console.log("[ImageGeneration] No image data provided, using fallback generation");
 
     const thumbnailUrl = await step.run("generate-thumbnail", async () => {
-      const userPrompt = `ブログ記事のアイキャッチ画像。タイトル: "${article.title}"。カテゴリ: ${article.categories.name}。`;
+      const userPrompt = `editorial illustration for a blog post in hand-drawn watercolor sketch style, loose line art with rough outlines, pale and transparent pastel colors, plain white background. The image is a conceptual visualization representing the theme of: ${article.title} - ${article.categories.name}, gentle and airy atmosphere relevant to the topic, minimalist composition. No text, no letters, no words, no typography in the image.`;
       return generateImage({
-        prompt: `${systemPrompt}\n\n${userPrompt}`,
+        prompt: `${imageBasePrompt}\n\n${userPrompt}`,
         openRouterApiKey: settings.openRouterApiKey || undefined,
       });
     });
@@ -367,16 +371,51 @@ interface GenerateImageParams {
   openRouterApiKey?: string;  // OpenRouter API Key
 }
 
-// OpenRouter経由のNano Banana (Gemini 2.5 Flash Image Preview)
-const NANO_BANANA_MODEL = "google/gemini-2.5-flash-image-preview";
+// 画像生成モデル（STAGE_MODEL_CONFIGから取得）
+const IMAGE_MODEL = STAGE_MODEL_CONFIG.image_generation.model;
 
 /**
- * OpenRouter経由でNano Banana (Gemini) を使用して画像を生成
+ * 画像を16:9枠内にフィット（白背景で余白追加、切らない）
+ * Geminiは1024x1024を生成するので、16:9枠（1024x576）内に収める
+ */
+async function fitTo16by9(imageBuffer: Buffer): Promise<Buffer> {
+  const image = sharp(imageBuffer);
+  const metadata = await image.metadata();
+
+  if (!metadata.width || !metadata.height) {
+    console.log("[Fit] Could not get image metadata, returning original");
+    return imageBuffer;
+  }
+
+  const width = metadata.width;
+  const height = metadata.height;
+
+  // 16:9の出力サイズを計算（幅を基準）
+  const targetWidth = width;
+  const targetHeight = Math.round(width / (16 / 9));
+
+  // 画像を16:9枠内にフィット（アスペクト比を維持、白背景で余白追加）
+  console.log(`[Fit] Original: ${width}x${height}, Target: ${targetWidth}x${targetHeight} (16:9)`);
+
+  const fittedBuffer = await sharp(imageBuffer)
+    .resize(targetWidth, targetHeight, {
+      fit: 'contain',
+      background: { r: 255, g: 255, b: 255, alpha: 1 }
+    })
+    .png()
+    .toBuffer();
+
+  return fittedBuffer;
+}
+
+/**
+ * OpenRouter経由でGemini を使用して画像を生成
+ * 日本風ファッションイラストスタイル
  * https://openrouter.ai/docs/guides/overview/multimodal/image-generation
  */
-async function generateImageWithOpenRouter(prompt: string, apiKey: string): Promise<string | null> {
+async function generateImageWithGemini(prompt: string, apiKey: string): Promise<string | null> {
   try {
-    console.log(`[NanoBanana] Generating image via OpenRouter: ${NANO_BANANA_MODEL}`);
+    console.log(`[Gemini] Generating image via OpenRouter: ${IMAGE_MODEL}`);
 
     // 120秒のタイムアウト（画像生成は時間がかかる場合がある）
     const controller = new AbortController();
@@ -393,7 +432,7 @@ async function generateImageWithOpenRouter(prompt: string, apiKey: string): Prom
           "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
         },
         body: JSON.stringify({
-          model: NANO_BANANA_MODEL,
+          model: IMAGE_MODEL,
           messages: [
             {
               role: "user",
@@ -411,17 +450,17 @@ async function generateImageWithOpenRouter(prompt: string, apiKey: string): Prom
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[NanoBanana] OpenRouter API error:", response.status, errorText);
+      console.error("[Gemini] OpenRouter API error:", response.status, errorText);
       return null;
     }
 
     const data = await response.json();
-    console.log("[NanoBanana] Response received from OpenRouter");
+    console.log("[Gemini] Response received from OpenRouter");
 
     // レスポンスから画像データを抽出
     const message = data.choices?.[0]?.message;
     if (!message) {
-      console.error("[NanoBanana] No message in response");
+      console.error("[Gemini] No message in response");
       return null;
     }
 
@@ -436,19 +475,21 @@ async function generateImageWithOpenRouter(prompt: string, apiKey: string): Prom
         if (typeof dataUrl === "string" && dataUrl.startsWith("data:image")) {
           const base64Match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
           if (base64Match) {
-            const extension = base64Match[1] === "jpeg" ? "jpg" : base64Match[1];
             const base64Data = base64Match[2];
             const imageBuffer = Buffer.from(base64Data, "base64");
 
-            const filePath = `generated/${Date.now()}-${randomUUID()}.${extension}`;
+            // 16:9枠内にフィット（白背景で余白追加）
+            const fittedBuffer = await fitTo16by9(imageBuffer);
+
+            const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
             const { url } = await uploadImage(
               "MEDIA",
               filePath,
-              imageBuffer,
-              `image/${base64Match[1]}`
+              fittedBuffer,
+              "image/png"
             );
 
-            console.log(`[NanoBanana] Image saved (object format): ${url}`);
+            console.log(`[Gemini] Image saved (object format, 16:9): ${url}`);
             return url;
           }
         }
@@ -458,20 +499,22 @@ async function generateImageWithOpenRouter(prompt: string, apiKey: string): Prom
       if (typeof imageData === "string" && imageData.startsWith("data:image")) {
         const base64Match = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
         if (base64Match) {
-          const extension = base64Match[1] === "jpeg" ? "jpg" : base64Match[1];
           const base64Data = base64Match[2];
           const imageBuffer = Buffer.from(base64Data, "base64");
 
+          // 16:9枠内にフィット（白背景で余白追加）
+          const fittedBuffer = await fitTo16by9(imageBuffer);
+
           // Supabaseにアップロード
-          const filePath = `generated/${Date.now()}-${randomUUID()}.${extension}`;
+          const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
           const { url } = await uploadImage(
             "MEDIA",
             filePath,
-            imageBuffer,
-            `image/${base64Match[1]}`
+            fittedBuffer,
+            "image/png"
           );
 
-          console.log(`[NanoBanana] Image saved (string format): ${url}`);
+          console.log(`[Gemini] Image saved (string format, 16:9): ${url}`);
           return url;
         }
       }
@@ -481,19 +524,21 @@ async function generateImageWithOpenRouter(prompt: string, apiKey: string): Prom
     if (typeof message.content === "string" && message.content.startsWith("data:image")) {
       const base64Match = message.content.match(/^data:image\/(\w+);base64,(.+)$/);
       if (base64Match) {
-        const extension = base64Match[1] === "jpeg" ? "jpg" : base64Match[1];
         const base64Data = base64Match[2];
         const imageBuffer = Buffer.from(base64Data, "base64");
 
-        const filePath = `generated/${Date.now()}-${randomUUID()}.${extension}`;
+        // 16:9枠内にフィット（白背景で余白追加）
+        const fittedBuffer = await fitTo16by9(imageBuffer);
+
+        const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
         const { url } = await uploadImage(
           "MEDIA",
           filePath,
-          imageBuffer,
-          `image/${base64Match[1]}`
+          fittedBuffer,
+          "image/png"
         );
 
-        console.log(`[NanoBanana] Image saved: ${url}`);
+        console.log(`[Gemini] Image saved (content format, 16:9): ${url}`);
         return url;
       }
     }
@@ -506,19 +551,21 @@ async function generateImageWithOpenRouter(prompt: string, apiKey: string): Prom
           if (imageUrl.startsWith("data:image")) {
             const base64Match = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
             if (base64Match) {
-              const extension = base64Match[1] === "jpeg" ? "jpg" : base64Match[1];
               const base64Data = base64Match[2];
               const imageBuffer = Buffer.from(base64Data, "base64");
 
-              const filePath = `generated/${Date.now()}-${randomUUID()}.${extension}`;
+              // 16:9にフィット（白背景で収める）
+              const fittedBuffer = await fitTo16by9(imageBuffer);
+
+              const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
               const { url } = await uploadImage(
                 "MEDIA",
                 filePath,
-                imageBuffer,
-                `image/${base64Match[1]}`
+                fittedBuffer,
+                "image/png"
               );
 
-              console.log(`[NanoBanana] Image saved: ${url}`);
+              console.log(`[Gemini] Image saved (array format, 16:9 fit): ${url}`);
               return url;
             }
           }
@@ -526,14 +573,14 @@ async function generateImageWithOpenRouter(prompt: string, apiKey: string): Prom
       }
     }
 
-    console.error("[NanoBanana] No image data found in response");
-    console.log("[NanoBanana] Response structure:", JSON.stringify(data).substring(0, 1000));
+    console.error("[Gemini] No image data found in response");
+    console.log("[Gemini] Response structure:", JSON.stringify(data).substring(0, 1000));
     return null;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      console.error("[NanoBanana] Request timed out");
+      console.error("[Gemini] Request timed out");
     } else {
-      console.error("[NanoBanana] Error:", error);
+      console.error("[Gemini] Error:", error);
     }
     return null;
   }
@@ -541,21 +588,20 @@ async function generateImageWithOpenRouter(prompt: string, apiKey: string): Prom
 
 /**
  * 画像を生成するメイン関数
+ * Geminiで日本風ファッションイラストを生成
  */
 async function generateImage(params: GenerateImageParams): Promise<string | null> {
   const { prompt, openRouterApiKey } = params;
 
-  // OpenRouter経由でNano Banana (Gemini) を使用
-  if (openRouterApiKey) {
-    console.log("[ImageGeneration] Using Nano Banana via OpenRouter");
-    const result = await generateImageWithOpenRouter(prompt, openRouterApiKey);
-    if (result) return result;
-    console.log("[ImageGeneration] OpenRouter image generation failed");
-  } else {
+  if (!openRouterApiKey) {
     console.log("[ImageGeneration] OpenRouter API Key not configured");
+    return null;
   }
 
-  // APIキーがない場合はnullを返す
-  console.log("[ImageGeneration] No image API available - please configure OpenRouter API key in settings");
+  console.log("[ImageGeneration] Generating image with Gemini...");
+  const result = await generateImageWithGemini(prompt, openRouterApiKey);
+  if (result) return result;
+
+  console.log("[ImageGeneration] Image generation failed");
   return null;
 }

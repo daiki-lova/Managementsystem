@@ -1,39 +1,8 @@
 import prisma from './prisma';
 import { cache } from 'react';
 
-// 公開記事の型定義
-export interface PublicArticle {
-  id: string;
-  title: string;
-  slug: string;
-  blocks: unknown;
-  publishedAt: Date | null;
-  metaTitle: string | null;
-  metaDescription: string | null;
-  ogpImageUrl: string | null;
-  categories: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-  authors: {
-    id: string;
-    name: string;
-    role: string;
-    bio: string;
-    imageUrl: string | null;
-    qualifications: unknown;
-  };
-  media_assets: {
-    url: string;
-    altText: string | null;
-  } | null;
-  tags: Array<{
-    id: string;
-    name: string;
-    slug: string;
-  }>;
-}
+import { PublicArticle, Category } from './public-types';
+export type { PublicArticle, Category };
 
 // ISR用のrevalidate設定（60秒）
 export const REVALIDATE_INTERVAL = 60;
@@ -173,6 +142,8 @@ export const getCategories = cache(async () => {
       id: true,
       name: true,
       slug: true,
+      description: true,
+      color: true,
       articlesCount: true,
     },
     orderBy: { name: 'asc' },
@@ -188,6 +159,7 @@ export const getCategoryBySlug = cache(async (slug: string) => {
       name: true,
       slug: true,
       description: true,
+      color: true,
       articlesCount: true,
     },
   });
@@ -267,4 +239,71 @@ export const getArticleByOldSlug = cache(async (
   });
 
   return history;
+});
+
+// タグ一覧取得
+export const getTags = cache(async () => {
+  return prisma.tags.findMany({
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      _count: {
+        select: { article_tags: true },
+      },
+    },
+    orderBy: { name: 'asc' },
+  });
+});
+
+// タグ詳細取得
+export const getTagBySlug = cache(async (slug: string) => {
+  return prisma.tags.findUnique({
+    where: { slug },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  });
+});
+
+// タグ別記事取得
+export const getArticlesByTag = cache(async (
+  tagSlug: string,
+  limit: number = 20,
+  offset: number = 0
+): Promise<{ articles: PublicArticle[]; total: number }> => {
+  const tag = await prisma.tags.findUnique({
+    where: { slug: tagSlug },
+    select: { id: true },
+  });
+
+  if (!tag) {
+    return { articles: [], total: 0 };
+  }
+
+  const where = {
+    status: 'PUBLISHED' as const,
+    publishedAt: { not: null },
+    article_tags: {
+      some: { tagId: tag.id },
+    },
+  };
+
+  const [articles, total] = await Promise.all([
+    prisma.articles.findMany({
+      where,
+      orderBy: { publishedAt: 'desc' },
+      skip: offset,
+      take: limit,
+      select: articleSelect,
+    }),
+    prisma.articles.count({ where }),
+  ]);
+
+  return {
+    articles: articles.map(mapArticle),
+    total,
+  };
 });

@@ -19,27 +19,19 @@ import { randomUUID } from "crypto";
 
 // バリデーションスキーマ
 const createJobSchema = z.object({
-  keywords: z
-    .array(
-      z.object({
-        keyword: z.string().min(1),
-        searchVolume: z.number().optional(),
-      })
-    )
-    .min(1)
-    .max(5), // 最大5キーワード同時生成
   categoryId: z.string().min(1),
   authorId: z.string().min(1),
   brandId: z.string().min(1),
   conversionIds: z.array(z.string()).optional().default([]),
+  // 受講生の声ベース生成に使用
   knowledgeItemIds: z.array(z.string()).optional().default([]),
   publishStrategy: z
     .enum(["DRAFT", "PUBLISH_NOW", "SCHEDULED"])
     .optional()
     .default("DRAFT"),
   scheduledAt: z.string().datetime().optional(),
-  // 6ステージパイプラインを使用するかどうか（デフォルト: true）
-  usePipeline: z.boolean().optional().default(true),
+  // パイプラインバージョン: V5のみサポート（Web検索 + LLMo最適化 + モノトーンスタイル）
+  pipelineVersion: z.literal("v5").optional().default("v5"),
 });
 
 // GET /api/generation-jobs - ジョブ一覧取得
@@ -165,16 +157,23 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 各キーワードに対してジョブを作成
+      // 受講生の声が必要
+      if (knowledgeItemIds.length === 0) {
+        return errorResponse(
+          "VALIDATION_ERROR",
+          "受講生の声を選択してください",
+          400
+        );
+      }
+
       const jobs = [];
 
-      for (const keywordData of validated.keywords) {
-        // ジョブを作成
+      // 各knowledgeItemIdに対して1つのジョブを作成
+      for (const knowledgeItemId of knowledgeItemIds) {
         const job = await prisma.generation_jobs.create({
           data: {
             id: randomUUID(),
-            keyword: keywordData.keyword,
-            searchVolume: keywordData.searchVolume,
+            keyword: `V5パイプライン（自動生成）`,
             categoryId: validated.categoryId,
             authorId: validated.authorId,
             brandId: validated.brandId,
@@ -189,29 +188,21 @@ export async function POST(request: NextRequest) {
               })),
             },
             generation_job_knowledge_items: {
-              create: knowledgeItemIds.map((knowledgeItemId: string) => ({
-                knowledgeItemId,
-              })),
+              create: [{ knowledgeItemId }],
             },
           },
         });
 
-        // Inngestイベントを発火
-        // usePipelineがtrueの場合は6ステージパイプラインを使用
-        const eventName = validated.usePipeline
-          ? "article/generate-pipeline"
-          : "article/generate";
-
+        // V5パイプラインイベントを発火
         await inngest.send({
-          name: eventName,
+          name: "article/generate-pipeline-v5",
           data: {
             jobId: job.id,
-            keyword: keywordData.keyword,
+            knowledgeItemId,
             categoryId: validated.categoryId,
             authorId: validated.authorId,
             brandId: validated.brandId,
             conversionIds,
-            knowledgeItemIds,
             userId: user.id,
           },
         });

@@ -6,13 +6,10 @@
     "postinstall": "prisma generate",
     "dev": "concurrently --kill-others \"npm run dev:next\" \"npm run dev:inngest\"",
     "dev:next": "dotenv -e .env.local -o -- next dev",
-    "dev:inngest": "npx inngest-cli@latest dev -u http://localhost:3000/api/inngest --no-discovery",
+    "dev:inngest": "npx inngest-cli@latest dev -u http://localhost:4000/api/inngest --no-discovery",
     "build": "dotenv -e .env.local -o -- next build",
     "start": "dotenv -e .env.local -o -- next start",
     "lint": "eslint"
-  },
-  "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -61,6 +58,7 @@
     "react-resizable-panels": "^4.0.3",
     "recharts": "^3.6.0",
     "sanitize-html": "^2.17.0",
+    "sharp": "^0.34.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "vaul": "^1.1.2",
@@ -72,6 +70,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sanitize-html": "^2.16.0",
+    "@types/sharp": "^0.31.1",
     "concurrently": "^9.2.1",
     "dotenv": "^17.2.3",
     "dotenv-cli": "^11.0.0",

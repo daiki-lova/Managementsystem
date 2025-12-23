@@ -3,6 +3,7 @@ import { inngest } from "@/inngest/client";
 import {
   generateArticle,
   generateArticlePipeline,
+  generateArticlePipelineV5,
   generateImages,
   scheduledPublishCron,
   scheduledPublishEvent,
@@ -15,6 +16,7 @@ export const { GET, POST, PUT } = serve({
   functions: [
     generateArticle,
     generateArticlePipeline,
+    generateArticlePipelineV5,
     generateImages,
     scheduledPublishCron,
     scheduledPublishEvent,

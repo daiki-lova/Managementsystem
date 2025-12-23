@@ -7,7 +7,7 @@ interface ArticleCardProps {
   article: {
     slug: string;
     title: string;
-    publishedAt: Date | null;
+    publishedAt: Date | string | null;
     categories: {
       name: string;
       slug: string;

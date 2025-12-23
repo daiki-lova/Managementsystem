@@ -48,18 +48,18 @@ export function TaskSummaryCards({
             />
 
             {/* Scheduled Card */}
-            <div className={cn(
-                "bg-white p-5 rounded-xl border shadow-sm flex flex-col justify-between h-full transition-all",
-                scheduledCount === 0 ? "border-neutral-100 opacity-60" : "border-orange-100 shadow-orange-100/50"
-            )}>
+            <div className="bg-white p-5 rounded-xl border border-neutral-100 shadow-sm flex flex-col justify-between h-full transition-all">
                 <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-bold text-neutral-500 flex items-center gap-1.5">
-                        <Clock size={14} className="text-orange-500" />
+                        <Clock size={14} className={scheduledCount === 0 ? "text-neutral-300" : "text-orange-500"} />
                         本日公開予定
                     </span>
                 </div>
                 <div>
-                    <span className="text-2xl font-bold text-neutral-900 block mb-1">
+                    <span className={cn(
+                        "text-2xl font-bold block mb-1",
+                        scheduledCount === 0 ? "text-neutral-300" : "text-neutral-900"
+                    )}>
                         {scheduledCount}
                     </span>
                     {scheduledCount > 0 && scheduleTimes.length > 0 ? (
@@ -88,23 +88,20 @@ export function TaskSummaryCards({
     );
 }
 
-function SummaryCard({ 
-    label, count, icon, color, actionLink, onAction, isEmpty, highlight 
-}: { 
-    label: string, count: number, icon: React.ReactNode, color: string, actionLink?: string, onAction?: () => void, isEmpty?: boolean, highlight?: boolean 
+function SummaryCard({
+    label, count, icon, color, actionLink, onAction, isEmpty, highlight
+}: {
+    label: string, count: number, icon: React.ReactNode, color: string, actionLink?: string, onAction?: () => void, isEmpty?: boolean, highlight?: boolean
 }) {
     return (
-        <div className={cn(
-            "bg-white p-5 rounded-xl border flex flex-col justify-between h-full transition-all",
-            isEmpty ? "border-neutral-100 bg-neutral-50/30" : highlight ? "border-blue-100 shadow-md shadow-blue-100/20" : "border-neutral-100 shadow-sm"
-        )}>
+        <div className="bg-white p-5 rounded-xl border border-neutral-100 shadow-sm flex flex-col justify-between h-full transition-all">
             <div className="flex justify-between items-start mb-3">
                 <span className="text-xs font-bold text-neutral-500 flex items-center gap-1.5">
                     <span className={cn(isEmpty ? "text-neutral-300" : color)}>{icon}</span>
                     {label}
                 </span>
                 {actionLink && !isEmpty && (
-                    <button 
+                    <button
                         onClick={onAction}
                         className="text-[10px] font-medium text-neutral-400 hover:text-neutral-900 flex items-center gap-0.5 transition-colors group"
                     >

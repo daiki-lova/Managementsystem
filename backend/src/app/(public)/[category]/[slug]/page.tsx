@@ -3,12 +3,14 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/public/Header';
 import { Footer } from '@/components/public/Footer';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 import { ImageWithFallback } from '@/components/public/ImageWithFallback';
 import {
   getArticleBySlug,
   getArticleByOldSlug,
   getRelatedArticles,
   getPopularArticles,
+  getCategories,
 } from '@/lib/public-data';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -39,7 +41,7 @@ export async function generateMetadata({
       title: article.metaTitle || article.title,
       description: article.metaDescription || article.title,
       type: 'article',
-      publishedTime: article.publishedAt?.toISOString(),
+      publishedTime: article.publishedAt ? new Date(article.publishedAt).toISOString() : undefined,
       images: article.ogpImageUrl ? [article.ogpImageUrl] : [],
     },
   };
@@ -483,10 +485,11 @@ export default async function ArticlePage({
     redirect(`/${article.categories.slug}/${slug}`);
   }
 
-  // 関連記事と人気記事を並列取得
-  const [relatedArticles, popularArticles] = await Promise.all([
+  // 関連記事、人気記事、カテゴリ一覧を並列取得
+  const [relatedArticles, popularArticles, categories] = await Promise.all([
     getRelatedArticles(article.id, article.categories.id, 8),
     getPopularArticles(5),
+    getCategories(),
   ]);
 
   const blocks = Array.isArray(article.blocks) ? article.blocks : [];
@@ -503,9 +506,13 @@ export default async function ArticlePage({
   }
   const primaryHtmlBlock = useHtmlBlockAsMain ? (htmlBlocks[0] as BlockData) : null;
 
+  // HTMLブロック内にhero画像がある場合、サムネイル表示をスキップ（重複を避ける）
+  const htmlHasHeroImage = primaryHtmlBlock?.content?.includes('position="hero"') ||
+    primaryHtmlBlock?.content?.match(/<figure[^>]*>[\s\S]*?<img[^>]*>[\s\S]*?<\/figure>[\s\S]{0,500}<article/i) ||
+    (primaryHtmlBlock?.content?.indexOf('<figure') ?? -1) < 500;
+
   return (
-    <div className="w-full bg-white overflow-x-hidden">
-      <Header />
+    <PublicPageLayout categories={categories}>
 
       {/* ヘッダースペース */}
       <div className="h-[108px] md:h-[160px]" />
@@ -548,8 +555,8 @@ export default async function ArticlePage({
           <div className="md:flex md:gap-[60px] md:justify-center">
             {/* 左側：記事本文 */}
             <article className="flex-1 max-w-[760px]">
-              {/* メイン画像 */}
-              {article.media_assets && (
+              {/* メイン画像（HTMLブロック内にhero画像がある場合はスキップ） */}
+              {article.media_assets && !htmlHasHeroImage && (
                 <figure className="mb-6 md:mb-[40px]">
                   <ImageWithFallback
                     src={article.media_assets.url}
@@ -624,7 +631,6 @@ export default async function ArticlePage({
         </div>
       </main>
 
-      <Footer />
-    </div>
+    </PublicPageLayout>
   );
 }

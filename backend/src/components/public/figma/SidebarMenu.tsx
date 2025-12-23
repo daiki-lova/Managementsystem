@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { Category } from '@/lib/public-types';
 
 interface SidebarMenuProps {
   onNavigate: (page: string, category?: string) => void;
   scale: number;
+  categories?: Category[];
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export default function SidebarMenu({ onNavigate, scale }: SidebarMenuProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function SidebarMenu({ onNavigate, scale, categories = [], isOpen, onClose }: SidebarMenuProps) {
   const [sidebarWidth, setSidebarWidth] = useState(320);
 
   // サイドバーの幅を計算
@@ -33,61 +36,29 @@ export default function SidebarMenu({ onNavigate, scale }: SidebarMenuProps) {
     };
   }, [isOpen]);
 
-  // ハンバーガーボタンをクリックしたときにメニューを開く
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const x = e.clientX;
-      const y = e.clientY;
-      
-      // モバイルかデスクトップかを判定
-      const isMobile = window.innerWidth < 768;
-      
-      if (isMobile) {
-        // モバイル: ヘッダー内のハンバーガーアイコン（左上60px x 60px程度）
-        if (x <= 60 && y <= 60) {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsOpen(!isOpen);
-          return;
-        }
-      } else {
-        // デスクトップ: スケーリングを考慮した左上の領域（0-80px x 0-120px）
-        const scaledX = x / scale;
-        const scaledY = y / scale;
-        
-        if (scaledX <= 80 && scaledY <= 120) {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsOpen(!isOpen);
-          return;
-        }
-      }
-    };
+  // ハンバーガーボタンのクリック検知は親コンポーネントで行うため、削除しました。
 
-    document.addEventListener('click', handleClick, true);
-    return () => document.removeEventListener('click', handleClick, true);
-  }, [isOpen, scale]);
-
-  const menuItems = [
-    { label: 'Yoga', category: 'yoga' },
-    { label: 'Pilates', category: 'pilates' },
-    { label: 'Diet', category: 'diet' },
-    { label: 'Job', category: 'job' },
-    { label: 'Beauty', category: 'beauty' },
-    { label: 'Life', category: 'life' },
-    { label: 'Sports', category: 'sports' },
-    { label: 'Side Business', category: 'side-business' },
-    { label: 'Skill', category: 'skill' },
-  ];
+  const menuItems = categories.length > 0
+    ? categories.map(cat => ({ label: cat.name, category: cat.slug }))
+    : [
+      { label: 'Yoga', category: 'yoga' },
+      { label: 'Pilates', category: 'pilates' },
+      { label: 'Diet', category: 'diet' },
+      { label: 'Job', category: 'job' },
+      { label: 'Beauty', category: 'beauty' },
+      { label: 'Life', category: 'life' },
+      { label: 'Sports', category: 'sports' },
+      { label: 'Side Business', category: 'side-business' },
+      { label: 'Skill', category: 'skill' },
+    ];
 
   const handleMenuItemClick = (category: string) => {
-    setIsOpen(false);
+    onClose();
     onNavigate('category', category);
   };
 
   const handleHomeClick = () => {
-    setIsOpen(false);
+    onClose();
     onNavigate('home');
   };
 
@@ -98,7 +69,7 @@ export default function SidebarMenu({ onNavigate, scale }: SidebarMenuProps) {
       {/* オーバーレイ */}
       <div
         className="fixed inset-0 bg-black/50 z-[9998]"
-        onClick={() => setIsOpen(false)}
+        onClick={onClose}
       />
 
       {/* サイドバーメニュー - 左から右にスライド */}
@@ -111,7 +82,7 @@ export default function SidebarMenu({ onNavigate, scale }: SidebarMenuProps) {
           <div className="border-b border-gray-200 p-6 flex items-center justify-between">
             <h2 className="text-black tracking-[2px] uppercase">Menu</h2>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               aria-label="Close menu"
             >

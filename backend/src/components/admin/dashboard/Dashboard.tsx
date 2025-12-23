@@ -328,8 +328,6 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
               <div className="h-full overflow-y-auto">
                 <StrategyView
                   onGenerate={handleBulkGenerate}
-                  onManageConversions={() => setActiveTab('conversions')}
-                  onNavigateToCategories={() => setActiveTab('categories')}
                 />
               </div>
             )}

@@ -15,7 +15,7 @@ export interface OpenRouterResponse<T> {
 }
 
 // 最新の推奨モデル（2024年12月時点）
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4";
+const DEFAULT_MODEL = "anthropic/claude-opus-4.5";
 const DEFAULT_MAX_TOKENS = 4000;
 const DEFAULT_TEMPERATURE = 0.7;
 
@@ -32,7 +32,8 @@ function extractAndParseJSON<T>(content: string): T {
 
   // 1. Markdownコードブロックを除去
   // ```json ... ``` または ``` ... ```
-  const codeBlockMatch = cleanContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+  // greedy版を使用（最後の```まで取得）
+  const codeBlockMatch = cleanContent.match(/```(?:json)?\s*([\s\S]*)```\s*$/);
   if (codeBlockMatch) {
     cleanContent = codeBlockMatch[1].trim();
   }
@@ -41,8 +42,10 @@ function extractAndParseJSON<T>(content: string): T {
   try {
     const parsed = JSON.parse(cleanContent);
     return normalizeParseResult<T>(parsed);
-  } catch {
+  } catch (e) {
     // パースに失敗した場合、JSONオブジェクトを抽出
+    const error = e as Error;
+    console.error(`[extractJSON] Direct parse failed: ${error.message}`);
   }
 
   // 3. 最初の { から最後の } までを抽出（ネストを考慮）
@@ -51,8 +54,10 @@ function extractAndParseJSON<T>(content: string): T {
     try {
       const parsed = JSON.parse(jsonMatch);
       return normalizeParseResult<T>(parsed);
-    } catch {
-      // まだ失敗
+    } catch (e) {
+      const error = e as Error;
+      console.error(`[extractJSON] Object extraction parse failed: ${error.message}`);
+      console.error(`[extractJSON] Extracted object length: ${jsonMatch.length}`);
     }
   }
 
@@ -62,8 +67,9 @@ function extractAndParseJSON<T>(content: string): T {
     try {
       const parsed = JSON.parse(arrayMatch);
       return normalizeParseResult<T>(parsed);
-    } catch {
-      // まだ失敗
+    } catch (e) {
+      const error = e as Error;
+      console.error(`[extractJSON] Array extraction parse failed: ${error.message}`);
     }
   }
 
@@ -371,20 +377,50 @@ export async function callOpenRouterText(
 export const STAGE_MODEL_CONFIG = {
   // Stage 1: タイトル生成（精度重視）
   title_generation: {
-    model: "anthropic/claude-sonnet-4",
+    model: "anthropic/claude-opus-4.5",
     maxTokens: 1000,
     temperature: 0.5,
   },
   // Stage 2: 記事生成（創造性重視、長文出力）
   article_generation: {
-    model: "anthropic/claude-sonnet-4",
+    model: "anthropic/claude-opus-4.5",
     maxTokens: 16000, // 完全なHTML記事を生成するのに十分なトークン数
     temperature: 0.7,
   },
   // Stage 3: 画像生成（画像生成用モデル）
   image_generation: {
-    model: "google/gemini-2.5-flash-preview-05-20",
+    model: "google/gemini-3-pro-image-preview",
     maxTokens: 1000,
+    temperature: 0.7,
+  },
+} as const;
+
+/**
+ * 8ステップパイプライン用のモデル設定
+ */
+export const STEP_MODEL_CONFIG = {
+  // Step 1: アウトライン生成（構造化されたJSON、精度重視）
+  outline_generation: {
+    model: "anthropic/claude-opus-4.5",
+    maxTokens: 4000, // アウトライン+FAQ+メタ情報を含む大きなJSON
+    temperature: 0.5,
+  },
+  // Step 2: 一次情報抽出（情報バンクからの抽出）
+  primary_info_extraction: {
+    model: "anthropic/claude-opus-4.5",
+    maxTokens: 4000,
+    temperature: 0.3, // より確実な抽出のため低温度
+  },
+  // Step 4: 本文HTML生成（長文出力）
+  html_generation: {
+    model: "anthropic/claude-opus-4.5",
+    maxTokens: 16000, // 完全なHTML記事
+    temperature: 0.7,
+  },
+  // Step 5: 画像ジョブ生成（プロンプト生成）
+  image_job_generation: {
+    model: "anthropic/claude-opus-4.5",
+    maxTokens: 2000,
     temperature: 0.7,
   },
 } as const;

@@ -20,11 +20,16 @@ import {
   STAGE_MODEL_CONFIG,
 } from "./common/openrouter";
 import {
-  buildStage1Prompt,
-  buildStage2Prompt,
   extractImagePlaceholders,
   replacePromptVariables,
   cleanGeneratedHtml,
+  insertCTABanner,
+  insertRelatedArticles,
+  insertSupervisorQuote,
+  fixTableHtml,
+  improveFaqStyle,
+  DEFAULT_TITLE_PROMPT,
+  DEFAULT_ARTICLE_PROMPT,
 } from "./common/prompts";
 
 // 記事生成パイプライン
@@ -115,9 +120,15 @@ export const generateArticlePipeline = inngest.createFunction(
         prisma.categories.findUnique({ where: { id: categoryId } }),
         prisma.authors.findUnique({ where: { id: authorId } }),
         prisma.brands.findUnique({ where: { id: brandId } }),
-        prisma.conversions.findMany({
-          where: { id: { in: conversionIds || [] } },
-        }),
+        // conversionIdsが空の場合はアクティブなconversionsを全て取得
+        conversionIds && conversionIds.length > 0
+          ? prisma.conversions.findMany({
+              where: { id: { in: conversionIds } },
+            })
+          : prisma.conversions.findMany({
+              where: { status: "ACTIVE" },
+              take: 1, // 最初の1件のみ使用
+            }),
         // 監修者に紐づく情報バンクを取得
         prisma.knowledge_items.findMany({
           where: { authorId },
@@ -166,8 +177,14 @@ export const generateArticlePipeline = inngest.createFunction(
         brandDomain: siteDomain,
       };
 
-      const prompt = buildStage1Prompt(input);
-      // Stage 1はタイトル生成専用なので固定のシステムプロンプトを使用
+      // 設定のtitlePromptがあればそれを使用、なければDEFAULT_TITLE_PROMPTを使用
+      // どちらの場合も同じ変数置換を適用（UIと同じロジック）
+      const baseTitlePrompt = pipelineData.settings.titlePrompt || DEFAULT_TITLE_PROMPT;
+      const prompt = baseTitlePrompt
+        .replace(/\{\{KEYWORD\}\}/g, keyword)
+        .replace(/\{\{CATEGORY\}\}/g, pipelineData.category.name)
+        .replace(/\{\{BRAND_NAME\}\}/g, pipelineData.brand.name);
+      // OpenRouter用システムプロンプト（短く固定）
       const systemPrompt = "あなたはSEOに精通した編集者です。指示に従ってJSONのみを出力してください。";
 
       const response = await callOpenRouter<Stage1Output>(
@@ -262,14 +279,10 @@ export const generateArticlePipeline = inngest.createFunction(
         conversionGoal: pipelineData.conversions[0]?.name,
       };
 
-      // 設定のsystemPromptをテンプレートとして使用し、変数を置換
-      // なければハードコードされたbuildStage2Promptにフォールバック
-      let prompt: string;
-      if (pipelineData.settings.systemPrompt) {
-        prompt = replacePromptVariables(pipelineData.settings.systemPrompt, input);
-      } else {
-        prompt = buildStage2Prompt(input);
-      }
+      // 設定のsystemPromptがあればそれを使用、なければDEFAULT_ARTICLE_PROMPTを使用
+      // どちらの場合もreplacePromptVariablesで変数を置換（UIと同じロジック）
+      const basePrompt = pipelineData.settings.systemPrompt || DEFAULT_ARTICLE_PROMPT;
+      const prompt = replacePromptVariables(basePrompt, input);
 
       // OpenRouter用のシステムプロンプト（短く固定）
       const systemPrompt = "あなたは経験豊富なSEOライターです。指示に従って完全なHTMLのみを出力してください。説明文やMarkdownは不要です。";
@@ -289,8 +302,35 @@ export const generateArticlePipeline = inngest.createFunction(
       }
 
       // AIが生成したHTMLをクリーンアップ（DOCTYPE, head, bodyなどを除去）
-      const cleanedHtml = cleanGeneratedHtml(response.data);
+      let cleanedHtml = cleanGeneratedHtml(response.data);
       console.log(`[Pipeline] HTML cleaned: ${response.data.length} -> ${cleanedHtml.length} chars`);
+
+      // CTAバナーを挿入（conversionsがある場合）
+      const ctaConversion = pipelineData.conversions[0];
+      if (ctaConversion) {
+        cleanedHtml = insertCTABanner(cleanedHtml, {
+          name: ctaConversion.name,
+          url: ctaConversion.url,
+          thumbnailUrl: ctaConversion.thumbnailUrl,
+          context: ctaConversion.context,
+        });
+        console.log(`[Pipeline] CTA banner inserted: ${ctaConversion.name}`);
+      }
+
+      // 内部リンクが無い場合、関連記事セクションを自動挿入
+      cleanedHtml = insertRelatedArticles(cleanedHtml, pipelineData.category.slug);
+
+      // blockquote監修者引用がない場合、自動挿入
+      cleanedHtml = insertSupervisorQuote(cleanedHtml, {
+        name: author.name,
+        role: author.role,
+      });
+
+      // 表のHTML修正（壊れた構造を修正 + スタイル統一）
+      cleanedHtml = fixTableHtml(cleanedHtml);
+
+      // FAQのスタイル改善
+      cleanedHtml = improveFaqStyle(cleanedHtml);
 
       // HTMLから画像プレースホルダーを抽出
       const imagePlaceholders = extractImagePlaceholders(cleanedHtml);

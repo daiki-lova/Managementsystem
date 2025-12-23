@@ -4,7 +4,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
     Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon,
     ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,
-    Send, Calendar as CalendarIcon, Ban, Loader2, RotateCcw, X
+    Send, Calendar as CalendarIcon, Ban, Loader2, RotateCcw, X, FileEdit
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -242,9 +242,29 @@ interface ArticlesTableProps {
     onUpdateStatus: (id: string, status: string, version: number) => void;
     onDuplicate: (article: ExtendedArticle) => void;
     isTrashView: boolean;
+    // Bulk operation handlers (silent - no individual dialogs)
+    onBulkDelete: (ids: string[]) => void;
+    onBulkDeletePermanent: (ids: string[]) => void;
+    onBulkRestore: (ids: string[]) => void;
+    onBulkSetDraft: (ids: string[]) => void;
 }
 
-function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onDuplicate, isTrashView }: ArticlesTableProps) {
+function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onDuplicate, isTrashView, onBulkDelete, onBulkDeletePermanent, onBulkRestore, onBulkSetDraft }: ArticlesTableProps) {
+    // Bulk action confirmation dialog state
+    const [bulkConfirmDialog, setBulkConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        variant: 'default' | 'destructive';
+        onConfirm: () => void;
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        variant: 'default',
+        onConfirm: () => {},
+    });
+
     const [columns, setColumns] = useState<ColumnConfig[]>([
         { id: 'actions', label: '', width: 40, minWidth: 40 },
         { id: 'select', label: '', width: 40, minWidth: 40 },
@@ -395,8 +415,45 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
     };
 
     const handleBulkDelete = () => {
-        selectedIds.forEach(id => (isTrashView ? onDeletePermanent(id) : onDelete(id)));
-        setSelectedIds(new Set());
+        if (selectedIds.size === 0) return;
+        const ids = Array.from(selectedIds);
+
+        setBulkConfirmDialog({
+            open: true,
+            title: isTrashView ? '一括完全削除' : '一括ゴミ箱へ移動',
+            description: isTrashView
+                ? `選択した${selectedIds.size}件の記事を完全に削除してもよろしいですか？この操作は取り消せません。`
+                : `選択した${selectedIds.size}件の記事をゴミ箱へ移動してもよろしいですか？`,
+            variant: 'destructive',
+            onConfirm: () => {
+                setBulkConfirmDialog(prev => ({ ...prev, open: false }));
+                // Use silent bulk handlers (no individual dialogs)
+                if (isTrashView) {
+                    onBulkDeletePermanent(ids);
+                } else {
+                    onBulkDelete(ids);
+                }
+                setSelectedIds(new Set());
+            },
+        });
+    };
+
+    const handleBulkRestore = () => {
+        if (selectedIds.size === 0) return;
+        const ids = Array.from(selectedIds);
+
+        setBulkConfirmDialog({
+            open: true,
+            title: '一括復元',
+            description: `選択した${selectedIds.size}件の記事を下書きに復元してもよろしいですか？`,
+            variant: 'default',
+            onConfirm: () => {
+                setBulkConfirmDialog(prev => ({ ...prev, open: false }));
+                // Use silent bulk handler (no individual dialogs)
+                onBulkRestore(ids);
+                setSelectedIds(new Set());
+            },
+        });
     };
 
     const handleBulkPublish = () => {
@@ -407,6 +464,23 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
             }
         });
         setSelectedIds(new Set());
+    };
+
+    const handleBulkSetDraft = () => {
+        if (selectedIds.size === 0) return;
+        const ids = Array.from(selectedIds);
+
+        setBulkConfirmDialog({
+            open: true,
+            title: '一括で下書きに戻す',
+            description: `選択した${selectedIds.size}件の記事を下書きステータスに変更してもよろしいですか？`,
+            variant: 'default',
+            onConfirm: () => {
+                setBulkConfirmDialog(prev => ({ ...prev, open: false }));
+                onBulkSetDraft(ids);
+                setSelectedIds(new Set());
+            },
+        });
     };
 
     return (
@@ -420,13 +494,33 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                         </div>
                         <div className="flex items-center gap-2">
                             {!isTrashView && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs border-neutral-300 bg-neutral-50 text-neutral-600 hover:bg-neutral-100 hover:border-neutral-400"
+                                        onClick={handleBulkSetDraft}
+                                    >
+                                        <FileEdit size={12} className="mr-1.5" /> 下書きに戻す
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400"
+                                        onClick={handleBulkPublish}
+                                    >
+                                        <Send size={12} className="mr-1.5" /> 一括公開
+                                    </Button>
+                                </>
+                            )}
+                            {isTrashView && (
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 text-xs border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400"
-                                    onClick={handleBulkPublish}
+                                    className="h-7 text-xs border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-400"
+                                    onClick={handleBulkRestore}
                                 >
-                                    <Send size={12} className="mr-1.5" /> 一括公開
+                                    <RotateCcw size={12} className="mr-1.5" /> 一括復元
                                 </Button>
                             )}
                             <Button
@@ -770,6 +864,18 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Bulk Action Confirm Dialog */}
+            <ConfirmDialog
+                open={bulkConfirmDialog.open}
+                onOpenChange={(open) => setBulkConfirmDialog(prev => ({ ...prev, open }))}
+                title={bulkConfirmDialog.title}
+                description={bulkConfirmDialog.description}
+                confirmLabel="実行"
+                cancelLabel="キャンセル"
+                variant={bulkConfirmDialog.variant}
+                onConfirm={bulkConfirmDialog.onConfirm}
+            />
         </DndProvider>
     );
 }
@@ -899,6 +1005,28 @@ export function PostsView({
         });
     };
 
+    // Silent bulk handlers (no individual confirmation dialogs)
+    const handleBulkDeleteSilent = (ids: string[]) => {
+        ids.forEach(id => deleteArticle.mutate(id));
+    };
+
+    const handleBulkDeletePermanentSilent = (ids: string[]) => {
+        ids.forEach(id => deleteArticlePermanent.mutate(id));
+    };
+
+    const handleBulkRestoreSilent = (ids: string[]) => {
+        ids.forEach(id => restoreArticle.mutate(id));
+    };
+
+    const handleBulkSetDraftSilent = (ids: string[]) => {
+        ids.forEach(id => {
+            const article = articles.find(a => a.id === id);
+            if (article) {
+                updateArticle.mutate({ id, data: { status: 'DRAFT', version: article.version || 1 } });
+            }
+        });
+    };
+
     // Loading state
     if (isLoading) {
         return (
@@ -989,6 +1117,10 @@ export function PostsView({
                     onUpdateStatus={handleUpdateStatus}
                     onDuplicate={handleDuplicate}
                     isTrashView={viewMode === 'trash'}
+                    onBulkDelete={handleBulkDeleteSilent}
+                    onBulkDeletePermanent={handleBulkDeletePermanentSilent}
+                    onBulkRestore={handleBulkRestoreSilent}
+                    onBulkSetDraft={handleBulkSetDraftSilent}
                 />
             </div>
 

@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useMemo } from 'react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { Sparkles, UserCheck, ChevronRight, CheckCircle2, Check, Copy, CalendarDays, Globe, Lightbulb, Loader2, Zap, User, Search, RefreshCw, X, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Sparkles, CheckCircle2, CalendarDays, Loader2, Zap, TrendingUp, Database, FileText, Play, Minus, Plus, User, FolderOpen, Target } from 'lucide-react';
 import { cn } from '@/app/admin/lib/utils';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
     Select,
     SelectContent,
@@ -15,10 +16,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "../ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import type { Category, ConversionItem, KnowledgeItem, Profile } from '@/app/admin/lib/types';
 import { GenerationProgressModal } from './GenerationProgressModal';
 import {
     useCategories,
@@ -27,9 +24,7 @@ import {
     useKnowledgeBank,
     useCreateGenerationJob,
     useGenerationJobs,
-    useKeywordSuggestions,
 } from '@/app/admin/lib/hooks';
-import type { KeywordSuggestResponse } from '@/app/admin/lib/api';
 
 export type GeneratedArticleData = {
     title: string;
@@ -39,37 +34,13 @@ export type GeneratedArticleData = {
     author?: string;
 };
 
-// カニバリマッチの型
-type CannibalMatch = {
-    articleId: string;
-    title: string;
-    slug: string;
-    similarity: number;
-    matchType: "title" | "slug" | "keyword";
-};
-
-type KeywordCandidate = {
-    id: string;
-    keyword: string;
-    volume: number;
-    difficulty: number;
-    reasoning?: string;
-    score?: number;
-    isRecommended?: boolean;
-    cpc?: number;
-    // カニバリ判定
-    cannibalScore?: number;
-    cannibalMatches?: CannibalMatch[];
-};
+// パイプラインモード（V5のみサポート）
+type PipelineMode = 'v5';
 
 export function StrategyView({
     onGenerate,
-    onManageConversions,
-    onNavigateToCategories,
 }: {
     onGenerate: (articles: GeneratedArticleData[]) => void;
-    onManageConversions?: () => void;
-    onNavigateToCategories?: () => void;
 }) {
     // API Data fetching
     const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
@@ -77,212 +48,91 @@ export function StrategyView({
     const { data: conversionsData, isLoading: conversionsLoading } = useConversions();
     const { data: knowledgeData } = useKnowledgeBank();
 
-    // Map API data to component format
-    const categories: Category[] = (categoriesData?.data || []).map((cat: any) => ({
+    const isDataLoading = categoriesLoading || authorsLoading || conversionsLoading;
+
+    // Map API data
+    const categories = useMemo(() => (categoriesData?.data || []).map((cat: any) => ({
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
-        count: cat._count?.articles || 0,
-        parentId: cat.parentId,
-        supervisorId: cat.authorId,
-        supervisorName: cat.author?.name,
-    }));
+        articleCount: cat.articlesCount || cat._count?.articles || 0,
+    })), [categoriesData]);
 
-    const authors: Profile[] = (authorsData?.data || []).map((author: any) => ({
+    const authors = useMemo(() => (authorsData?.data || []).map((author: any) => ({
         id: author.id,
         name: author.name,
-        slug: author.slug || '',
-        role: author.title || author.role || '監修者',
-        qualifications: author.qualifications || '',
-        categories: author.author_categories?.map((ac: any) => ac.categories?.name) || [],
-        tags: author.author_tags?.map((at: any) => at.tags?.name) || [],
-        avatar: author.imageUrl,
-    }));
+        role: author.role || 'ライター',
+    })), [authorsData]);
 
-    const conversions: ConversionItem[] = (conversionsData?.data || []).map((cv: any) => ({
-        id: cv.id,
-        name: cv.name,
-        url: cv.url,
-        type: cv.type || 'campaign',
-        status: cv.status || 'active',
-        ctr: cv.ctr || '0%',
-        clicks: cv.clicks || 0,
-        cv: cv.cv || 0,
-    }));
+    const conversions = useMemo(() => (conversionsData?.data || [])
+        .filter((cv: any) => cv.status === 'ACTIVE')
+        .map((cv: any) => ({
+            id: cv.id,
+            name: cv.name,
+            url: cv.url,
+        })), [conversionsData]);
 
-    const knowledgeItems: KnowledgeItem[] = (knowledgeData?.data || []).map((item: any) => ({
+    const knowledgeItems = useMemo(() => (knowledgeData?.data || []).map((item: any) => ({
         id: item.id,
         title: item.title || item.content?.substring(0, 50) || '無題',
         content: item.content,
-        source: item.sourceUrl || 'manual',
-        kind: item.kind,
-        brand: item.brandId || null,
         categoryId: item.categoryId || null,
-        createdAt: item.createdAt || new Date().toISOString(),
         usageCount: item.usageCount || 0,
-    }));
+    })), [knowledgeData]);
 
     // Mutations
     const createGenerationJob = useCreateGenerationJob();
-    const keywordSuggestions = useKeywordSuggestions();
 
-    // Selection state
-    const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
-    const [selectedConversionIds, setSelectedConversionIds] = useState<Set<string>>(new Set());
-    const [selectedAuthorId, setSelectedAuthorId] = useState<string | null>(null);
-    const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState<Set<string>>(new Set());
+    // パイプラインモードは固定（V5のみ）
+    const pipelineMode: PipelineMode = 'v5';
 
-    // Keyword State
-    const [showKeywords, setShowKeywords] = useState(false);
-    const [selectedKeywordIds, setSelectedKeywordIds] = useState<Set<string>>(new Set());
-    const [keywordCandidates, setKeywordCandidates] = useState<KeywordCandidate[]>([]);
-    const [customKeyword, setCustomKeyword] = useState('');
-    const [customKeywords, setCustomKeywords] = useState<KeywordCandidate[]>([]);
-    const [suggestionContext, setSuggestionContext] = useState<KeywordSuggestResponse['context'] | null>(null);
-    const [suggestionError, setSuggestionError] = useState<string | null>(null);
-
-    // AI分析中かどうか
-    const isAnalyzing = keywordSuggestions.isPending;
-
-    // Modal State
-    const [progressModalOpen, setProgressModalOpen] = useState(false);
-    const [currentStep, setCurrentStep] = useState(0);
-    const [progress, setProgress] = useState(0);
-    const [genStatus, setGenStatus] = useState<'idle' | 'processing' | 'error' | 'completed'>('idle');
-    const [generatedResult, setGeneratedResult] = useState<GeneratedArticleData[]>([]);
-    const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
-
-    // Options
+    // User selections
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+    const [selectedAuthorId, setSelectedAuthorId] = useState<string>('');
+    const [selectedConversionId, setSelectedConversionId] = useState<string>('');
+    const [articleCount, setArticleCount] = useState(3);
     const [scheduleMode, setScheduleMode] = useState<'draft' | 'now' | 'schedule'>('draft');
     const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-    const [postTime, setPostTime] = useState('10:00');
+    const [postTime, setPostTime] = useState<string>('09:00');
 
-    // Loading state
-    const isDataLoading = categoriesLoading || authorsLoading || conversionsLoading;
+    // Generation state
+    const [genStatus, setGenStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
+    const [currentStep, setCurrentStep] = useState(0);
+    const [progress, setProgress] = useState(0);
+    const [progressModalOpen, setProgressModalOpen] = useState(false);
+    const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
+    const [generatedResult, setGeneratedResult] = useState<GeneratedArticleData[]>([]);
 
-    const toggleCategory = (id: string) => {
-        const newSet = new Set(selectedCategoryIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedCategoryIds(newSet);
-        // Reset keywords if category changes
-        setShowKeywords(false);
-        setSelectedKeywordIds(new Set());
-        setCustomKeywords([]);
-    };
+    // 選択されたカテゴリーに関連する情報バンクアイテム（または全体から未使用優先）
+    const availableKnowledgeItems = useMemo(() => {
+        let items = [...knowledgeItems];
 
-    const toggleConversion = (id: string) => {
-        const newSet = new Set(selectedConversionIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedConversionIds(newSet);
-    };
-
-    const toggleKnowledge = (id: string) => {
-        const newSet = new Set(selectedKnowledgeIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedKnowledgeIds(newSet);
-    };
-
-    const toggleKeyword = (id: string) => {
-        const newSet = new Set(selectedKeywordIds);
-        if (newSet.has(id)) {
-            newSet.delete(id);
-        } else {
-            // Limit total selection (suggested + custom) to 5
-            if (newSet.size >= 5) return;
-            newSet.add(id);
+        // カテゴリーが選択されていればそのカテゴリーのアイテムを優先
+        if (selectedCategoryId) {
+            const categoryItems = items.filter(k => k.categoryId === selectedCategoryId);
+            const otherItems = items.filter(k => k.categoryId !== selectedCategoryId);
+            items = [...categoryItems, ...otherItems];
         }
-        setSelectedKeywordIds(newSet);
-    };
 
-    const addCustomKeyword = () => {
-        if (!customKeyword.trim()) return;
+        // 使用回数でソート（少ない順）
+        return items.sort((a, b) => (a.usageCount || 0) - (b.usageCount || 0));
+    }, [knowledgeItems, selectedCategoryId]);
 
-        const newId = `custom-${Date.now()}`;
-        const newKw: KeywordCandidate = {
-            id: newId,
-            keyword: customKeyword,
-            volume: 0, // Unknown for custom
-            difficulty: 0
-        };
+    // 生成可能数（未使用の情報バンクアイテム数）
+    const unusedCount = knowledgeItems.filter(k => (k.usageCount || 0) === 0).length;
+    const maxGeneratable = unusedCount;
 
-        setCustomKeywords([...customKeywords, newKw]);
-        setCustomKeyword('');
+    // 選択が完了しているか
+    const hasRequiredSelections = selectedCategoryId && selectedAuthorId && selectedConversionId;
+    const canGenerate = hasRequiredSelections && unusedCount > 0 && articleCount > 0;
 
-        // Auto select the newly added custom keyword if under limit
-        if (selectedKeywordIds.size < 5) {
-            const newSet = new Set(selectedKeywordIds);
-            newSet.add(newId);
-            setSelectedKeywordIds(newSet);
-        }
-    };
-
-    const removeCustomKeyword = (id: string) => {
-        setCustomKeywords(customKeywords.filter(k => k.id !== id));
-        const newSet = new Set(selectedKeywordIds);
-        newSet.delete(id);
-        setSelectedKeywordIds(newSet);
-    };
-
-    const isStep123Complete = selectedCategoryIds.size > 0 && selectedConversionIds.size > 0 && selectedAuthorId !== null;
-    const allKeywords = [...keywordCandidates, ...customKeywords];
-    const selectedKeywordsList = allKeywords.filter(k => selectedKeywordIds.has(k.id));
+    // 選択されたものの表示名
+    const selectedCategory = categories.find(c => c.id === selectedCategoryId);
     const selectedAuthor = authors.find(a => a.id === selectedAuthorId);
-
-    const handleAnalyzeKeywords = async () => {
-        // カテゴリ・コンバージョン・監修者が必要
-        const categoryId = Array.from(selectedCategoryIds)[0];
-        const conversionId = Array.from(selectedConversionIds)[0];
-
-        if (!categoryId || !conversionId || !selectedAuthorId) {
-            setSuggestionError('カテゴリ、コンバージョン、監修者を選択してください');
-            return;
-        }
-
-        setSuggestionError(null);
-
-        try {
-            const result = await keywordSuggestions.mutateAsync({
-                categoryId,
-                conversionId,
-                authorId: selectedAuthorId,
-                candidateCount: 20,
-            });
-
-            if (result.data) {
-                // DataForSEOの警告がある場合は表示
-                if (result.data.warning) {
-                    toast.warning(result.data.warning, { duration: 10000 });
-                }
-
-                // APIレスポンスをKeywordCandidate型に変換
-                const candidates: KeywordCandidate[] = result.data.keywords.map((kw, index) => ({
-                    id: `ai-${index}`,
-                    keyword: kw.keyword,
-                    volume: kw.searchVolume,
-                    difficulty: Math.round(kw.competition * 100),
-                    reasoning: kw.reasoning,
-                    score: kw.score,
-                    isRecommended: kw.isRecommended,
-                    cpc: kw.cpc,
-                    cannibalScore: kw.cannibalScore,
-                    cannibalMatches: kw.cannibalMatches,
-                }));
-
-                setKeywordCandidates(candidates);
-                setSuggestionContext(result.data.context);
-                setShowKeywords(true);
-            }
-        } catch (error) {
-            console.error('Keyword suggestion failed:', error);
-            setSuggestionError('キーワード提案の取得に失敗しました。もう一度お試しください。');
-        }
-    };
+    const selectedConversion = conversions.find(c => c.id === selectedConversionId);
 
     const handleGenerate = async () => {
-        if (selectedKeywordsList.length === 0) return;
+        if (!canGenerate) return;
 
         setProgressModalOpen(true);
         setGenStatus('processing');
@@ -290,122 +140,96 @@ export function StrategyView({
         setProgress(0);
         setActiveJobIds([]);
 
-        // Get selected category ID (first one)
-        const categoryId = Array.from(selectedCategoryIds)[0];
-        // Get selected conversion IDs (as array)
-        const conversionIds = Array.from(selectedConversionIds);
-        // Get relevant knowledge IDs
-        const knowledgeItemIds = Array.from(selectedKnowledgeIds);
-        // Default brand ID (RADIANCE)
         const brandId = 'd23546a5-6bbb-40e6-80f3-18e60fbaca34';
-
-        // Map publish strategy
         const publishStrategy = scheduleMode === 'now' ? 'PUBLISH_NOW' :
             scheduleMode === 'schedule' ? 'SCHEDULED' : 'DRAFT';
 
         try {
-            // Create generation jobs in a single API call
+            // 情報バンクから選択
+            const selectedKnowledge = availableKnowledgeItems.slice(0, articleCount);
+            if (selectedKnowledge.length === 0) {
+                toast.error('生成可能なコンテンツがありません');
+                return;
+            }
+
+            // V3: 受講生の声ベース / V5: 受講生の声 + Web検索 + LLMo最適化
             const result = await createGenerationJob.mutateAsync({
-                keywords: selectedKeywordsList.map(k => ({
-                    keyword: k.keyword,
-                    searchVolume: k.volume,
-                })),
-                categoryId,
-                authorId: selectedAuthorId || '',
+                categoryId: selectedCategoryId,
+                authorId: selectedAuthorId,
                 brandId,
-                conversionIds,
-                knowledgeItemIds,
+                conversionIds: [selectedConversionId],
+                knowledgeItemIds: selectedKnowledge.map(s => s.id),
+                pipelineVersion: pipelineMode, // 'v3' or 'v5'
                 publishStrategy: publishStrategy as 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED',
                 scheduledAt: scheduleMode === 'schedule' ? `${startDate}T${postTime}:00Z` : undefined,
             });
 
-            const jobIds = result.data?.jobs.map(j => j.id) || [];
+            const jobIds = result.data?.jobs.map((j: any) => j.id) || [];
             setActiveJobIds(jobIds);
 
-            // Start polling for job status (useEffect handles this)
-            // pollJobStatus(jobIds);
+            toast.success(`${selectedKnowledge.length}件の記事生成を開始しました`);
         } catch (error) {
             console.error('Failed to create generation jobs:', error);
             setGenStatus('error');
+            toast.error('記事生成の開始に失敗しました');
         }
     };
 
     // Poll job status
     const { data: jobsData } = useGenerationJobs({ limit: 10 });
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (activeJobIds.length === 0 || !jobsData?.data) return;
 
         const activeJobs = jobsData.data.filter((job: any) => activeJobIds.includes(job.id));
-
         if (activeJobs.length === 0) return;
 
-        // Check for errors
         const failedJob = activeJobs.find((job: any) => job.status === 'FAILED');
         if (failedJob) {
             setGenStatus('error');
-            // Show error from backend if available
-            console.error('Job failed:', failedJob.errorMessage);
             return;
         }
 
-        // Calculate progress
         const totalProgress = activeJobs.reduce((acc: number, job: any) => acc + (job.progress || 0), 0);
         const avgProgress = Math.floor(totalProgress / activeJobs.length);
-
         setProgress(avgProgress);
 
-        // Map progress to 3 steps (新3ステップパイプライン)
-        // 0-20%: タイトル生成 (step 0)
-        // 20-80%: 記事執筆 (step 1)
-        // 80-100%: 画像生成 (step 2)
+        // V5: 8ステップ
         let step = 0;
-        if (avgProgress < 20) step = 0;
-        else if (avgProgress < 80) step = 1;
-        else step = 2;
-
+        if (avgProgress < 8) step = 0;
+        else if (avgProgress < 16) step = 1;
+        else if (avgProgress < 24) step = 2;
+        else if (avgProgress < 36) step = 3;
+        else if (avgProgress < 56) step = 4;
+        else if (avgProgress < 76) step = 5;
+        else if (avgProgress < 92) step = 6;
+        else step = 7;
         setCurrentStep(step);
 
-        // Check completion
         const allCompleted = activeJobs.every((job: any) => job.status === 'COMPLETED');
         if (allCompleted) {
-            const generatedArticles: GeneratedArticleData[] = [];
-
-            activeJobs.forEach((job: any) => {
-                if (job.articles && job.articles.length > 0) {
-                    job.articles.forEach((article: any) => {
-                        generatedArticles.push({
-                            title: article.title,
-                            status: article.status === 'PUBLISH_NOW' ? 'published' :
-                                article.status === 'SCHEDULED' ? 'scheduled' : 'draft',
-                            publishedAt: article.scheduledAt || article.createdAt || new Date().toISOString(),
-                            category: job.categories?.name || '未分類',
-                            author: job.authors?.name || 'AI Assistant'
-                        });
-                    });
-                }
-            });
-
+            const generatedArticles: GeneratedArticleData[] = activeJobs.flatMap((job: any) =>
+                (job.articles || []).map((article: any) => ({
+                    title: article.title,
+                    status: article.status === 'PUBLISH_NOW' ? 'published' : article.status === 'SCHEDULED' ? 'scheduled' : 'draft',
+                    publishedAt: article.publishedAt || new Date().toISOString(),
+                    category: job.category?.name || 'カテゴリなし',
+                    author: job.author?.name,
+                }))
+            );
             setGeneratedResult(generatedArticles);
             setGenStatus('completed');
         }
-    }, [jobsData, activeJobIds]);
+    }, [jobsData, activeJobIds, pipelineMode]);
 
     const handleComplete = () => {
         onGenerate(generatedResult);
         setProgressModalOpen(false);
     };
 
-    // Loading state
     if (isDataLoading) {
         return (
-            <div className="flex flex-col h-full bg-white p-6">
-                <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
-                    <div className="flex flex-col gap-1">
-                        <h1 className="text-xl font-bold tracking-tight text-neutral-900">AI記事企画</h1>
-                        <p className="text-sm text-neutral-500 font-medium">設定を選択 → キーワード分析 → 記事生成</p>
-                    </div>
-                </header>
+            <div className="flex flex-col h-full bg-white">
                 <div className="flex-1 flex items-center justify-center">
                     <div className="flex flex-col items-center gap-3">
                         <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
@@ -417,618 +241,346 @@ export function StrategyView({
     }
 
     return (
-        <div className="flex flex-col h-full bg-white p-6">
-            {/* Header - Consistent with CategoriesView/PostsView */}
-            <header className="h-24 flex-none px-8 flex items-end justify-between pb-6 bg-white border-b border-neutral-100">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-xl font-bold tracking-tight text-neutral-900">AI記事企画</h1>
-                    <p className="text-sm text-neutral-500 font-medium">設定を選択 → キーワード分析 → 記事生成</p>
-                </div>
+        <div className="flex flex-col h-full bg-gradient-to-br from-neutral-50 to-white">
+            {/* Header */}
+            <header className="px-8 py-6 bg-white border-b border-neutral-100">
+                <h1 className="text-xl font-bold tracking-tight text-neutral-900">AI記事生成</h1>
+                <p className="text-sm text-neutral-500 mt-1">カテゴリー・監修者・コンバージョンを選択して記事を生成します</p>
             </header>
 
-            <div className="flex-1 min-h-0 bg-white flex overflow-hidden relative">
-                {/* Left Column: Selection Area (Scrollable) */}
-                <div className="flex-1 overflow-y-auto p-6">
-                    <div className="max-w-4xl space-y-6">
+            <div className="flex-1 p-8 overflow-auto">
+                <div className="max-w-4xl mx-auto space-y-6">
 
-                        {/* Setup Section - Category, Conversion, Author in one card */}
-                        <div className="bg-gradient-to-br from-neutral-50 to-white rounded-2xl border border-neutral-200 p-6 shadow-sm">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center">
-                                    <Sparkles size={18} className="text-white" />
+                    {/* Stats Overview */}
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                    <Database size={18} className="text-blue-600" />
                                 </div>
                                 <div>
-                                    <h2 className="text-base font-bold text-neutral-900">記事の設定</h2>
-                                    <p className="text-xs text-neutral-500">カテゴリー、コンバージョン、監修者を選択してください</p>
+                                    <p className="text-2xl font-bold text-neutral-900">{knowledgeItems.length}</p>
+                                    <p className="text-xs text-neutral-500">情報バンク</p>
                                 </div>
                             </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                {/* Category Selection */}
-                                <div className="space-y-3">
-                                    <Label className="text-xs font-bold text-neutral-700 flex items-center justify-between">
-                                        <span>カテゴリー</span>
-                                        {selectedCategoryIds.size > 0 && (
-                                            <span className="text-[10px] font-medium text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
-                                                {selectedCategoryIds.size} 選択中
-                                            </span>
-                                        )}
-                                    </Label>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                        {categories.map(cat => {
-                                            const isSelected = selectedCategoryIds.has(cat.id);
-                                            return (
-                                                <button
-                                                    key={cat.id}
-                                                    onClick={() => genStatus !== 'processing' && toggleCategory(cat.id)}
-                                                    disabled={genStatus === 'processing'}
-                                                    className={cn(
-                                                        "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
-                                                        isSelected
-                                                            ? "border-violet-500 bg-violet-50 shadow-sm"
-                                                            : "border-neutral-200 bg-white hover:border-violet-300 hover:bg-violet-50/30"
-                                                    )}
-                                                >
-                                                    <div className="min-w-0 flex-1 mr-2">
-                                                        <h3 className={cn("font-bold text-xs truncate", isSelected ? "text-violet-700" : "text-neutral-700")}>{cat.name}</h3>
-                                                        <div className="flex items-center gap-1 text-[10px] text-neutral-500 truncate">
-                                                            <UserCheck size={10} />
-                                                            <span>{cat.supervisorName || '未設定'}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className={cn(
-                                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-                                                        isSelected ? "border-violet-500 bg-violet-500" : "border-neutral-300 group-hover:border-violet-300"
-                                                    )}>
-                                                        {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Conversion Selection */}
-                                <div className="space-y-3">
-                                    <Label className="text-xs font-bold text-neutral-700 flex items-center justify-between">
-                                        <span>コンバージョン</span>
-                                        {selectedConversionIds.size > 0 && (
-                                            <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                                {selectedConversionIds.size} 選択中
-                                            </span>
-                                        )}
-                                    </Label>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                        {conversions.map((cv) => {
-                                            const isSelected = selectedConversionIds.has(cv.id);
-                                            return (
-                                                <button
-                                                    key={cv.id}
-                                                    onClick={() => genStatus !== 'processing' && toggleConversion(cv.id)}
-                                                    disabled={genStatus === 'processing'}
-                                                    className={cn(
-                                                        "w-full px-3 py-2.5 rounded-xl border text-xs font-bold transition-all text-left flex items-center justify-between",
-                                                        isSelected
-                                                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm"
-                                                            : "border-neutral-200 bg-white text-neutral-600 hover:border-emerald-300 hover:bg-emerald-50/30"
-                                                    )}
-                                                >
-                                                    <span className="truncate mr-2">{cv.name}</span>
-                                                    <div className={cn(
-                                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-                                                        isSelected ? "border-emerald-500 bg-emerald-500" : "border-neutral-300"
-                                                    )}>
-                                                        {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Author Selection */}
-                                <div className="space-y-3">
-                                    <Label className="text-xs font-bold text-neutral-700 flex items-center justify-between">
-                                        <span>監修者</span>
-                                        {selectedAuthorId && (
-                                            <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                                                選択済み
-                                            </span>
-                                        )}
-                                    </Label>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                        {authors.map((author) => {
-                                            const isSelected = selectedAuthorId === author.id;
-                                            return (
-                                                <button
-                                                    key={author.id}
-                                                    onClick={() => genStatus !== 'processing' && setSelectedAuthorId(isSelected ? null : author.id)}
-                                                    disabled={genStatus === 'processing'}
-                                                    className={cn(
-                                                        "w-full p-2.5 rounded-xl border text-left transition-all flex items-center gap-3",
-                                                        isSelected
-                                                            ? "border-blue-500 bg-blue-50 shadow-sm"
-                                                            : "border-neutral-200 bg-white hover:border-blue-300 hover:bg-blue-50/30"
-                                                    )}
-                                                >
-                                                    <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
-                                                        <AvatarImage src={author.avatar} alt={author.name} />
-                                                        <AvatarFallback className="text-[10px] bg-blue-100 text-blue-600 font-bold">
-                                                            {author.name.substring(0, 2)}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="min-w-0 flex-1">
-                                                        <h3 className={cn("font-bold text-xs truncate", isSelected ? "text-blue-700" : "text-neutral-700")}>
-                                                            {author.name}
-                                                        </h3>
-                                                        <p className="text-[10px] text-neutral-500 truncate">{author.role}</p>
-                                                    </div>
-                                                    <div className={cn(
-                                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-                                                        isSelected ? "border-blue-500 bg-blue-500" : "border-neutral-300"
-                                                    )}>
-                                                        {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                            <div className="text-xs text-neutral-500">
+                                未使用: <span className="font-medium text-blue-600">{unusedCount}件</span>
                             </div>
-
-                            {/* Selection Summary */}
-                            {isStep123Complete && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="mt-6 p-4 bg-gradient-to-r from-violet-50 via-emerald-50 to-blue-50 rounded-xl border border-neutral-200"
-                                >
-                                    <div className="flex items-center gap-2 text-xs font-medium text-neutral-700">
-                                        <CheckCircle2 size={14} className="text-emerald-500" />
-                                        <span>設定完了 — キーワード分析の準備ができました</span>
-                                    </div>
-                                </motion.div>
-                            )}
                         </div>
 
-                        {/* Keyword Analysis Button - Prominent CTA */}
-                        <AnimatePresence mode="wait">
-                            {!showKeywords && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    className="py-4"
-                                >
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "w-full h-20 border-2 transition-all group relative overflow-hidden",
-                                            isStep123Complete
-                                                ? "border-violet-300 bg-gradient-to-r from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 hover:border-violet-400 text-violet-700"
-                                                : "border-dashed border-neutral-200 text-neutral-400 bg-white"
-                                        )}
-                                        disabled={!isStep123Complete || isAnalyzing}
-                                        onClick={handleAnalyzeKeywords}
-                                    >
-                                        {isAnalyzing ? (
-                                            <div className="flex items-center gap-3">
-                                                <div className="relative">
-                                                    <Sparkles size={20} className="text-violet-500 animate-pulse" />
-                                                    <div className="absolute inset-0 animate-ping">
-                                                        <Sparkles size={20} className="text-violet-300" />
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-col items-start">
-                                                    <span className="font-bold">AIがキーワードを分析中...</span>
-                                                    <span className="text-xs font-normal opacity-70">カテゴリ・CV・監修者の情報を総合分析しています</span>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-3">
-                                                <div className={cn(
-                                                    "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
-                                                    isStep123Complete
-                                                        ? "bg-violet-100 group-hover:bg-violet-200"
-                                                        : "bg-neutral-100"
-                                                )}>
-                                                    <Sparkles size={18} className={isStep123Complete ? "text-violet-600" : "text-neutral-400"} />
-                                                </div>
-                                                <div className="flex flex-col items-start">
-                                                    <span className="font-bold flex items-center gap-1.5">
-                                                        AIキーワード分析
-                                                        {isStep123Complete && (
-                                                            <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                                                        )}
-                                                    </span>
-                                                    <span className="text-xs font-normal opacity-70">
-                                                        {isStep123Complete
-                                                            ? '選択したカテゴリ・CV・監修者から最適なキーワードを提案'
-                                                            : 'カテゴリー・CV・監修者を選択してください'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </Button>
-                                </motion.div>
-                            )}
+                        <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                                    <FileText size={18} className="text-violet-600" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-neutral-900">{categories.reduce((sum, c) => sum + c.articleCount, 0)}</p>
+                                    <p className="text-xs text-neutral-500">総記事数</p>
+                                </div>
+                            </div>
+                            <div className="text-xs text-neutral-500">
+                                {categories.length}カテゴリー
+                            </div>
+                        </div>
 
-                            {/* Keywords Section (After Analysis) */}
-                            {showKeywords && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.4, ease: "easeOut" }}
-                                    className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-2xl border border-violet-200 p-6 shadow-sm"
-                                >
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-violet-200">
-                                                <Search size={18} className="text-white" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-base font-bold text-neutral-900">キーワード選択</h2>
-                                                <p className="text-xs text-neutral-500">検索ボリュームを参考にキーワードを選んでください</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-bold text-violet-600">{selectedKeywordIds.size}</span>
-                                            <span className="text-xs text-neutral-400">/ 5 選択中</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-100 space-y-4">
-                                        {/* Custom Keyword Input */}
-                                        <div className="flex gap-2">
-                                            <Input
-                                                placeholder="狙いたいキーワードを入力..."
-                                                className="h-9 text-xs bg-white"
-                                                value={customKeyword}
-                                                onChange={(e) => setCustomKeyword(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && addCustomKeyword()}
-                                            />
-                                            <Button
-                                                size="sm"
-                                                onClick={addCustomKeyword}
-                                                disabled={!customKeyword.trim() || selectedKeywordIds.size >= 5}
-                                                className="h-9 bg-neutral-900 text-white hover:bg-neutral-800"
-                                            >
-                                                追加
-                                            </Button>
-                                        </div>
-
-                                        {/* Custom Keywords List */}
-                                        {customKeywords.length > 0 && (
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-bold text-neutral-500">手動入力</Label>
-                                                <div className="space-y-2">
-                                                    {customKeywords.map((kw) => {
-                                                        const isSelected = selectedKeywordIds.has(kw.id);
-                                                        return (
-                                                            <div key={kw.id} className="flex items-center gap-2">
-                                                                <button
-                                                                    onClick={() => toggleKeyword(kw.id)}
-                                                                    className={cn(
-                                                                        "flex-1 p-3 rounded-lg border text-left transition-all flex items-center gap-3 bg-white hover:border-neutral-300",
-                                                                        isSelected
-                                                                            ? "border-neutral-900 ring-1 ring-neutral-900 z-10"
-                                                                            : "border-neutral-200"
-                                                                    )}
-                                                                >
-                                                                    <div className={cn(
-                                                                        "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
-                                                                        isSelected ? "border-neutral-900 bg-neutral-900" : "border-neutral-300"
-                                                                    )}>
-                                                                        {isSelected && <Check size={10} className="text-white" />}
-                                                                    </div>
-                                                                    <span className="text-sm font-bold text-neutral-900">{kw.keyword}</span>
-                                                                </button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    onClick={() => removeCustomKeyword(kw.id)}
-                                                                    className="h-8 w-8 text-neutral-400 hover:text-red-500"
-                                                                >
-                                                                    <X size={14} />
-                                                                </Button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Context Info */}
-                                        {suggestionContext && (
-                                            <div className="bg-gradient-to-r from-violet-50 to-indigo-50 p-3 rounded-lg border border-violet-100/50">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <Lightbulb size={12} className="text-violet-600" />
-                                                    <span className="text-[10px] font-bold text-violet-700">分析コンテキスト</span>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2 text-[10px]">
-                                                    <span className="bg-white/80 px-2 py-1 rounded border border-violet-200/50 text-violet-700">
-                                                        {suggestionContext.category.name}
-                                                    </span>
-                                                    <span className="bg-white/80 px-2 py-1 rounded border border-violet-200/50 text-violet-700">
-                                                        {suggestionContext.conversion.name}
-                                                    </span>
-                                                    <span className="bg-white/80 px-2 py-1 rounded border border-violet-200/50 text-violet-700">
-                                                        {suggestionContext.author.name}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Error Display */}
-                                        {suggestionError && (
-                                            <div className="bg-red-50 p-3 rounded-lg border border-red-200 flex items-start gap-2">
-                                                <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="text-xs font-medium text-red-700">{suggestionError}</p>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Suggested Keywords List */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="text-xs font-bold text-neutral-500 flex items-center gap-1.5">
-                                                    <Sparkles size={12} className="text-amber-500" />
-                                                    AIおすすめ
-                                                </Label>
-                                                {keywordCandidates.length > 0 && (
-                                                    <span className="text-[10px] text-neutral-400">
-                                                        {keywordCandidates.length}件の候補
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="space-y-2">
-                                                {keywordCandidates.map((kw) => {
-                                                    const isSelected = selectedKeywordIds.has(kw.id);
-                                                    const isDisabled = !isSelected && selectedKeywordIds.size >= 5;
-
-                                                    return (
-                                                        <button
-                                                            key={kw.id}
-                                                            onClick={() => toggleKeyword(kw.id)}
-                                                            disabled={isDisabled}
-                                                            className={cn(
-                                                                "w-full p-3 rounded-lg border text-left transition-all bg-white hover:border-neutral-300 group",
-                                                                isSelected
-                                                                    ? "border-neutral-900 ring-1 ring-neutral-900 z-10"
-                                                                    : "border-neutral-200",
-                                                                isDisabled && "opacity-50 cursor-not-allowed hover:border-neutral-200"
-                                                            )}
-                                                        >
-                                                            <div className="flex items-start gap-3">
-                                                                <div className={cn(
-                                                                    "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors mt-0.5",
-                                                                    isSelected ? "border-neutral-900 bg-neutral-900" : "border-neutral-300"
-                                                                )}>
-                                                                    {isSelected && <Check size={10} className="text-white" />}
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                                        <p className="text-sm font-bold text-neutral-900">
-                                                                            {kw.keyword}
-                                                                        </p>
-                                                                        {kw.isRecommended && (
-                                                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm">
-                                                                                推奨
-                                                                            </span>
-                                                                        )}
-                                                                        {kw.score !== undefined && kw.score > 70 && (
-                                                                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                                                                                スコア {kw.score}
-                                                                            </span>
-                                                                        )}
-                                                                        {/* カニバリ警告 */}
-                                                                        {kw.cannibalScore !== undefined && kw.cannibalScore >= 50 && (
-                                                                            <TooltipProvider>
-                                                                                <Tooltip>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <span className={cn(
-                                                                                            "text-[9px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1 cursor-help",
-                                                                                            kw.cannibalScore >= 70
-                                                                                                ? "bg-red-100 text-red-700"
-                                                                                                : "bg-amber-100 text-amber-700"
-                                                                                        )}>
-                                                                                            <AlertTriangle size={9} />
-                                                                                            被り{kw.cannibalScore}%
-                                                                                        </span>
-                                                                                    </TooltipTrigger>
-                                                                                    <TooltipContent side="top" className="max-w-xs">
-                                                                                        <div className="text-xs">
-                                                                                            <p className="font-bold mb-1">類似記事あり</p>
-                                                                                            {kw.cannibalMatches && kw.cannibalMatches.length > 0 ? (
-                                                                                                <ul className="space-y-1">
-                                                                                                    {kw.cannibalMatches.map((match, i) => (
-                                                                                                        <li key={i} className="text-neutral-600">
-                                                                                                            • {match.title.slice(0, 30)}{match.title.length > 30 ? '...' : ''} ({match.similarity}%)
-                                                                                                        </li>
-                                                                                                    ))}
-                                                                                                </ul>
-                                                                                            ) : (
-                                                                                                <p className="text-neutral-600">既存記事と内容が重複する可能性があります</p>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </TooltipContent>
-                                                                                </Tooltip>
-                                                                            </TooltipProvider>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="flex items-center gap-3 text-[10px] text-neutral-500 mb-1.5">
-                                                                        <span className="flex items-center gap-1">
-                                                                            <Search size={9} />
-                                                                            {kw.volume.toLocaleString()}/月
-                                                                        </span>
-                                                                        <span className="w-px h-2 bg-neutral-300" />
-                                                                        <span>難易度 {kw.difficulty}</span>
-                                                                        {kw.cpc !== undefined && kw.cpc > 0 && (
-                                                                            <>
-                                                                                <span className="w-px h-2 bg-neutral-300" />
-                                                                                <span>¥{kw.cpc.toLocaleString()}/クリック</span>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                    {kw.reasoning && (
-                                                                        <p className="text-[10px] text-neutral-500 leading-relaxed bg-neutral-50 p-2 rounded border border-neutral-100 group-hover:bg-neutral-100/50 transition-colors">
-                                                                            <span className="text-violet-600 font-medium">AI分析: </span>
-                                                                            {kw.reasoning}
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-center pt-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={handleAnalyzeKeywords}
-                                                disabled={isAnalyzing}
-                                                className="text-xs text-neutral-500 hover:text-neutral-900 h-8"
-                                            >
-                                                {isAnalyzing ? (
-                                                    <>
-                                                        <Loader2 size={12} className="mr-1.5 animate-spin" />
-                                                        分析中...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <RefreshCw size={12} className="mr-1.5" />
-                                                        AIで再分析
-                                                    </>
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                        <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-sm">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                    <TrendingUp size={18} className="text-emerald-600" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-neutral-900">{maxGeneratable}</p>
+                                    <p className="text-xs text-neutral-500">生成可能数</p>
+                                </div>
+                            </div>
+                            <div className="text-xs text-neutral-500">
+                                未使用アイテム
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                {/* Right Column: Settings & Action (Fixed Width) */}
-                <div className="w-[360px] flex flex-col border-l border-neutral-100 bg-neutral-50/50 relative overflow-hidden">
-
-                    <div className={cn("p-6 space-y-6 flex-1 overflow-y-auto transition-opacity duration-300", genStatus === 'processing' ? "opacity-30 pointer-events-none" : "opacity-100")}>
-                        <div className="flex items-center gap-2 mb-2">
-                            <h2 className="text-sm font-bold text-neutral-900">生成オプション</h2>
+                    {/* Selection Card */}
+                    <div className="bg-white rounded-2xl border border-neutral-200 p-8 shadow-sm">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg bg-gradient-to-br from-blue-500 to-cyan-500 shadow-blue-200">
+                                <Sparkles size={24} className="text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-neutral-900">生成設定</h2>
+                                <p className="text-sm text-neutral-500">
+                                    情報バンクから自動でキーワード抽出し、高品質な記事を生成します
+                                </p>
+                            </div>
                         </div>
 
-                        {/* Schedule */}
-                        <div className="bg-white p-4 rounded-xl border border-neutral-200 space-y-4 shadow-sm">
-                            <Label className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
-                                <CalendarDays size={12} className="text-green-600" />
+                        {/* Required Selections */}
+                        <div className="grid grid-cols-3 gap-6 mb-8">
+                            {/* Category Selection */}
+                            <div>
+                                <Label className="text-sm font-bold text-neutral-700 mb-2 flex items-center gap-2">
+                                    <FolderOpen size={14} className="text-neutral-500" />
+                                    カテゴリー <span className="text-red-500">*</span>
+                                </Label>
+                                <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+                                    <SelectTrigger className="h-12">
+                                        <SelectValue placeholder="カテゴリーを選択" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map(cat => (
+                                            <SelectItem key={cat.id} value={cat.id}>
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <span>{cat.name}</span>
+                                                    <span className="text-xs text-neutral-400">{cat.articleCount}記事</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Author Selection */}
+                            <div>
+                                <Label className="text-sm font-bold text-neutral-700 mb-2 flex items-center gap-2">
+                                    <User size={14} className="text-neutral-500" />
+                                    監修者 <span className="text-red-500">*</span>
+                                </Label>
+                                <Select value={selectedAuthorId} onValueChange={setSelectedAuthorId}>
+                                    <SelectTrigger className="h-12">
+                                        <SelectValue placeholder="監修者を選択" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {authors.map(author => (
+                                            <SelectItem key={author.id} value={author.id}>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{author.name}</span>
+                                                    <span className="text-xs text-neutral-400">({author.role})</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Conversion Selection */}
+                            <div>
+                                <Label className="text-sm font-bold text-neutral-700 mb-2 flex items-center gap-2">
+                                    <Target size={14} className="text-neutral-500" />
+                                    コンバージョン <span className="text-red-500">*</span>
+                                </Label>
+                                <Select value={selectedConversionId} onValueChange={setSelectedConversionId}>
+                                    <SelectTrigger className="h-12">
+                                        <SelectValue placeholder="コンバージョンを選択" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {conversions.map(cv => (
+                                            <SelectItem key={cv.id} value={cv.id}>
+                                                {cv.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Selection Summary */}
+                        {hasRequiredSelections && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mb-8 p-4 bg-emerald-50 rounded-xl border border-emerald-100"
+                            >
+                                <p className="text-sm font-medium text-emerald-800 mb-2 flex items-center gap-2">
+                                    <CheckCircle2 size={14} />
+                                    選択内容
+                                </p>
+                                <div className="grid grid-cols-3 gap-4 text-xs text-emerald-700">
+                                    <div>
+                                        <span className="text-emerald-500">カテゴリー:</span> {selectedCategory?.name}
+                                    </div>
+                                    <div>
+                                        <span className="text-emerald-500">監修者:</span> {selectedAuthor?.name}
+                                    </div>
+                                    <div>
+                                        <span className="text-emerald-500">CV:</span> {selectedConversion?.name}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* Article Count Selector */}
+                        <div className="mb-8">
+                            <Label className="text-sm font-bold text-neutral-700 mb-3 block">生成する記事数</Label>
+                            <div className="flex items-center gap-4">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-12 w-12 rounded-xl"
+                                    onClick={() => setArticleCount(Math.max(1, articleCount - 1))}
+                                    disabled={articleCount <= 1}
+                                >
+                                    <Minus size={18} />
+                                </Button>
+                                <div className="flex-1 max-w-[120px]">
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={maxGeneratable}
+                                        value={articleCount}
+                                        onChange={(e) => setArticleCount(Math.min(maxGeneratable, Math.max(1, parseInt(e.target.value) || 1)))}
+                                        className="h-12 text-center text-2xl font-bold"
+                                    />
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-12 w-12 rounded-xl"
+                                    onClick={() => setArticleCount(Math.min(maxGeneratable, articleCount + 1))}
+                                    disabled={articleCount >= maxGeneratable}
+                                >
+                                    <Plus size={18} />
+                                </Button>
+                                <span className="text-sm text-neutral-500">/ {maxGeneratable} 件まで</span>
+                            </div>
+                        </div>
+
+                        {/* Schedule Options */}
+                        <div className="mb-8 p-5 bg-neutral-50 rounded-xl border border-neutral-100">
+                            <Label className="text-sm font-bold text-neutral-700 mb-3 flex items-center gap-2">
+                                <CalendarDays size={14} className="text-neutral-500" />
                                 公開設定
                             </Label>
-
-                            <Tabs
-                                value={scheduleMode}
-                                onValueChange={(v) => setScheduleMode(v as 'draft' | 'now' | 'schedule')}
-                                className="w-full"
-                            >
-                                <TabsList className="grid w-full grid-cols-3 mb-3 p-1 bg-neutral-100 h-8">
-                                    <TabsTrigger value="draft" className="text-[10px] h-6 px-1 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                        下書き
-                                    </TabsTrigger>
-                                    <TabsTrigger value="now" className="text-[10px] h-6 px-1 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                        即時公開
-                                    </TabsTrigger>
-                                    <TabsTrigger value="schedule" className="text-[10px] h-6 px-1 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                        予約投稿
-                                    </TabsTrigger>
+                            <Tabs value={scheduleMode} onValueChange={(v) => setScheduleMode(v as any)} className="w-full">
+                                <TabsList className="grid w-full grid-cols-3 mb-4 h-10">
+                                    <TabsTrigger value="draft" className="text-xs">下書き保存</TabsTrigger>
+                                    <TabsTrigger value="now" className="text-xs">即時公開</TabsTrigger>
+                                    <TabsTrigger value="schedule" className="text-xs">予約投稿</TabsTrigger>
                                 </TabsList>
 
                                 <TabsContent value="draft" className="mt-0">
-                                    <p className="text-[10px] text-neutral-500 bg-neutral-50 p-2 rounded border border-neutral-100">
-                                        「下書き」として保存します。公開は手動で行います。
-                                    </p>
+                                    <p className="text-xs text-neutral-500">生成後は下書きとして保存されます。公開は手動で行います。</p>
                                 </TabsContent>
 
                                 <TabsContent value="now" className="mt-0">
-                                    <div className="bg-amber-50 p-2 rounded border border-amber-100 text-[10px] text-amber-700 flex items-start gap-2">
-                                        <Zap size={12} className="shrink-0 mt-0.5" />
-                                        <span>
-                                            生成完了と同時に<strong>公開状態</strong>になります。
-                                        </span>
+                                    <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+                                        <Zap size={12} />
+                                        <span>生成完了と同時に公開されます</span>
                                     </div>
                                 </TabsContent>
 
                                 <TabsContent value="schedule" className="mt-0 space-y-3">
-                                    <div className="space-y-2">
-                                        <div className="space-y-1">
-                                            <Label htmlFor="start-date" className="text-[10px] font-medium text-neutral-600">予約日 (一括指定)</Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <Label className="text-xs text-neutral-500 mb-1 block">予約日</Label>
                                             <Input
-                                                id="start-date"
                                                 type="date"
-                                                className="bg-neutral-50 h-8 text-xs"
                                                 value={startDate}
                                                 onChange={(e) => setStartDate(e.target.value)}
+                                                className="h-9 text-sm"
                                             />
                                         </div>
-                                        <div className="space-y-1">
-                                            <Label htmlFor="post-time" className="text-[10px] font-medium text-neutral-600">投稿時間</Label>
+                                        <div>
+                                            <Label className="text-xs text-neutral-500 mb-1 block">時間</Label>
                                             <Input
-                                                id="post-time"
                                                 type="time"
-                                                className="bg-neutral-50 h-8 text-xs"
                                                 value={postTime}
                                                 onChange={(e) => setPostTime(e.target.value)}
+                                                className="h-9 text-sm"
                                             />
                                         </div>
-                                        <p className="text-[10px] text-green-600 flex items-center gap-1 font-medium">
-                                            <Globe size={10} />
-                                            全記事を指定日時に予約します
-                                        </p>
                                     </div>
                                 </TabsContent>
                             </Tabs>
                         </div>
-                    </div>
 
-                    {/* Footer / Generate Action */}
-                    <div className={cn("p-6 bg-white border-t border-neutral-200 transition-opacity duration-300", genStatus === 'processing' ? "opacity-30 pointer-events-none" : "opacity-100")}>
-                        <div className="flex items-start justify-between mb-4 bg-neutral-50 p-3 rounded-lg border border-neutral-100">
-                            <span className="text-xs font-bold text-neutral-500 mt-0.5">生成対象</span>
-                            {selectedKeywordsList.length > 0 ? (
-                                <div className="text-right max-w-[200px]">
-                                    <div className="flex flex-col gap-0.5 mb-1">
-                                        {selectedKeywordsList.slice(0, 2).map(k => (
-                                            <p key={k.id} className="text-sm font-bold text-neutral-900 line-clamp-1">
-                                                「{k.keyword}」
-                                            </p>
-                                        ))}
-                                        {selectedKeywordsList.length > 2 && (
-                                            <p className="text-xs text-neutral-400 text-right">
-                                                他 {selectedKeywordsList.length - 2} 件
-                                            </p>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-neutral-500 mt-1 pt-1 border-t border-neutral-200 inline-block w-full">
-                                        計 {selectedKeywordsList.length} 記事
-                                    </p>
-                                </div>
-                            ) : (
-                                <span className="text-xs text-neutral-400">キーワード未選択</span>
-                            )}
+                        {/* What AI will do */}
+                        <div className="mb-8 p-5 rounded-xl border bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-100">
+                            <p className="text-sm font-medium mb-3 text-blue-800">
+                                AI記事生成の特徴
+                            </p>
+                            <ul className="space-y-2 text-xs text-blue-700">
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle2 size={12} className="text-blue-500" />
+                                    情報バンクから記事テーマを自動抽出
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle2 size={12} className="text-blue-500" />
+                                    Web検索で最新の信頼性データを取得
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle2 size={12} className="text-blue-500" />
+                                    LLMo最適化（AI検索エンジン対応）
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle2 size={12} className="text-blue-500" />
+                                    モノトーンスタイルで統一されたデザイン
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle2 size={12} className="text-blue-500" />
+                                    選択した監修者の文体で記事を執筆
+                                </li>
+                            </ul>
                         </div>
 
+                        {/* Generate Button */}
                         <Button
                             size="lg"
-                            className="w-full rounded-full h-12 text-sm font-bold shadow-lg shadow-neutral-200 bg-neutral-900 text-white hover:bg-neutral-800"
-                            disabled={selectedKeywordsList.length === 0 || genStatus === 'processing'}
+                            className="w-full h-14 rounded-2xl text-base font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-blue-200"
+                            disabled={!canGenerate || genStatus === 'processing'}
                             onClick={handleGenerate}
                         >
-                            <Sparkles className="mr-2" size={16} />
-                            一括生成を開始する
+                            {genStatus === 'processing' ? (
+                                <>
+                                    <Loader2 size={20} className="mr-2 animate-spin" />
+                                    生成中...
+                                </>
+                            ) : (
+                                <>
+                                    <Play size={20} className="mr-2" />
+                                    {articleCount}件の記事を生成する
+                                </>
+                            )}
                         </Button>
+
+                        {!hasRequiredSelections && (
+                            <p className="text-xs text-amber-600 text-center mt-3">
+                                カテゴリー・監修者・コンバージョンを選択してください
+                            </p>
+                        )}
+                        {hasRequiredSelections && maxGeneratable === 0 && (
+                            <p className="text-xs text-red-500 text-center mt-3">
+                                情報バンクにコンテンツがありません
+                            </p>
+                        )}
                     </div>
+
+                    {/* Category Balance Preview */}
+                    {categories.length > 0 && (
+                        <div className="bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm">
+                            <h3 className="text-sm font-bold text-neutral-700 mb-4">カテゴリー別状況</h3>
+                            <div className="space-y-3">
+                                {categories.slice(0, 6).map(cat => (
+                                    <div key={cat.id} className={cn(
+                                        "flex items-center gap-3 p-2 rounded-lg transition-colors",
+                                        selectedCategoryId === cat.id && "bg-blue-50 border border-blue-200"
+                                    )}>
+                                        <div className="w-24 text-xs font-medium text-neutral-700 truncate">{cat.name}</div>
+                                        <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                                            <div
+                                                className={cn(
+                                                    "h-full rounded-full",
+                                                    selectedCategoryId === cat.id
+                                                        ? "bg-gradient-to-r from-blue-500 to-cyan-500"
+                                                        : "bg-gradient-to-r from-neutral-400 to-neutral-500"
+                                                )}
+                                                style={{ width: `${Math.min(100, (cat.articleCount / Math.max(...categories.map(c => c.articleCount), 1)) * 100)}%` }}
+                                            />
+                                        </div>
+                                        <div className="w-16 text-xs text-neutral-500 text-right">{cat.articleCount}記事</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1036,16 +588,17 @@ export function StrategyView({
                 isOpen={progressModalOpen}
                 currentStepIndex={currentStep}
                 progress={progress}
-                articleCount={1}
+                articleCount={articleCount}
                 status={genStatus === 'idle' ? 'processing' : genStatus}
+                pipelineMode={pipelineMode}
                 onCancel={() => {
-                    setGenStatus('idle'); // or error logic
+                    setGenStatus('idle');
                     setProgressModalOpen(false);
                 }}
                 onComplete={handleComplete}
                 onRetry={handleGenerate}
-                onSavePartial={handleComplete} // Simplified for demo
-                successCount={Math.floor(1 * (progress / 100))} // Mock success count
+                onSavePartial={handleComplete}
+                successCount={Math.floor(articleCount * (progress / 100))}
             />
         </div>
     );

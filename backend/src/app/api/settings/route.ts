@@ -7,6 +7,16 @@ import { z } from "zod";
 import { isAppError } from "@/lib/errors";
 import { auditLog } from "@/lib/audit-log";
 import { secrets } from "@/lib/encryption";
+import {
+  DEFAULT_ARTICLE_PROMPT,
+  DEFAULT_IMAGE_PROMPT,
+  DEFAULT_KEYWORD_SUGGEST_PROMPT,
+  DEFAULT_TITLE_PROMPT,
+  DEFAULT_KEYWORD_ANALYSIS_PROMPT,
+  DEFAULT_WHITE_DATA_PROMPT,
+  DEFAULT_LLMO_PROMPT,
+} from "@/inngest/functions/pipeline/common/prompts";
+import { STAGE_MODEL_CONFIG } from "@/inngest/functions/pipeline/common/openrouter";
 
 // 暗号化対象のAPIキーフィールド
 const API_KEY_FIELDS = [
@@ -41,10 +51,14 @@ const updateSettingsSchema = z.object({
   analysisModel: z.string().optional().nullable(),
 
   // System Prompts
-  keywordPrompt: z.string().optional().nullable(),
-  keywordSuggestPrompt: z.string().optional().nullable(),
-  imagePrompt: z.string().optional().nullable(),
-  systemPrompt: z.string().optional().nullable(),  // 3ステップパイプライン用
+  titlePrompt: z.string().optional().nullable(),         // タイトル生成
+  keywordPrompt: z.string().optional().nullable(),       // キーワード分析（未使用）
+  keywordSuggestPrompt: z.string().optional().nullable(), // キーワード提案
+  imagePrompt: z.string().optional().nullable(),         // 画像生成
+  systemPrompt: z.string().optional().nullable(),        // 記事生成
+  // V4パイプライン専用プロンプト
+  whiteDataPrompt: z.string().optional().nullable(),     // ホワイトデータ検索
+  llmoPrompt: z.string().optional().nullable(),          // LLMo最適化
 
   // 検索ボリューム設定
   minSearchVolume: z.number().int().min(0).optional(),
@@ -86,6 +100,41 @@ export async function GET(request: NextRequest) {
         hasSearchVolumeApiKey: !!settings.searchVolumeApiKey,
         hasDataforSeoApiKey: !!settings.dataforSeoApiKey,
         hasOpenRouterApiKey: !!settings.openRouterApiKey,
+        // 実際にシステムで使用されている設定
+        activeConfig: {
+          models: {
+            titleGeneration: STAGE_MODEL_CONFIG.title_generation.model,
+            articleGeneration: STAGE_MODEL_CONFIG.article_generation.model,
+            imageGeneration: STAGE_MODEL_CONFIG.image_generation.model,
+            analysisModel: settings.analysisModel || "openai/gpt-4o",
+          },
+          prompts: {
+            // タイトル生成（DB設定 or デフォルト）
+            title: settings.titlePrompt || DEFAULT_TITLE_PROMPT,
+            // 記事生成（DB設定 or デフォルト）
+            article: settings.systemPrompt || DEFAULT_ARTICLE_PROMPT,
+            // 画像生成（DB設定 or デフォルト）
+            image: settings.imagePrompt || DEFAULT_IMAGE_PROMPT,
+            // キーワード提案（DB設定 or デフォルト）
+            keywordSuggest: settings.keywordSuggestPrompt || DEFAULT_KEYWORD_SUGGEST_PROMPT,
+            // キーワード分析（DB設定 or デフォルト）※現在未使用
+            keywordAnalysis: settings.keywordPrompt || DEFAULT_KEYWORD_ANALYSIS_PROMPT,
+            // V4パイプライン専用
+            whiteData: (settings as { whiteDataPrompt?: string }).whiteDataPrompt || DEFAULT_WHITE_DATA_PROMPT,
+            llmo: (settings as { llmoPrompt?: string }).llmoPrompt || DEFAULT_LLMO_PROMPT,
+          },
+          // デフォルト値（リセット用）
+          defaults: {
+            titlePrompt: DEFAULT_TITLE_PROMPT,
+            systemPrompt: DEFAULT_ARTICLE_PROMPT,
+            imagePrompt: DEFAULT_IMAGE_PROMPT,
+            keywordSuggestPrompt: DEFAULT_KEYWORD_SUGGEST_PROMPT,
+            keywordPrompt: DEFAULT_KEYWORD_ANALYSIS_PROMPT,
+            // V4パイプライン専用
+            whiteDataPrompt: DEFAULT_WHITE_DATA_PROMPT,
+            llmoPrompt: DEFAULT_LLMO_PROMPT,
+          },
+        },
       };
 
       return successResponse(maskedSettings);

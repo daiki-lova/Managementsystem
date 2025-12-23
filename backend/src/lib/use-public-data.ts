@@ -2,41 +2,9 @@
 
 import { useState, useEffect } from "react";
 
-// 公開記事の型定義
-export interface PublicArticle {
-  id: string;
-  title: string;
-  slug: string;
-  metaTitle: string | null;
-  metaDescription: string | null;
-  publishedAt: string | null;
-  media_assets: {
-    url: string;
-    altText: string | null;
-  } | null;
-  categories: {
-    name: string;
-    slug: string;
-  };
-  authors: {
-    name: string;
-    role: string;
-    imageUrl: string | null;
-  };
-  brands: {
-    name: string;
-    slug: string;
-  };
-}
+import { PublicArticle, Category } from "./public-types";
+export type { PublicArticle, Category };
 
-export interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  color: string | null;
-  articlesCount: number;
-}
 
 interface ArticlesResponse {
   success: boolean;
@@ -121,9 +89,9 @@ export function useCategories() {
 }
 
 // 日付をフォーマットする関数
-export function formatDate(dateString: string | null): string {
-  if (!dateString) return "";
-  const date = new Date(dateString);
+export function formatDate(dateInput: string | Date | null): string {
+  if (!dateInput) return "";
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   return date.toLocaleDateString("ja-JP", {
     year: "numeric",
     month: "long",

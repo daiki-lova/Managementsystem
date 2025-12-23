@@ -1,12 +1,9 @@
 import Link from 'next/link';
-import { Header } from '@/components/public/Header';
-import { Footer } from '@/components/public/Footer';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 
 export default function NotFound() {
   return (
-    <div className="w-full min-h-screen bg-white flex flex-col">
-      <Header />
-
+    <PublicPageLayout categories={[]}>
       {/* ヘッダースペース */}
       <div className="h-[108px] md:h-[160px]" />
 
@@ -29,8 +26,6 @@ export default function NotFound() {
           </Link>
         </div>
       </main>
-
-      <Footer />
-    </div>
+    </PublicPageLayout>
   );
 }

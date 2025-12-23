@@ -101,8 +101,10 @@ export default function AdminPage() {
       const insertedImages = articleData.images || [];
 
       if (insertedImages.length > 0) {
-        // Create a mutable copy of blocks
-        const mergedBlocks = [...baseBlocks];
+        // Filter out existing inserted image blocks to avoid duplicates
+        const mergedBlocks = baseBlocks.filter(b =>
+          !b.id?.startsWith('img-inserted-1-') && !b.id?.startsWith('img-inserted-2-')
+        );
 
         // Get unique images by type (use the latest one for each type)
         const inserted1 = insertedImages.filter((img: any) => img.type === 'INSERTED_1').pop();

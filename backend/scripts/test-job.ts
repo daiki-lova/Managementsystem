@@ -56,9 +56,9 @@ async function main() {
 
   console.log('Job created:', job.id);
 
-  // Send Inngest event
+  // Send Inngest event - 新しいパイプラインを使用（HTML生成）
   await inngest.send({
-    name: 'article/generate',
+    name: 'article/generate-pipeline',
     data: {
       jobId: job.id,
       keyword: 'ヨガ 初心者 始め方',
@@ -66,7 +66,6 @@ async function main() {
       authorId: author.id,
       brandId: brand.id,
       conversionIds: [],
-      knowledgeItemIds: knowledgeItems.map(k => k.id),
       userId: user.id,
     }
   });

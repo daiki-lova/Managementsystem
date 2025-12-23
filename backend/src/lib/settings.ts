@@ -18,10 +18,14 @@ export interface SystemSettings {
   articleModel: string | null;
   analysisModel: string | null;
   // プロンプト
-  keywordPrompt: string | null;
-  keywordSuggestPrompt: string | null;
-  imagePrompt: string | null;
-  systemPrompt: string | null;  // 3ステップパイプライン用
+  titlePrompt: string | null;          // タイトル生成
+  keywordPrompt: string | null;        // キーワード分析（未使用）
+  keywordSuggestPrompt: string | null; // キーワード提案
+  imagePrompt: string | null;          // 画像生成
+  systemPrompt: string | null;         // 記事生成
+  // V4パイプライン専用
+  whiteDataPrompt: string | null;      // ホワイトデータ検索
+  llmoPrompt: string | null;           // LLMo最適化
   minSearchVolume: number;
   maxSearchVolume: number;
   volumeZones: unknown;

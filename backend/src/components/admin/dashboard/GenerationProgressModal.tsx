@@ -1,20 +1,21 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Loader2, Check, Sparkles, FileText, PenTool, ImageIcon } from 'lucide-react';
+import { Loader2, Check, Sparkles, FileText, PenTool, ImageIcon, User, Search, FileCode, Save, Globe, Zap } from 'lucide-react';
 import { cn } from '@/app/admin/lib/utils';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { GenerationErrorState } from './GenerationErrorState';
 
-export type GenerationStep = 'title' | 'article' | 'image';
+export type GenerationStep = 'voice' | 'theme' | 'keyword' | 'websearch' | 'article' | 'image' | 'llmo' | 'save';
 
 interface GenerationProgressModalProps {
     isOpen: boolean;
-    currentStepIndex: number; // 0-2 (3ステップパイプライン)
+    currentStepIndex: number;
     progress: number; // 0-100
     articleCount: number;
     status: 'processing' | 'error' | 'completed';
     errorMessage?: string;
+    pipelineMode?: 'v5'; // V5のみサポート
     onCancel: () => void;
     onComplete: () => void;
     onRetry: () => void;
@@ -22,27 +23,62 @@ interface GenerationProgressModalProps {
     successCount?: number;
 }
 
-// 3ステップパイプラインに合わせたステップ定義
-const STEPS = [
+// パイプラインステップ（8ステップ）- 情報バンク + Web検索 + LLMo最適化
+const PIPELINE_STEPS = [
     {
-        label: 'タイトル生成',
-        description: 'SEOに最適化されたタイトルを生成中...',
-        icon: FileText,
-        progressRange: [0, 20],
+        label: '受講生の声を選択',
+        description: 'メインとなる受講生の声を選択中...',
+        icon: User,
+        progressRange: [0, 8],
         color: 'blue'
     },
     {
-        label: '記事執筆',
-        description: '監修者の声を反映した記事を執筆中...',
-        icon: PenTool,
-        progressRange: [20, 80],
+        label: 'テーマ分析',
+        description: '受講生の声からテーマを抽出中...',
+        icon: Search,
+        progressRange: [8, 16],
+        color: 'indigo'
+    },
+    {
+        label: 'キーワード選定',
+        description: 'SEO最適なキーワードを選定中...',
+        icon: FileText,
+        progressRange: [16, 24],
         color: 'violet'
     },
     {
+        label: 'Web検索',
+        description: '最新データと信頼性の高い情報を取得中...',
+        icon: Globe,
+        progressRange: [24, 36],
+        color: 'cyan'
+    },
+    {
+        label: '記事生成',
+        description: '監修者の文体でSEO最適な記事を執筆中...',
+        icon: PenTool,
+        progressRange: [36, 56],
+        color: 'purple'
+    },
+    {
         label: '画像生成',
-        description: '記事に合わせた画像を生成中...',
+        description: 'ヨガの画像を生成中...',
         icon: ImageIcon,
-        progressRange: [80, 100],
+        progressRange: [56, 76],
+        color: 'pink'
+    },
+    {
+        label: 'LLMo最適化',
+        description: 'AI検索エンジン向けの最適化を適用中...',
+        icon: Zap,
+        progressRange: [76, 92],
+        color: 'amber'
+    },
+    {
+        label: '保存',
+        description: '記事を保存中...',
+        icon: Save,
+        progressRange: [92, 100],
         color: 'emerald'
     },
 ];
@@ -60,7 +96,10 @@ export function GenerationProgressModal({
     onSavePartial,
     successCount = 0
 }: GenerationProgressModalProps) {
-    
+
+    const STEPS = PIPELINE_STEPS;
+    const gradientColors = 'from-blue-500 via-cyan-500 to-emerald-500';
+
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && status !== 'processing' && onCancel()}>
             <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border-none shadow-2xl bg-white">
@@ -72,7 +111,7 @@ export function GenerationProgressModal({
                 </DialogHeader>
                 <div className="p-8">
                     {status === 'error' ? (
-                        <GenerationErrorState 
+                        <GenerationErrorState
                             errorMessage={errorMessage}
                             failedStepIndex={currentStepIndex}
                             successCount={successCount}
@@ -82,15 +121,20 @@ export function GenerationProgressModal({
                         />
                     ) : status === 'completed' ? (
                         <div className="flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
-                            <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mb-4">
-                                <Sparkles size={32} className="text-green-600" />
+                            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-blue-50">
+                                <Sparkles size={32} className="text-blue-600" />
                             </div>
                             <h3 className="text-xl font-bold text-neutral-900 mb-2">生成が完了しました！</h3>
-                            <p className="text-neutral-500 mb-8 text-sm">
-                                {articleCount}件の記事が正常に生成されました。<br/>
+                            <p className="text-neutral-500 mb-2 text-sm">
+                                {articleCount}件の記事が正常に生成されました。
+                            </p>
+                            <p className="text-xs text-blue-600 mb-6 bg-blue-50 px-3 py-1 rounded-full">
+                                Web検索 + LLMo最適化 + モノトーンスタイル適用済み
+                            </p>
+                            <p className="text-neutral-400 mb-8 text-xs">
                                 内容を確認して公開しましょう。
                             </p>
-                            <Button 
+                            <Button
                                 onClick={onComplete}
                                 className="w-full rounded-full h-12 bg-neutral-900 text-white font-bold hover:bg-neutral-800 shadow-lg shadow-neutral-200"
                             >
@@ -119,7 +163,7 @@ export function GenerationProgressModal({
                                         key={Math.round(progress)}
                                         initial={{ scale: 1.2, opacity: 0 }}
                                         animate={{ scale: 1, opacity: 1 }}
-                                        className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent font-mono"
+                                        className="text-3xl font-bold bg-clip-text text-transparent font-mono bg-gradient-to-r from-blue-600 to-cyan-600"
                                     >
                                         {Math.round(progress)}%
                                     </motion.span>
@@ -129,7 +173,7 @@ export function GenerationProgressModal({
                             {/* Multi-color Progress Bar */}
                             <div className="h-2 w-full bg-neutral-100 rounded-full overflow-hidden mb-8 relative">
                                 <motion.div
-                                    className="h-full rounded-full bg-gradient-to-r from-blue-500 via-violet-500 to-emerald-500"
+                                    className={cn("h-full rounded-full bg-gradient-to-r", gradientColors)}
                                     initial={{ width: 0 }}
                                     animate={{ width: `${progress}%` }}
                                     transition={{ duration: 0.6, ease: "easeOut" }}
@@ -143,7 +187,7 @@ export function GenerationProgressModal({
                                 />
                             </div>
 
-                            {/* 3 Steps with cards */}
+                            {/* Steps */}
                             <div className="space-y-3">
                                 {STEPS.map((step, index) => {
                                     const isCompleted = index < currentStepIndex;
@@ -168,7 +212,7 @@ export function GenerationProgressModal({
                                             transition={{ delay: index * 0.1 }}
                                             className={cn(
                                                 "relative rounded-xl p-4 transition-all duration-500",
-                                                isCurrent ? "bg-gradient-to-r from-blue-50 to-violet-50 shadow-sm border border-blue-100" :
+                                                isCurrent ? "bg-gradient-to-r from-blue-50 to-cyan-50 shadow-sm border border-blue-100" :
                                                 isCompleted ? "bg-emerald-50/50 border border-emerald-100" :
                                                 "bg-neutral-50/50 border border-transparent"
                                             )}
@@ -178,7 +222,7 @@ export function GenerationProgressModal({
                                                 <div className={cn(
                                                     "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500",
                                                     isCompleted ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" :
-                                                    isCurrent ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white shadow-lg shadow-blue-200" :
+                                                    isCurrent ? "bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-200" :
                                                     "bg-neutral-200 text-neutral-400"
                                                 )}>
                                                     {isCompleted ? (
@@ -237,9 +281,9 @@ export function GenerationProgressModal({
 
                                                     {/* Step progress bar */}
                                                     {isCurrent && (
-                                                        <div className="h-1 w-full bg-blue-100 rounded-full overflow-hidden mt-2">
+                                                        <div className="h-1 w-full rounded-full overflow-hidden mt-2 bg-blue-100">
                                                             <motion.div
-                                                                className="h-full bg-gradient-to-r from-blue-500 to-violet-500 rounded-full"
+                                                                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-500"
                                                                 initial={{ width: 0 }}
                                                                 animate={{ width: `${stepProgress}%` }}
                                                                 transition={{ duration: 0.3 }}

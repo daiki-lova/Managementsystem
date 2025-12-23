@@ -7,6 +7,7 @@ import {
   getTrendingArticles,
   getCategories,
 } from '@/lib/public-data';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 
 // ISR: 60秒ごとに再検証
 export const revalidate = 60;
@@ -178,9 +179,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-white overflow-x-hidden">
-      <Header />
-
+    <PublicPageLayout categories={categories}>
       {/* モバイル用ヘッダースペース */}
       <div className="h-[108px] md:hidden" />
 
@@ -206,8 +205,6 @@ export default async function HomePage() {
           ))}
         </Suspense>
       </main>
-
-      <Footer />
-    </div>
+    </PublicPageLayout>
   );
 }

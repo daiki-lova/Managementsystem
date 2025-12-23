@@ -7,7 +7,9 @@ import Link from 'next/link';
 import {
   getPublishedArticles,
   getCategoryBySlug,
+  getCategories,
 } from '@/lib/public-data';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 
 // ISR: 60秒ごとに再検証
 export const revalidate = 60;
@@ -57,9 +59,8 @@ function Pagination({
     <div className="flex items-center justify-center gap-3 mt-12 mb-8 md:gap-4 md:mt-[120px] md:mb-[120px]">
       <Link
         href={currentPage > 1 ? `/${categorySlug}?page=${currentPage - 1}` : '#'}
-        className={`p-2 hover:bg-gray-100 transition-colors ${
-          currentPage === 1 ? 'opacity-30 pointer-events-none' : ''
-        }`}
+        className={`p-2 hover:bg-gray-100 transition-colors ${currentPage === 1 ? 'opacity-30 pointer-events-none' : ''
+          }`}
         aria-disabled={currentPage === 1}
       >
         <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,11 +73,10 @@ function Pagination({
           <Link
             key={page}
             href={`/${categorySlug}?page=${page}`}
-            className={`w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border font-[var(--font-noto-sans-jp)] font-medium text-[13px] transition-colors ${
-              currentPage === page
+            className={`w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border font-[var(--font-noto-sans-jp)] font-medium text-[13px] transition-colors ${currentPage === page
                 ? 'bg-black text-white border-black'
                 : 'bg-white text-black border-black hover:bg-gray-100'
-            }`}
+              }`}
           >
             {page}
           </Link>
@@ -85,9 +85,8 @@ function Pagination({
 
       <Link
         href={currentPage < totalPages ? `/${categorySlug}?page=${currentPage + 1}` : '#'}
-        className={`p-2 hover:bg-gray-100 transition-colors ${
-          currentPage === totalPages ? 'opacity-30 pointer-events-none' : ''
-        }`}
+        className={`p-2 hover:bg-gray-100 transition-colors ${currentPage === totalPages ? 'opacity-30 pointer-events-none' : ''
+          }`}
         aria-disabled={currentPage === totalPages}
       >
         <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -134,10 +133,10 @@ function ArticleGrid({
             <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] md:text-[12px] text-[#666] md:text-black mt-1 md:mt-2">
               {article.publishedAt
                 ? new Date(article.publishedAt).toLocaleDateString('ja-JP', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })
                 : ''}
             </p>
           </div>
@@ -167,17 +166,15 @@ export default async function CategoryPage({
   const currentPage = Math.max(1, parseInt(pageParam || '1', 10));
   const offset = (currentPage - 1) * itemsPerPage;
 
-  const { articles, total } = await getPublishedArticles(
-    categorySlug,
-    itemsPerPage,
-    offset
-  );
+  const [{ articles, total }, allCategories] = await Promise.all([
+    getPublishedArticles(categorySlug, itemsPerPage, offset),
+    getCategories(),
+  ]);
 
   const totalPages = Math.ceil(total / itemsPerPage);
 
   return (
-    <div className="w-full bg-white overflow-x-hidden">
-      <Header />
+    <PublicPageLayout categories={allCategories}>
 
       {/* モバイル用ヘッダースペース */}
       <div className="h-[108px] md:h-[160px]" />
@@ -213,7 +210,6 @@ export default async function CategoryPage({
         )}
       </main>
 
-      <Footer />
-    </div>
+    </PublicPageLayout>
   );
 }

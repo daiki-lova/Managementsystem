@@ -84,6 +84,7 @@ export default function CategoryPage({ category, onNavigate }: CategoryPageProps
   const [currentPage, setCurrentPage] = useState(1);
   const [contentHeight, setContentHeight] = useState(0);
   const [containerWidth, setContainerWidth] = useState(1680);
+  const [menuOpen, setMenuOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const designWidth = 1680;
@@ -139,8 +140,8 @@ export default function CategoryPage({ category, onNavigate }: CategoryPageProps
 
   return (
     <div className="w-full bg-white overflow-x-hidden">
-      <SidebarMenu onNavigate={onNavigate} scale={scale} />
-      <FixedHeader scale={scale} onNavigate={onNavigate} />
+      <SidebarMenu onNavigate={onNavigate} scale={scale} isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+      <FixedHeader scale={scale} onNavigate={onNavigate} onToggleMenu={() => setMenuOpen(!menuOpen)} />
       
       {/* デスクトップ・タブレット版（768px以上） */}
       <div

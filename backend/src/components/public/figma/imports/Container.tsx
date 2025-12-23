@@ -6,10 +6,15 @@ const logoImage = "/assets/figma/917eb3a33258754379746bcc4d875061f4d7fbfe.png";
 const footerLogoImage = "/assets/figma/17e8fd9b7ed5958fec1ad2e3f9bee7879aaa05d4.png";
 import { TrendingSection } from "./TrendingSection";
 import { PicturefabFiveNew, Link3New, Container3New, Picture5New, Link4New, Container4New } from "./RecentPostsComponents";
-import { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, Fragment } from "react";
+import NextLink from "next/link";
+
+import { PublicArticle, Category } from "@/lib/use-public-data";
 
 interface ContainerProps {
   onArticleClick?: () => void;
+  articles?: PublicArticle[];
+  categories?: Category[];
 }
 
 // スポーティな女性の画像URL
@@ -581,14 +586,14 @@ function Background() {
 
 function Border2({ title }: { title: string }) {
   const categorySlug = title.toLowerCase().replace(/\s+/g, '-');
-  
+
   return (
     <div className="relative h-[60px]" data-name="Border">
       <div aria-hidden="true" className="absolute border-[#e0e0e0] border-[1px_0px] border-solid left-[64px] right-[64px] max-md:left-[20px] max-md:right-[20px] inset-y-0 pointer-events-none" style={{ height: '30px' }} />
-      <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Medium',sans-serif] h-[24px] justify-center leading-[0] left-[64px] max-md:left-[20px] not-italic text-[21px] text-black top-[15px] tracking-[2.1px] translate-y-[-50%] uppercase w-[200px] max-md:text-[18px] max-md:tracking-[1.8px]">
+      <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Medium',sans-serif] h-[24px] justify-center leading-[0] left-[64px] max-md:left-[20px] not-italic text-[21px] text-black top-[15px] tracking-[2.1px] translate-y-[-50%] uppercase w-auto whitespace-nowrap max-md:text-[18px] max-md:tracking-[1.8px]">
         <p className="leading-[24px]">{title}</p>
       </div>
-      <div 
+      <div
         className="absolute right-[64px] max-md:right-[20px] top-[15px] translate-y-[-50%] cursor-pointer group"
         data-name={`Item → Link → ${categorySlug}`}
       >
@@ -597,7 +602,7 @@ function Border2({ title }: { title: string }) {
             MORE
           </div>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="group-hover:translate-x-1 transition-transform">
-            <path d="M7.5 5L12.5 10L7.5 15" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7.5 5L12.5 10L7.5 15" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
       </div>
@@ -605,59 +610,179 @@ function Border2({ title }: { title: string }) {
   );
 }
 
-// 4カラム用の正方形カードコンポーネント
-function SquareCard({ index, category }: { index: number; category: string }) {
-  return (
-    <div className="relative group cursor-pointer" data-name="Button">
+// 4カラム用の正方形カードコンポーネント (動的拡張)
+function SquareCard({ article, index, category }: { article?: PublicArticle; index?: number; category?: string }) {
+  const imageUrl = article?.media_assets?.url || getImage(index || 0);
+  const categoryName = article?.categories.name.toUpperCase() || category?.toUpperCase() || "CATEGORY";
+  const title = article?.title || (article ? "タイトルなし" : `心と体を整える──${categoryName}で理想のライフスタイルを手に入れる`);
+  const author = article?.authors.name || "RADIANCE TEAM";
+  const dateStr = article?.publishedAt
+    ? new Date(article.publishedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+    : "2025年11月18日";
+  const articleUrl = article ? `/${article.categories.slug}/${article.slug}` : "#";
+
+  const cardContent = (
+    <>
       <div className="aspect-square w-full overflow-hidden">
-        <ImageWithFallback 
-          alt={`${category} sport`} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-          src={getImage(index)} 
+        <ImageWithFallback
+          alt={title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          src={imageUrl}
         />
       </div>
       <div className="mt-4">
         <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[11.8px] text-black tracking-[1.8px] uppercase">
-          <p className="leading-[16px]">{category}</p>
+          <p className="leading-[16px]">{categoryName}</p>
         </div>
-        <div className="h-[66px] mt-4">
+        <div className="h-[66px] mt-4 overflow-hidden">
           <div className="font-['Noto_Sans_JP:Medium',sans-serif] font-medium leading-[22px] text-[18px] text-black tracking-[-0.225px]">
-            <p className="mb-0">心と体を整える──{category}で理想のライフスタイルを手に入れる</p>
+            <p className="line-clamp-2">{title}</p>
           </div>
         </div>
         <div className="mt-4">
           <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[12px] text-black tracking-[1.964px] uppercase">
-            <p className="leading-[16.36px] tracking-[0.05em]">By VOGUE TEAM</p>
+            <p className="leading-[16.36px] tracking-[0.05em]">By {author}</p>
           </div>
         </div>
         <div className="mt-2">
           <div className="flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[14px] justify-center leading-[0] text-[12px] text-black tracking-[-0.1px]">
-            <p className="leading-[14px]">2025年11月18日</p>
+            <p className="leading-[14px]">{dateStr}</p>
           </div>
         </div>
       </div>
+    </>
+  );
+
+  if (article) {
+    return (
+      <NextLink href={articleUrl} className="relative group cursor-pointer block" data-name="Button">
+        {cardContent}
+      </NextLink>
+    );
+  }
+
+  return (
+    <div className="relative group cursor-pointer block" data-name="Button">
+      {cardContent}
     </div>
   );
 }
 
+// 汎用的な垂直カードコンポーネント (NEWSタイトルあり)
+function DynamicVerticalCard({ article, className }: { article: PublicArticle; className?: string }) {
+  const imageUrl = article.media_assets?.url || getImage(0);
+  const categoryName = article.categories.name.toUpperCase();
+  const dateStr = article.publishedAt
+    ? new Date(article.publishedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+    : "";
+  const articleUrl = `/${article.categories.slug}/${article.slug}`;
+
+  return (
+    <NextLink
+      href={articleUrl}
+      className={`${className} group cursor-pointer hover:opacity-90 transition-opacity block`}
+      data-name="Button"
+    >
+      <div className="aspect-[352/352] w-full overflow-hidden">
+        <ImageWithFallback
+          alt={article.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          src={imageUrl}
+        />
+      </div>
+      <div className="mt-4">
+        <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[11.8px] text-black tracking-[1.8px] uppercase">
+          <p className="leading-[16px]">{categoryName}</p>
+        </div>
+        <div className="h-[66px] mt-4 overflow-hidden">
+          <div className="font-['Noto_Sans_JP:Medium',sans-serif] font-medium leading-[22px] text-[18px] text-black tracking-[-0.225px]">
+            <p className="line-clamp-2">{article.title}</p>
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[12px] text-black tracking-[1.964px] uppercase">
+            <p className="leading-[16.36px] tracking-[0.05em]">By {article.authors.name}</p>
+          </div>
+        </div>
+        <div className="mt-2">
+          <div className="flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[14px] justify-center leading-[0] text-[12px] text-black tracking-[-0.1px]">
+            <p className="leading-[14px]">{dateStr}</p>
+          </div>
+        </div>
+      </div>
+    </NextLink>
+  );
+}
+
+// 汎用的なヒーローカードコンポーネント (背景画像+グラデーション+文字オーバーレイ)
+function DynamicHeroCard({ article, className, isLarge = false }: { article: PublicArticle; className?: string; isLarge?: boolean }) {
+  const imageUrl = article.media_assets?.url || getImage(0);
+  const categoryName = article.categories.name.toUpperCase();
+  const dateStr = article.publishedAt
+    ? new Date(article.publishedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+    : "";
+  const articleUrl = `/${article.categories.slug}/${article.slug}`;
+
+  return (
+    <NextLink href={articleUrl} className={`${className} group cursor-pointer overflow-hidden rounded-[2px] block`} data-name="HeroCard">
+      <div className={`relative w-full h-full`}>
+        <ImageWithFallback
+          alt={article.title}
+          className="absolute inset-0 size-full object-cover group-hover:scale-105 transition-transform duration-500"
+          src={imageUrl}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(0,0,0,0.8)] via-[rgba(0,0,0,0.2)] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-12 max-md:p-6 flex flex-col justify-end">
+          <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[#f8f8f8] text-[11.8px] tracking-[1.8px] uppercase mb-4 max-md:mb-3">
+            <p className="leading-[16px]">{categoryName}</p>
+          </div>
+          <div className={`font-['Noto_Sans_JP:Medium',sans-serif] font-medium ${isLarge ? "text-[32px] leading-[1.3] max-md:text-[22px]" : "text-[28px] leading-[1.3] max-md:text-[20px]"} text-white tracking-[0.8px] mb-6 max-md:mb-3 overflow-hidden`}>
+            <p className="line-clamp-3">{article.title}</p>
+          </div>
+          <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[12px] text-white tracking-[1.964px] uppercase mb-2">
+            <p className="leading-[16.36px]">By {article.authors.name}</p>
+          </div>
+          <div className="flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[14px] justify-center leading-[0] text-[12px] text-white tracking-[-0.1px]">
+            <p className="leading-[14px]">{dateStr}</p>
+          </div>
+        </div>
+      </div>
+    </NextLink>
+  );
+}
+
 // 4カラムレイアウトのコンテナ
-function Container4Column({ categories }: { categories: Array<{ index: number; category: string }> }) {
+function Container4Column({ articles = [], categories = [] }: { articles?: PublicArticle[]; categories?: Array<{ index: number; category: string }> }) {
   return (
     <div className="relative mt-[20px]" data-name="Container">
       {/* デスクトップ用グリッド */}
       <div className="grid grid-cols-4 gap-[32px] mx-[64px] max-md:hidden">
-        {categories.map((item, i) => (
-          <SquareCard key={i} index={item.index} category={item.category} />
-        ))}
+        {articles && articles.length > 0 ? (
+          articles.map((article) => (
+            <SquareCard key={article.id} article={article} />
+          ))
+        ) : (
+          categories.map((item, i) => (
+            <SquareCard key={i} index={item.index} category={item.category} />
+          ))
+        )}
       </div>
       {/* モバイル用横スクロール */}
       <div className="hidden max-md:block overflow-x-auto">
         <div className="flex gap-[16px] pb-4 pl-[20px]">
-          {categories.map((item, i) => (
-            <div key={i} className="flex-shrink-0 w-[calc(100vw-80px)]">
-              <SquareCard index={item.index} category={item.category} />
-            </div>
-          ))}
+          {articles.length > 0 ? (
+            articles.map((article) => (
+              <div key={article.id} className="flex-shrink-0 w-[calc(100vw-80px)]">
+                <SquareCard article={article} />
+              </div>
+            ))
+          ) : (
+            categories.map((item, i) => (
+              <div key={i} className="flex-shrink-0 w-[calc(100vw-80px)]">
+                <SquareCard index={item.index} category={item.category} />
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -699,7 +824,7 @@ function HeadingOld() {
         <p className="leading-[44.8px]">ラーが“冬の主役”に。定番アイテム</p>
       </div>
       <div className="absolute flex flex-col h-[46px] justify-center left-[73.27px] top-[111.59px] translate-y-[-50%] w-[360.121px]">
-        <p className="leading-[44.8px]">が注目���集め続ける理由</p>
+        <p className="leading-[44.8px]">が注目集め続ける理由</p>
       </div>
     </div>
   );
@@ -792,7 +917,7 @@ function Link8() {
   return (
     <div className="absolute h-[66px] left-0 right-0 top-[392px] max-md:relative max-md:h-auto max-md:top-0 max-md:mt-2" data-name="Link">
       <div className="absolute font-['Noto_Sans_JP:Medium',sans-serif] font-medium leading-[22px] left-0 text-[18px] text-black top-[33px] tracking-[-0.225px] translate-y-[-50%] w-[352px] max-w-[352px] max-md:relative max-md:top-0 max-md:translate-y-0 max-md:text-[16px] max-md:leading-[20px] max-md:w-full max-md:max-w-full">
-        <p className="mb-0">朝のヨガルーティン── 1��を元気にスタートさせる10分間のフロー</p>
+        <p className="mb-0">朝のヨガルーティン── 1を元気にスタートさせる10分間のフロー</p>
       </div>
     </div>
   );
@@ -1021,7 +1146,7 @@ function IframeAdvertisement1() {
 
 function Picture9() {
   return (
-    <div className="absolute aspect-[352/352] left-0 right-0 top-0" data-name="Picture → ロンドンのストリートを席巻中。この秋、“シガレットジーンズ”をモダンに着�����す5つのヒント">
+    <div className="absolute aspect-[352/352] left-0 right-0 top-0" data-name="Picture → ロンドンのストリートを席巻中。この秋、“シガレットジーンズ”をモダンに着す5つのヒント">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman running" className="absolute left-0 max-w-none size-full top-0 object-cover group-hover:scale-105 transition-transform duration-300" src={getImage(14)} />
       </div>
@@ -1188,7 +1313,7 @@ function Container28({ layout = "default" }: { layout?: "default" | "grid" }) {
       </div>
     );
   }
-  
+
   return (
     <div className="relative h-[1906.72px] overflow-hidden max-md:h-auto max-md:overflow-visible" data-name="Container" data-scroll-parent="yoga-section">
       <div className="absolute bottom-0 left-[64px] pointer-events-none right-[832px] top-0 max-md:hidden">
@@ -1302,7 +1427,7 @@ function Container33() {
 
 function Pictureshogun1() {
   return (
-    <div className="absolute aspect-[352/352] left-0 right-0 top-0" data-name="Picture → 『SHOGUN 将軍』シ���ズン2の新キャストが発表! 水川あさみと窪田正孝が夫婦共演">
+    <div className="absolute aspect-[352/352] left-0 right-0 top-0" data-name="Picture → 『SHOGUN 将軍』シズン2の新キャストが発表! 水川あさみと窪田正孝が夫婦共演">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman pilates exercise" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(1)} />
       </div>
@@ -1369,7 +1494,7 @@ function Link18() {
   return (
     <div className="absolute h-[42px] left-0 top-px w-[341.95px]" data-name="Link">
       <div className="absolute flex flex-col font-['Noto_Sans_JP:Bold',sans-serif] font-bold h-[42px] justify-center leading-[22px] left-0 text-[18px] text-black top-[21px] tracking-[-0.225px] translate-y-[-50%] w-[342.15px]">
-        <p className="mb-0">おうち時間��質を高める。高機能ルームウ</p>
+        <p className="mb-0">おうち時間質を高める。高機能ルームウ</p>
         <p>ェア</p>
       </div>
     </div>
@@ -1458,7 +1583,7 @@ function Button12() {
 
 function Picture29() {
   return (
-    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → 『プラダを着た悪魔２���の予告編が解禁！ 2026年5月1日に日米同時公開へ">
+    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → 『プラダを着た悪魔２の予告編が解禁！ 2026年5月1日に日米同時公開へ">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman active" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(8)} />
       </div>
@@ -1660,7 +1785,7 @@ function Heading2() {
   return (
     <div className="absolute font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[89.59px] leading-[0] left-[102px] right-[102px] text-[32px] text-white top-[32px] tracking-[0.8px]" data-name="Heading 2">
       <div className="absolute flex flex-col h-[46px] justify-center left-[13.45px] top-[22px] translate-y-[-50%] w-[491.362px]">
-        <p className="leading-[44.8px]">髪のパサつき＆頭���の乾燥対策に</p>
+        <p className="leading-[44.8px]">髪のパサつき＆頭の乾燥対策に</p>
       </div>
       <div className="absolute flex flex-col h-[46px] justify-center left-[26.42px] top-[66.8px] translate-y-[-50%] w-[479.406px]">
         <p className="leading-[44.8px]">導入したい保湿“シャントリ”5選</p>
@@ -1753,7 +1878,7 @@ function Button15() {
     <div className="absolute h-[540.36px] left-0 right-[384px] top-0" data-name="Button">
       <Picture13 />
       <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] left-0 not-italic text-[11.6px] text-black top-[376px] tracking-[1.8px] translate-y-[-50%] uppercase w-[123.98px]">
-        <p className="leading-[16px] whitespace-nowrap">BEAUTY / EXPERT</p>
+        <p className="leading-[16px]">BEAUTY / EXPERT</p>
       </div>
       <Link24 />
       <Container48 />
@@ -1786,7 +1911,7 @@ function Link26() {
   return (
     <div className="absolute h-[42px] left-0 top-px w-[347.58px]" data-name="Link">
       <div className="absolute flex flex-col font-['Noto_Sans_JP:Bold',sans-serif] font-bold h-[42px] justify-center leading-[22px] left-0 text-[18px] text-black top-[21px] tracking-[-0.225px] translate-y-[-50%] w-[347.78px]">
-        <p className="mb-0">ペリエ ジュエと名店の美食が織り��す特別</p>
+        <p className="mb-0">ペリエ ジュエと名店の美食が織りす特別</p>
         <p>なひととき</p>
       </div>
     </div>
@@ -1827,7 +1952,7 @@ function IframeAdvertisementHtmlBody2() {
 
 function Picture25() {
   return (
-    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → テ���ラー���スウィフト、“フィッシュテール三つ編み”で2000年代ヘアを再燃">
+    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → テラースウィフト、“フィッシュテール三つ編み”で2000年代ヘアを再燃">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman active" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(1)} />
       </div>
@@ -1874,7 +1999,7 @@ function Button16() {
 
 function Picture8() {
   return (
-    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → 風邪・インフルエ��ザに負けない体づくりを。栄養士が勧める、“亜鉛”が豊富な食品8選">
+    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → 風邪・インフルエザに負けない体づくりを。栄養士が勧める、“亜鉛”が豊富な食品8選">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman yoga pose" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(2)} />
       </div>
@@ -1921,7 +2046,7 @@ function Button17() {
 
 function Picture14() {
   return (
-    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → 不自然なヒアル顔を避けて、横顔美を整える。美��医療の最前線を医師に取材">
+    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → 不自然なヒアル顔を避けて、横顔美を整える。美医療の最前線を医師に取材">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman fitness training" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(3)} />
       </div>
@@ -2013,7 +2138,7 @@ function IframeAdvertisement3() {
 
 function Picture15() {
   return (
-    <div className="absolute aspect-[352/352] left-0 right-0 top-0" data-name="Picture → なぜ私は“食”を変えたのか──ヴェルヌ華子が語る、心と体���整えるプラントベースライ���">
+    <div className="absolute aspect-[352/352] left-0 right-0 top-0" data-name="Picture → なぜ私は“食”を変えたのか──ヴェルヌ華子が語る、心と体整えるプラントベースライ">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman sport" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(5)} />
       </div>
@@ -2037,7 +2162,7 @@ function Container55() {
     <div className="absolute h-[16.36px] left-0 right-0 top-[452px]" data-name="Container">
       <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] left-0 not-italic text-[0px] text-black top-[8px] tracking-[1.964px] translate-y-[-50%] uppercase w-[258.73px]">
         <p className="leading-[16.36px] text-[11.8px]">
-          By CHIHO EJIRI<span className="font-['Noto_Sans_JP:Bold',sans-serif] font-bold">、</span>MAKIKO YOSHIDA
+          By CHIHO EJIRI<span className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] font-bold">、</span>MAKIKO YOSHIDA
         </p>
       </div>
     </div>
@@ -2251,7 +2376,7 @@ function Link34() {
 function Link35() {
   return (
     <div className="absolute h-[42px] left-0 top-px w-[342.38px]" data-name="Link">
-      <div className="absolute flex flex-col font-['Noto_Sans_JP:Bold',sans-serif] font-bold h-[42px] justify-center leading-[22px] left-0 text-[18px] text-black top-[21px] tracking-[-0.225px] translate-y-[-50%] w-[342.58px]">
+      <div className="absolute flex flex-col font-['Noto_Sans_JP:Bold',sans-serif] font-bold h-[42px] justify-center leading-[22px] left-0 text-[18px] text-black top-[21px] tracking-[0.675px] translate-y-[-50%] w-[342.58px]">
         <p className="mb-0">小松菜奈、神秘に満ちたフェスティブメイ</p>
         <p>ク</p>
       </div>
@@ -2335,7 +2460,7 @@ function Button21() {
       <Link37 />
       <Container66 />
       <div className="absolute flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[14px] justify-center leading-[0] left-0 text-[12px] text-black top-[677.36px] tracking-[-0.1px] translate-y-[-50%] w-[83.218px]">
-        <p className="leading-[14px]">2025年11月7���</p>
+        <p className="leading-[14px]">2025年11月7</p>
       </div>
     </div>
   );
@@ -2343,7 +2468,7 @@ function Button21() {
 
 function PicturesanaAvol() {
   return (
-    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → 人々が行き交う公園のような建築――妹島和世＋西沢立衛（SANAA）【世���に誇る日本の建築家たちvol.3】">
+    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → 人々が行き交う公園のような建築――妹島和世＋西沢立衛（SANAA）【世に誇る日本の建築家たちvol.3】">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman active lifestyle" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(10)} />
       </div>
@@ -2393,7 +2518,7 @@ function Button22() {
 
 function PicturemyView() {
   return (
-    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → トランスジェンダー、当事者が演じる意義──映画���ブルーボーイ事件』が投げかける“問い”とは【MY VIEW｜飯塚花笑】">
+    <div className="absolute aspect-[352/528] left-0 right-0 top-0" data-name="Picture → トランスジェンダー、当事者が演じる意義──映画ブルーボーイ事件』が投げかける“問い”とは【MY VIEW｜飯塚花笑】">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman wellness" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(11)} />
       </div>
@@ -2499,7 +2624,7 @@ function Link41() {
     <div className="absolute h-[66px] left-0 right-0 top-[392px]" data-name="Link">
       <div className="absolute flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[70px] justify-center leading-[22px] left-0 text-[18px] text-black top-[33px] tracking-[-0.225px] translate-y-[-50%] w-[400.411px]">
         <p className="mb-0">「ブルースのステージを再現するために“限</p>
-        <p className="mb-0">界”に挑んだ」──ジェレミー・アレン・ホワイ���</p>
+        <p className="mb-0">界”に挑んだ」──ジェレミー・アレン・ホワイ</p>
         <p>の覚悟【FAB FIVE】</p>
       </div>
     </div>
@@ -2511,7 +2636,7 @@ function Container70() {
     <div className="absolute h-[16.36px] left-0 right-0 top-[474px]" data-name="Container">
       <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] left-0 not-italic text-[0px] text-black top-[8px] tracking-[1.964px] translate-y-[-50%] uppercase w-[285.65px]">
         <p className="leading-[16.36px] text-[11.8px]">
-          By HIROAKI SAITO<span className="font-['Noto_Sans_JP:Bold',sans-serif] font-bold">、</span>YAKA MATSUMOTO
+          By HIROAKI SAITO<span className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] font-bold">、</span>YAKA MATSUMOTO
         </p>
       </div>
     </div>
@@ -2561,7 +2686,7 @@ function Container71() {
     <div className="absolute h-[16.36px] left-0 right-0 top-[650px]" data-name="Container">
       <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] left-0 not-italic text-[12px] text-black top-[8px] tracking-[1.964px] translate-y-[-50%] uppercase w-[294.26px]">
         <p className="leading-[16.36px]">
-          By YUKA KUMANO<span className="font-['Noto_Sans_JP:Bold',sans-serif] font-bold">、</span>SAKURA KARUGANE
+          By YUKA KUMANO<span className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] font-bold">、</span>SAKURA KARUGANE
         </p>
       </div>
     </div>
@@ -2706,7 +2831,7 @@ function Header() {
 
 function Picture18() {
   return (
-    <div className="absolute aspect-[441.59/331.19] left-0 right-0 top-0" data-name="Picture → 大阪・関��万博のフランス館の見どころをレポート！ ルイ・ヴィトン、ディオール、ショーメが魅せる“���本とのつながり”">
+    <div className="absolute aspect-[441.59/331.19] left-0 right-0 top-0" data-name="Picture → 大阪・関万博のフランス館の見どころをレポート！ ルイ・ヴィトン、ディオール、ショーメが魅せる“本とのつながり”">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <ImageWithFallback alt="Woman pilates exercise" className="absolute left-0 max-w-none size-full top-0 object-cover" src={getImage(16)} />
       </div>
@@ -3007,7 +3132,7 @@ function Link50() {
       <div className="absolute flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[92px] justify-center leading-[22px] left-0 text-[18px] text-black top-[44px] tracking-[0.675px] translate-y-[-50%] w-[372.905px]">
         <p className="mb-0">「互いに欠点があることを認め、相手を変え</p>
         <p className="mb-0">ようとせずに受け入れること」──結婚20</p>
-        <p className="mb-0">年以上の���ップルから学ぶ、夫婦円満の秘</p>
+        <p className="mb-0">年以上のップルから学ぶ、夫婦円満の秘</p>
         <p>訣</p>
       </div>
     </div>
@@ -3067,7 +3192,7 @@ function Container77() {
     <div className="absolute h-[16.36px] left-0 right-0 top-[466px]" data-name="Container">
       <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] left-0 not-italic text-[12px] text-black top-[8px] tracking-[1.964px] translate-y-[-50%] uppercase w-[272.03px]">
         <p className="leading-[16.36px]">
-          By MAKIKO AWATA<span className="font-['Noto_Sans_JP:Bold',sans-serif] font-bold">、</span>MAYUMI NUMAO
+          By MAKIKO AWATA<span className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] font-bold">、</span>MAYUMI NUMAO
         </p>
       </div>
     </div>
@@ -3343,7 +3468,7 @@ function Link55() {
   return (
     <div className="absolute h-[66px] left-0 right-0 top-[384px]" data-name="Link">
       <div className="absolute flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[70px] justify-center leading-[22px] left-0 text-[18px] text-black top-[33px] tracking-[0.675px] translate-y-[-50%] w-[371.67px]">
-        <p className="mb-0">{`ダ���&シュン���『VOGUE』Tシャツを着てサ`}</p>
+        <p className="mb-0">{`ダ&シュン『VOGUE』Tシャツを着てサ`}</p>
         <p className="mb-0">ポート！プライド月間チャリティ企画に賛同</p>
         <p>する豪華な面々の着こなしをチェック</p>
       </div>
@@ -3356,7 +3481,7 @@ function Container83() {
     <div className="absolute h-[16.36px] left-0 right-0 top-[466px]" data-name="Container">
       <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] left-0 not-italic text-[0px] text-black top-[8px] tracking-[1.964px] translate-y-[-50%] uppercase w-[338.86px]">
         <p className="leading-[16.36px] text-[11.8px]">
-          By Kanako Kobayashi<span className="font-['Noto_Sans_JP:Bold',sans-serif] font-bold">、</span>Yusuke Matsuyama
+          By Kanako Kobayashi<span className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] font-bold">、</span>Yusuke Matsuyama
         </p>
       </div>
     </div>
@@ -3496,85 +3621,68 @@ function Container87() {
   );
 }
 
-function Main({ onArticleClick }: { onArticleClick?: () => void }) {
+export function Main({ onArticleClick, articles = [], categories = [] }: { onArticleClick?: () => void, articles?: PublicArticle[], categories?: Category[] }) {
   return (
     <div className="relative left-0 right-0 mt-[220px] max-md:mt-[60px]" data-name="Main">
-      {/* RECENT POSTS セクション */}
+      {/* RECENT POSTS セクション (個別デザインに戻す) */}
       <div className="relative h-[1244.03px] mx-[40px] mt-0 mb-[463.97px] max-md:mx-[20px] max-md:h-auto max-md:mb-20">
-        <Container5Inner onArticleClick={onArticleClick} />
+        <Container5Inner
+          onArticleClick={onArticleClick}
+          articles={[...articles].sort((a, b) => {
+            if (!a.publishedAt) return 1;
+            if (!b.publishedAt) return -1;
+            return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+          }).slice(0, 5)}
+        />
       </div>
-      
+
       <Background />
-      
+
       {/* スペーサー */}
       <div className="h-[120px]" />
-      
-      {/* YOGA セクション */}
-      <TwoColumnScrollSection title="YOGA" height={1600} marginBottom={0} />
-      
-      {/* PILATES セクション */}
-      <TwoColumnScrollSection title="PILATES" height={1600} marginBottom={0} />
-      
-      {/* DIET セクション */}
-      <TwoColumnScrollSection title="DIET" height={1600} marginBottom={0} />
-      
-      {/* JOB セクション */}
-      <TwoColumnScrollSection title="JOB" height={1600} marginBottom={0} />
-      
-      {/* BEAUTY セクション */}
-      <TwoColumnScrollSection title="BEAUTY" height={1600} marginBottom={0} />
-      
-      {/* LIFE セクション */}
-      <TwoColumnScrollSection title="LIFE" height={1600} marginBottom={0} />
-      
-      {/* SPORTS - 4カラムレイアウト */}
-      <FourColumnSection 
-        title="SPORTS" 
-        categories={[
-          { index: 16, category: "RUNNING" },
-          { index: 17, category: "TRAINING" },
-          { index: 18, category: "CYCLING" },
-          { index: 19, category: "SWIMMING" }
-        ]}
-        marginBottom={125}
-      />
-      
-      {/* SIDE BUSINESS - 4カラムレイアウト */}
-      <FourColumnSection 
-        title="SIDE BUSINESS" 
-        categories={[
-          { index: 20, category: "FREELANCE" },
-          { index: 21, category: "CONSULTING" },
-          { index: 22, category: "ONLINE SHOP" },
-          { index: 6, category: "INVESTMENT" }
-        ]}
-        marginBottom={125}
-      />
-      
-      {/* SKILLS - 4カラムレイアウト */}
-      <FourColumnSection 
-        title="SKILLS" 
-        categories={[
-          { index: 7, category: "PROGRAMMING" },
-          { index: 8, category: "DESIGN" },
-          { index: 12, category: "MARKETING" },
-          { index: 13, category: "MANAGEMENT" }
-        ]}
-        marginBottom={200}
-      />
+
+      {/* 動的なカテゴリーセクション */}
+      {(() => {
+        // 記事を最新順にソート
+        const sortedArticles = [...articles].sort((a, b) => {
+          if (!a.publishedAt) return 1;
+          if (!b.publishedAt) return -1;
+          return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+        });
+
+        return categories.map((category, index) => {
+          // このカテゴリーに属する記事をフィルタリング
+          const categoryArticles = sortedArticles.filter(a => a.categories.slug === category.slug);
+
+          // すべて TwoColumnScrollSection に統一（デザインの整合性のため）
+          return (
+            <TwoColumnScrollSection
+              key={category.id}
+              title={category.name.toUpperCase()}
+              articles={categoryArticles}
+              height={1600}
+              marginBottom={index === categories.length - 1 ? 200 : 80}
+            />
+          );
+        });
+      })()}
+
+      {/* 旧ハードコードセクションは削除されました */}
     </div>
   );
 }
 
-// 2カラムスクロールセクションコンポーネント（2段階スクロール対応）
-function TwoColumnScrollSection({ 
-  title, 
-  height, 
+// 2カラムスクロールセクションコンポーネント (動的拡張)
+function TwoColumnScrollSection({
+  title,
+  articles = [],
+  height,
   marginBottom,
   topMargin = 0
-}: { 
-  title: string; 
-  height: number; 
+}: {
+  title: string;
+  articles?: PublicArticle[];
+  height: number;
   marginBottom: number;
   topMargin?: number;
 }) {
@@ -3583,93 +3691,81 @@ function TwoColumnScrollSection({
   const [scrollOffset, setScrollOffset] = useState(0);
   const [calculatedHeight, setCalculatedHeight] = useState(height);
   const isScrollCompleteRef = useRef(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // ハイドレーション完了後にマウント状態を設定
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const calculateHeight = () => {
       if (!rightColumnRef.current) return;
-      
+
       const headerHeight = 112;
       const titleHeight = 60;
-      // 右カラムの実際の高さを自動取得
+      const heroHeight = 1056;
       const rightColumnHeight = rightColumnRef.current.scrollHeight;
       const viewportHeight = window.innerHeight;
+
+      // セクションの高さは少なくともヒーローとタイトルの合計分は必要
+      const minSectionHeight = heroHeight + titleHeight;
+
       const visibleHeight = viewportHeight - headerHeight - titleHeight;
       const scrollableDistance = Math.max(0, rightColumnHeight - visibleHeight);
-      // セクションの高さ = タイトル高さ + スクロール可能距離
-      const newHeight = titleHeight + scrollableDistance;
-      setCalculatedHeight(newHeight);
+
+      // スクロール距離を考慮した高さ。スクロールが不要な場合でも minSectionHeight を確保
+      const totalHeight = Math.max(minSectionHeight, titleHeight + scrollableDistance + 100);
+      setCalculatedHeight(totalHeight);
     };
 
-    // 初回計算を少し遅延（DOMの描画完了を待つ）
-    const timer = setTimeout(calculateHeight, 100);
+    calculateHeight();
     window.addEventListener('resize', calculateHeight);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', calculateHeight);
-    };
-  }, []);
+    return () => window.removeEventListener('resize', calculateHeight);
+  }, [articles]);
 
-  // スムーズなスクロールジャック
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const handleWheel = (e: WheelEvent) => {
       if (!sectionRef.current) return;
 
-      const section = sectionRef.current;
-      const sectionRect = section.getBoundingClientRect();
-      
+      const rect = sectionRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
       const headerHeight = 112;
       const titleHeight = 60;
-      // 右カラムの実際の高さを自動取得
-      const rightColumnHeight = rightColumnRef.current?.scrollHeight || 0;
-      const viewportHeight = window.innerHeight;
-      const visibleHeight = viewportHeight - headerHeight - titleHeight;
-      const scrollableDistance = Math.max(0, rightColumnHeight - visibleHeight);
 
-      // Border2（タイトル）の上端がヘッダーの下に来る位置でスクロールジャックを発動
-      // セクションの上端 = Border2の上端
-      const targetPosition = headerHeight;
-      const isInSection = sectionRect.top <= targetPosition && sectionRect.bottom > viewportHeight;
-      
-      // セクション内で右カラムにスクロール可能な距離がある場合
-      if (isInSection && scrollableDistance > 0) {
+      const isInSection = rect.top <= headerHeight && rect.bottom >= viewportHeight;
+
+      if (isInSection) {
+        if (!rightColumnRef.current) return;
+        const rightColumnHeight = rightColumnRef.current.scrollHeight;
+        const visibleHeight = viewportHeight - headerHeight - titleHeight;
+        const scrollableDistance = Math.max(0, rightColumnHeight - visibleHeight);
+
         const delta = e.deltaY;
         const newOffset = scrollOffset + delta;
 
-        // 下方向スクロール
         if (delta > 0) {
           if (scrollOffset < scrollableDistance) {
-            // まだ右カラムがスクロール可能ならpreventして右カラムをスクロール
             e.preventDefault();
             const finalOffset = Math.min(scrollableDistance, newOffset);
             setScrollOffset(finalOffset);
-            
-            // 最後まで到達したらフラグを立てる
-            if (finalOffset >= scrollableDistance) {
-              isScrollCompleteRef.current = true;
-            }
+            if (finalOffset >= scrollableDistance) isScrollCompleteRef.current = true;
           }
-          // scrollOffset >= scrollableDistanceなら何もせず、通常のページスクロール
         }
-        // 上方向スクロール
         else if (delta < 0) {
           if (scrollOffset > 0) {
-            // まだ右カラムが戻せるならpreventして右カラムを逆スクロール
             e.preventDefault();
             setScrollOffset(Math.max(0, newOffset));
-            
-            // フラグをリセット
             isScrollCompleteRef.current = false;
           }
-          // scrollOffset = 0なら何もせず、通常のページスクロール（セクションから抜ける）
         }
-      }
-      
-      // セクションから離れたらフラグをリセット
-      if (!isInSection) {
+      } else {
+        // セクション外ではオフセットをリセットしない（Stickyの動作維持のため）
+        // ただし、完全にスクロールが終わっているかどうかの判定だけ更新
         isScrollCompleteRef.current = false;
       }
     };
@@ -3679,44 +3775,77 @@ function TwoColumnScrollSection({
   }, [scrollOffset]);
 
   return (
-    <div 
+    <div
       ref={sectionRef}
-      className="relative mx-[40px] two-column-scroll-section max-md:mx-[20px] max-md:h-auto max-md:mb-20" 
-      style={{ 
-        height: `${calculatedHeight}px`, 
+      className="relative mx-[40px] two-column-scroll-section max-md:mx-[20px] max-md:h-auto max-md:mb-20"
+      style={{
+        height: `${calculatedHeight}px`,
         marginBottom: `${marginBottom}px`,
         marginTop: topMargin > 0 ? `${topMargin}px` : undefined
       }}
     >
-      <div 
-        className="sticky z-20 bg-white max-md:relative max-md:z-0 max-md:bg-transparent" 
-        style={{ top: '92px' }}
-      >
+      <div className="sticky z-20 bg-white max-md:relative max-md:z-0 max-md:bg-transparent" style={{ top: '92px' }}>
         <Border2 title={title} />
       </div>
 
-      <div className="relative h-[1906.72px] overflow-hidden max-md:h-auto max-md:overflow-visible">
-        <div className="absolute left-[64px] right-[832px] top-0 h-full max-md:hidden">
-          <Container19 />
+      <div className="relative h-full max-md:h-auto overflow-hidden max-md:overflow-visible">
+        {/* デスクトップ用：左側の大きな最新記事 (固定) */}
+        <div className="absolute left-[64px] right-[832px] top-0 h-[1056px] max-md:hidden">
+          {articles && articles.length > 0 ? (
+            <DynamicHeroCard article={articles[0]} className="h-full w-full" isLarge={true} />
+          ) : (
+            <Container19 />
+          )}
         </div>
-        
-        <div 
+
+        {/* 右側のスクロールカラム (またはモバイル全リスト) */}
+        <div
           ref={rightColumnRef}
-          className="absolute h-[1906.72px] left-[800px] right-[64px] top-0 max-md:!relative max-md:!h-auto max-md:!left-0 max-md:!right-0 max-md:grid max-md:grid-cols-2 max-md:gap-[16px]"
+          className="absolute left-[800px] right-[64px] top-0 max-md:!relative max-md:!h-auto max-md:!left-0 max-md:!right-0 grid grid-cols-2 gap-x-[32px] gap-y-[48px] max-md:gap-[16px]"
           style={{
-            transform: `translateY(-${scrollOffset}px)`,
-            willChange: 'transform'
+            transform: isMounted && window.innerWidth > 768 ? `translateY(-${scrollOffset}px)` : 'none',
+            willChange: isMounted ? 'transform' : undefined
           }}
         >
-          <div className="hidden max-md:block max-md:col-span-2">
-            <ButtonMain />
-          </div>
-          <Button7 />
-          <Button9 />
-          <Button11A />
-          <Button8 />
-          <Button10 />
-          <Button12A />
+          {articles && articles.length > 0 ? (
+            (() => {
+              const displayArticles = articles.slice(0, 7); // 1(Hero) + 6(List)
+              const hasMore = articles.length > 7;
+              return (
+                <>
+                  {displayArticles.map((article, idx) => (
+                    <Fragment key={article.id}>
+                      {/* モバイルのみ：最新記事をヒーロー形式で先頭に */}
+                      {idx === 0 && (
+                        <DynamicHeroCard article={article} className="hidden max-md:block max-md:col-span-2 mb-4" isLarge={true} />
+                      )}
+                      {/* リスト表示：デスクトップはidx=0を除外、モバイルも1枚目を除いてカード */}
+                      {idx > 0 && (
+                        <DynamicVerticalCard article={article} className="relative w-full h-auto" />
+                      )}
+                    </Fragment>
+                  ))}
+                  {hasMore && (
+                    <div className="col-span-2 flex justify-center mt-8 pb-12">
+                      <div className="px-12 py-4 border border-black cursor-pointer hover:bg-black hover:text-white transition-all font-['Noto_Sans_CJK_JP:Bold',sans-serif] text-[12px] tracking-[2px] uppercase">
+                        View More
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()
+          ) : (
+            <>
+              <div className="hidden max-md:block max-md:col-span-2"><ButtonMain /></div>
+              <Button7 />
+              <Button9 />
+              <Button11A />
+              <Button8 />
+              <Button10 />
+              <Button12A />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -3724,37 +3853,68 @@ function TwoColumnScrollSection({
 }
 
 // 4カラムセクションコンポーネント
-function FourColumnSection({ 
-  title, 
-  categories, 
-  marginBottom 
-}: { 
-  title: string; 
-  categories: Array<{ index: number; category: string }>; 
+function FourColumnSection({
+  title,
+  articles = [],
+  categories = [],
+  marginBottom
+}: {
+  title: string;
+  articles?: PublicArticle[];
+  categories?: Array<{ index: number; category: string }>;
   marginBottom: number;
 }) {
   return (
-    <div 
-      className="relative mx-[40px] max-md:mx-[20px] max-md:mb-20" 
-      style={{ marginBottom: marginBottom > 0 ? `${marginBottom}px` : undefined }}
-    >
+    <div className="relative mx-[40px] max-md:mx-[20px] max-md:mb-20" style={{ marginBottom: marginBottom > 0 ? `${marginBottom}px` : undefined }}>
       <Border2 title={title} />
-      <Container4Column categories={categories} />
+      <Container4Column articles={articles} categories={categories} />
     </div>
   );
 }
 
-// Container5の内容を抽��
-function Container5Inner({ onArticleClick }: { onArticleClick?: () => void }) {
+// Container5Inner (動的拡張) - 一番大きい画像が最新記事
+function Container5Inner({ onArticleClick, articles = [] }: { onArticleClick?: () => void; articles?: PublicArticle[] }) {
   return (
     <>
       <Border />
       <div className="md:contents max-md:grid max-md:grid-cols-2 max-md:gap-[16px] max-md:mt-20">
-        <Button onClick={onArticleClick} />
-        <Button1 onClick={onArticleClick} />
-        <Button2 onClick={onArticleClick} />
-        <Button3 onClick={onArticleClick} />
-        <Button4 onClick={onArticleClick} />
+        {articles.length > 0 ? (
+          (() => {
+            const latest = articles[0];
+            const others = articles.slice(1, 5);
+            const positions = [
+              "absolute h-[540.36px] left-[64px] right-[1192px] top-[93.69px]",
+              "absolute h-[540.36px] left-[64px] right-[1192px] top-[685.86px]",
+              "absolute h-[560.17px] left-[1192px] right-[64px] top-[93.69px]",
+              "absolute h-[560.17px] left-[1192px] right-[64px] top-[685.86px]"
+            ];
+            return (
+              <>
+                {/* 中央の一番大きいカード (最新記事) */}
+                <DynamicHeroCard
+                  article={latest}
+                  className="absolute h-[1152.33px] left-[448px] right-[448px] top-[92px] max-md:relative max-md:h-auto max-md:left-0 max-md:right-0 max-md:top-0 max-md:col-span-2 order-first md:order-none"
+                />
+                {/* 周囲の4枚のカード */}
+                {others.map((article, index) => (
+                  <DynamicVerticalCard
+                    key={article.id}
+                    article={article}
+                    className={`${positions[index]} max-md:relative max-md:h-auto max-md:left-0 max-md:right-0 max-md:top-0`}
+                  />
+                ))}
+              </>
+            );
+          })()
+        ) : (
+          <>
+            <Button onClick={onArticleClick} />
+            <Button1 onClick={onArticleClick} />
+            <Button2 onClick={onArticleClick} />
+            <Button3 onClick={onArticleClick} />
+            <Button4 onClick={onArticleClick} />
+          </>
+        )}
       </div>
     </>
   );
@@ -4386,17 +4546,13 @@ function Container88() {
 }
 
 // 新しいフッターコンポーネント
-export function Footer() {
+export function Footer({ categories = [] }: { categories?: Category[] }) {
   return (
     <footer className="bg-black text-white py-16 max-md:py-12 w-full">
-      <div className="max-w-[1552px] mx-auto px-[64px] max-md:px-[40px]">
-        {/* ロゴセクション */}
-        <div className="text-center max-md:text-left mb-14 max-md:mb-8">
-          <img 
-            src={footerLogoImage} 
-            alt="RADIANCE Logo" 
-            className="h-[50px] w-auto mx-auto max-md:mx-0 mb-3 max-md:mb-2 object-contain max-md:h-8"
-          />
+      <div className="max-w-[1200px] mx-auto px-6 py-16 max-md:py-10">
+        {/* ロゴとキャッチコピー */}
+        <div className="flex flex-col items-center mb-12 max-md:mb-8">
+          <img src={footerLogoImage} alt="Radiance Logo" className="h-[60px] w-auto mb-4 invert" />
           <p className="text-[#777] text-[11px] max-md:text-[9px] tracking-[2.5px] max-md:tracking-[1.5px] uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">
             心と体を輝かせるライフスタイルマガジン
           </p>
@@ -4405,23 +4561,22 @@ export function Footer() {
         {/* カテゴリーグリッド - PC版 */}
         <div className="mb-14 max-md:hidden">
           <div className="flex justify-center items-center gap-8 flex-wrap">
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Yoga</a>
-            <span className="text-[#444] text-[13px]">|</span>
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Pilates</a>
-            <span className="text-[#444] text-[13px]">|</span>
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Diet</a>
-            <span className="text-[#444] text-[13px]">|</span>
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Job</a>
-            <span className="text-[#444] text-[13px]">|</span>
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Beauty</a>
-            <span className="text-[#444] text-[13px]">|</span>
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Life</a>
-            <span className="text-[#444] text-[13px]">|</span>
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Sports</a>
-            <span className="text-[#444] text-[13px]">|</span>
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Side Business</a>
-            <span className="text-[#444] text-[13px]">|</span>
-            <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">Skills</a>
+            {(categories && categories.length > 0 ? categories : [
+              { name: 'Yoga', slug: 'yoga' },
+              { name: 'Pilates', slug: 'pilates' },
+              { name: 'Diet', slug: 'diet' },
+              { name: 'Job', slug: 'job' },
+              { name: 'Beauty', slug: 'beauty' },
+              { name: 'Life', slug: 'life' },
+              { name: 'Sports', slug: 'sports' },
+              { name: 'Side Business', slug: 'side-business' },
+              { name: 'Skills', slug: 'skills' }
+            ]).map((cat, idx, arr) => (
+              <div key={cat.slug} className="flex items-center gap-8">
+                <a href="#" className="text-white hover:text-[#ccc] text-[13px] tracking-[2.5px] transition-all duration-300 font-['Noto_Sans_CJK_JP:Medium',sans-serif] uppercase border-b border-transparent hover:border-white pb-1">{cat.name}</a>
+                {idx < arr.length - 1 && <span className="text-[#444] text-[13px]">|</span>}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -4429,15 +4584,19 @@ export function Footer() {
         <div className="hidden max-md:block mb-8">
           <h3 className="text-white text-[11px] tracking-[2px] uppercase font-['Noto_Sans_CJK_JP:Bold',sans-serif] mb-4">カテゴリー</h3>
           <div className="flex flex-col gap-3">
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Yoga</a>
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Pilates</a>
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Diet</a>
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Job</a>
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Beauty</a>
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Life</a>
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Sports</a>
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Side Business</a>
-            <a href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">Skills</a>
+            {(categories && categories.length > 0 ? categories : [
+              { name: 'Yoga', slug: 'yoga' },
+              { name: 'Pilates', slug: 'pilates' },
+              { name: 'Diet', slug: 'diet' },
+              { name: 'Job', slug: 'job' },
+              { name: 'Beauty', slug: 'beauty' },
+              { name: 'Life', slug: 'life' },
+              { name: 'Sports', slug: 'sports' },
+              { name: 'Side Business', slug: 'side-business' },
+              { name: 'Skills', slug: 'skills' }
+            ]).map((cat) => (
+              <a key={cat.slug} href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">{cat.name}</a>
+            ))}
           </div>
         </div>
 
@@ -4462,14 +4621,14 @@ export function Footer() {
   );
 }
 
-export default function Container89({ onArticleClick }: ContainerProps = {}) {
+export default function Container89({ onArticleClick, articles = [], categories = [] }: ContainerProps = {}) {
   return (
     <div className="relative size-full" data-name="Container">
       <Button6 />
       <div className="absolute h-[160px] left-0 right-0 top-0" data-name="Rectangle" />
-      <Main onArticleClick={onArticleClick} />
+      <Main onArticleClick={onArticleClick} articles={articles} categories={categories} />
       <div className="relative left-0 right-0 mt-[80px] max-md:mt-20 mb-0 w-full">
-        <Footer />
+        <Footer categories={categories} />
       </div>
     </div>
   );

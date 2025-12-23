@@ -28,21 +28,41 @@ export async function GET(request: NextRequest) {
       const categories = await prisma.categories.findMany({
         skip,
         take,
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          description: true,
-          color: true,
-          articlesCount: true,
-          createdAt: true,
-          updatedAt: true,
+        include: {
+          _count: {
+            select: {
+              articles: true, // 全記事数
+            },
+          },
         },
         orderBy: { name: "asc" },
       });
 
+      // 公開済み記事数を別途取得
+      const publishedCounts = await prisma.articles.groupBy({
+        by: ['categoryId'],
+        where: { status: 'PUBLISHED' },
+        _count: { id: true },
+      });
+      const publishedCountMap = new Map(
+        publishedCounts.map(p => [p.categoryId, p._count.id])
+      );
+
+      // レスポンスを整形
+      const formattedCategories = categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        description: cat.description,
+        color: cat.color,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt,
+        articlesCount: cat._count.articles, // 実際の記事数
+        publishedCount: publishedCountMap.get(cat.id) || 0, // 公開済み記事数
+      }));
+
       return paginatedResponse({
-        items: categories,
+        items: formattedCategories,
         total,
         page,
         limit,

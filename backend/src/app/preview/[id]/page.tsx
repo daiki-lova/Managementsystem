@@ -410,6 +410,10 @@ export default function PreviewPage({
   const useHtmlBlockAsMain = htmlBlocks.length > 0;
   const primaryHtmlBlock = useHtmlBlockAsMain ? htmlBlocks[0] : null;
 
+  // HTMLブロック内にhero画像がある場合、サムネイル表示をスキップ（重複を避ける）
+  const htmlHasHeroImage = primaryHtmlBlock?.content?.includes('position="hero"') ||
+    (primaryHtmlBlock?.content?.indexOf('<figure') ?? -1) < 500;
+
   // ステータスラベル
   const statusLabels: Record<string, { text: string; color: string }> = {
     DRAFT: { text: '下書き', color: 'bg-yellow-500' },
@@ -477,8 +481,8 @@ export default function PreviewPage({
           <div className="md:flex md:gap-[60px] md:justify-center">
             {/* 左側：記事本文 */}
             <article className="flex-1 max-w-[760px]">
-              {/* メイン画像 */}
-              {article.thumbnail && (
+              {/* メイン画像（HTMLブロック内にhero画像がある場合はスキップ） */}
+              {article.thumbnail && !htmlHasHeroImage && (
                 <figure className="mb-6 md:mb-[40px]">
                   <ImageWithFallback
                     src={article.thumbnail.url}

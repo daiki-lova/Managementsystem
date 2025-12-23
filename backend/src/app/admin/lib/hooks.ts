@@ -548,6 +548,8 @@ export function useCreateGenerationJob() {
     mutationFn: generationJobsApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['generation-jobs'] });
+      // 情報バンクのusageCountが更新されるため、再取得が必要
+      queryClient.invalidateQueries({ queryKey: ['knowledge-bank'] });
       toast.success('記事生成を開始しました');
     },
     onError: (error: ApiError) => {

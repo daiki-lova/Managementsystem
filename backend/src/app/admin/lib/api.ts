@@ -803,12 +803,12 @@ export const generationJobsApi = {
   get: (id: string) => api.get<GenerationJob>(`/api/generation-jobs/${id}`),
 
   create: (data: {
-    keywords: { keyword: string; searchVolume?: number }[];
     categoryId: string;
     authorId: string;
     brandId: string;
     conversionIds?: string[];
     knowledgeItemIds?: string[];
+    pipelineVersion?: 'v3' | 'v5'; // V3: 受講生の声ベース, V5: V3 + Web検索 + LLMo最適化
     publishStrategy?: 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED';
     scheduledAt?: string;
   }) => api.post<{ jobs: GenerationJob[]; message: string }>('/api/generation-jobs', data),
@@ -938,10 +938,12 @@ export interface SystemSettings {
   imageModel: string | null;
   articleModel: string | null;
   analysisModel: string | null;
-  keywordPrompt: string | null;
-  keywordSuggestPrompt: string | null;
-  imagePrompt: string | null;
-  systemPrompt: string | null;
+  // プロンプト
+  titlePrompt: string | null;          // タイトル生成
+  keywordPrompt: string | null;        // キーワード分析（未使用）
+  keywordSuggestPrompt: string | null; // キーワード提案
+  imagePrompt: string | null;          // 画像生成
+  systemPrompt: string | null;         // 記事生成
   updatedAt: string;
 }
 
@@ -962,6 +964,8 @@ export const settingsApi = {
     imageModel?: string;
     articleModel?: string;
     analysisModel?: string;
+    // プロンプト
+    titlePrompt?: string;
     keywordPrompt?: string;
     keywordSuggestPrompt?: string;
     imagePrompt?: string;

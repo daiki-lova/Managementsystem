@@ -448,10 +448,14 @@ model system_settings {
   imageModel           String?  @default("pro")
   articleModel         String?  @default("pro")
   analysisModel        String?  @default("banana")
-  keywordPrompt        String?  @db.Text
-  keywordSuggestPrompt String?  @db.Text
-  imagePrompt          String?  @db.Text
-  systemPrompt         String?  @db.Text  // 3ステップパイプライン用システムプロンプト
+  titlePrompt          String?  @db.Text  // タイトル生成プロンプト
+  keywordPrompt        String?  @db.Text  // キーワード分析プロンプト（未使用）
+  keywordSuggestPrompt String?  @db.Text  // キーワード提案プロンプト
+  imagePrompt          String?  @db.Text  // 画像生成プロンプト
+  systemPrompt         String?  @db.Text  // 記事生成プロンプト
+  // V4パイプライン専用プロンプト
+  whiteDataPrompt      String?  @db.Text  // ホワイトデータ検索プロンプト
+  llmoPrompt           String?  @db.Text  // LLMo最適化プロンプト
   minSearchVolume      Int      @default(300)
   maxSearchVolume      Int      @default(2000)
   volumeZones          Json?
