@@ -9,7 +9,8 @@ import {
 } from '@/lib/public-data';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 
-// ISR: 開発中は無効化
+// 動的レンダリングを強制（ビルド時のDB接続を回避）
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 // カテゴリーセクションコンポーネント
