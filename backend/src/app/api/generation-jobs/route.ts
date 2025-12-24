@@ -11,7 +11,7 @@ import { withAuth } from "@/lib/auth";
 import { validateBody } from "@/lib/validation";
 import prisma from "@/lib/prisma";
 import { inngest } from "@/inngest/client";
-import { GenerationJobStatus, PublishStrategy } from "@prisma/client";
+import { GenerationJobStatus, PublishStrategy, ImageStyle } from "@prisma/client";
 import { z } from "zod";
 import { isAppError } from "@/lib/errors";
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/rate-limit";
@@ -30,8 +30,10 @@ const createJobSchema = z.object({
     .optional()
     .default("DRAFT"),
   scheduledAt: z.string().datetime().optional(),
-  // パイプラインバージョン: V5のみサポート（Web検索 + LLMo最適化 + モノトーンスタイル）
-  pipelineVersion: z.literal("v5").optional().default("v5"),
+  // パイプラインバージョン: V5またはV6（デフォルト: V6）
+  pipelineVersion: z.enum(["v5", "v6"]).optional().default("v6"),
+  // 画像スタイル: WATERCOLOR（手書き風水彩画）またはREALISTIC（リアルな写真風）
+  imageStyle: z.enum(["WATERCOLOR", "REALISTIC"]).optional().default("WATERCOLOR"),
 });
 
 // GET /api/generation-jobs - ジョブ一覧取得
@@ -168,17 +170,22 @@ export async function POST(request: NextRequest) {
 
       const jobs = [];
 
+      // パイプラインバージョンの決定
+      const pipelineVersion = validated.pipelineVersion || "v6";
+      const pipelineLabel = pipelineVersion === "v6" ? "V6パイプライン" : "V5パイプライン";
+
       // 各knowledgeItemIdに対して1つのジョブを作成
       for (const knowledgeItemId of knowledgeItemIds) {
         const job = await prisma.generation_jobs.create({
           data: {
             id: randomUUID(),
-            keyword: `V5パイプライン（自動生成）`,
+            keyword: `${pipelineLabel}（自動生成）`,
             categoryId: validated.categoryId,
             authorId: validated.authorId,
             brandId: validated.brandId,
             userId: user.id,
             publishStrategy: validated.publishStrategy as PublishStrategy,
+            imageStyle: validated.imageStyle as ImageStyle,
             scheduledAt: validated.scheduledAt
               ? new Date(validated.scheduledAt)
               : null,
@@ -193,19 +200,34 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // V5パイプラインイベントを発火
-        await inngest.send({
-          name: "article/generate-pipeline-v5",
-          data: {
-            jobId: job.id,
-            knowledgeItemId,
-            categoryId: validated.categoryId,
-            authorId: validated.authorId,
-            brandId: validated.brandId,
-            conversionIds,
-            userId: user.id,
-          },
-        });
+        // パイプラインバージョンに応じてイベントを発火
+        if (pipelineVersion === "v6") {
+          await inngest.send({
+            name: "article/generate-pipeline-v6",
+            data: {
+              jobId: job.id,
+              knowledgeItemId,
+              categoryId: validated.categoryId,
+              authorId: validated.authorId,
+              brandId: validated.brandId,
+              conversionIds,
+              userId: user.id,
+            },
+          });
+        } else {
+          await inngest.send({
+            name: "article/generate-pipeline-v5",
+            data: {
+              jobId: job.id,
+              knowledgeItemId,
+              categoryId: validated.categoryId,
+              authorId: validated.authorId,
+              brandId: validated.brandId,
+              conversionIds,
+              userId: user.id,
+            },
+          });
+        }
 
         jobs.push(job);
       }

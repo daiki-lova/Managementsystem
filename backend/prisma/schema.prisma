@@ -306,6 +306,7 @@ model generation_jobs {
   authorId                       String
   brandId                        String?
   publishStrategy                PublishStrategy                  @default(DRAFT)
+  imageStyle                     ImageStyle                       @default(WATERCOLOR)
   scheduledAt                    DateTime?
   totalArticles                  Int                              @default(1)
   userId                         String
@@ -546,6 +547,11 @@ enum PublishStrategy {
   DRAFT
   PUBLISH_NOW
   SCHEDULED
+}
+
+enum ImageStyle {
+  WATERCOLOR  // 手書き風水彩画
+  REALISTIC   // リアルな写真風
 }
 
 enum UserRole {

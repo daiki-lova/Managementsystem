@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { Sparkles, CheckCircle2, CalendarDays, Loader2, Zap, TrendingUp, Database, FileText, Play, Minus, Plus, User, FolderOpen, Target } from 'lucide-react';
+import { Sparkles, CheckCircle2, CalendarDays, Loader2, Zap, TrendingUp, Database, FileText, Play, Minus, Plus, User, FolderOpen, Target, Image } from 'lucide-react';
 import { cn } from '@/app/admin/lib/utils';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -36,6 +36,9 @@ export type GeneratedArticleData = {
 
 // パイプラインモード（V5のみサポート）
 type PipelineMode = 'v5';
+
+// 画像スタイル
+type ImageStyleType = 'WATERCOLOR' | 'REALISTIC';
 
 export function StrategyView({
     onGenerate,
@@ -94,6 +97,7 @@ export function StrategyView({
     const [scheduleMode, setScheduleMode] = useState<'draft' | 'now' | 'schedule'>('draft');
     const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [postTime, setPostTime] = useState<string>('09:00');
+    const [imageStyle, setImageStyle] = useState<ImageStyleType>('WATERCOLOR');
 
     // Generation state
     const [genStatus, setGenStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
@@ -162,6 +166,7 @@ export function StrategyView({
                 pipelineVersion: pipelineMode, // 'v3' or 'v5'
                 publishStrategy: publishStrategy as 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED',
                 scheduledAt: scheduleMode === 'schedule' ? `${startDate}T${postTime}:00Z` : undefined,
+                imageStyle, // 画像スタイル（WATERCOLOR or REALISTIC）
             });
 
             const jobIds = result.data?.jobs.map((j: any) => j.id) || [];
@@ -382,6 +387,76 @@ export function StrategyView({
                             </div>
                         </div>
 
+                        {/* Image Style Selection */}
+                        <div className="mb-8">
+                            <Label className="text-sm font-bold text-neutral-700 mb-3 flex items-center gap-2">
+                                <Image size={14} className="text-neutral-500" />
+                                画像スタイル
+                            </Label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setImageStyle('WATERCOLOR')}
+                                    className={cn(
+                                        "p-4 rounded-xl border-2 text-left transition-all",
+                                        imageStyle === 'WATERCOLOR'
+                                            ? "border-blue-500 bg-blue-50"
+                                            : "border-neutral-200 hover:border-neutral-300"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
+                                            imageStyle === 'WATERCOLOR' ? "bg-blue-100" : "bg-neutral-100"
+                                        )}>
+                                            🎨
+                                        </div>
+                                        <div>
+                                            <p className={cn(
+                                                "font-medium",
+                                                imageStyle === 'WATERCOLOR' ? "text-blue-900" : "text-neutral-900"
+                                            )}>
+                                                手書き風水彩画
+                                            </p>
+                                            <p className="text-xs text-neutral-500">
+                                                柔らかな線と淡い色合い
+                                            </p>
+                                        </div>
+                                    </div>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setImageStyle('REALISTIC')}
+                                    className={cn(
+                                        "p-4 rounded-xl border-2 text-left transition-all",
+                                        imageStyle === 'REALISTIC'
+                                            ? "border-violet-500 bg-violet-50"
+                                            : "border-neutral-200 hover:border-neutral-300"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
+                                            imageStyle === 'REALISTIC' ? "bg-violet-100" : "bg-neutral-100"
+                                        )}>
+                                            📷
+                                        </div>
+                                        <div>
+                                            <p className={cn(
+                                                "font-medium",
+                                                imageStyle === 'REALISTIC' ? "text-violet-900" : "text-neutral-900"
+                                            )}>
+                                                リアルな写真風
+                                            </p>
+                                            <p className="text-xs text-neutral-500">
+                                                本格的な写真のような仕上がり
+                                            </p>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Selection Summary */}
                         {hasRequiredSelections && (
                             <motion.div
@@ -393,7 +468,7 @@ export function StrategyView({
                                     <CheckCircle2 size={14} />
                                     選択内容
                                 </p>
-                                <div className="grid grid-cols-3 gap-4 text-xs text-emerald-700">
+                                <div className="grid grid-cols-4 gap-4 text-xs text-emerald-700">
                                     <div>
                                         <span className="text-emerald-500">カテゴリー:</span> {selectedCategory?.name}
                                     </div>
@@ -402,6 +477,9 @@ export function StrategyView({
                                     </div>
                                     <div>
                                         <span className="text-emerald-500">CV:</span> {selectedConversion?.name}
+                                    </div>
+                                    <div>
+                                        <span className="text-emerald-500">画像:</span> {imageStyle === 'WATERCOLOR' ? '手書き風' : 'リアル'}
                                     </div>
                                 </div>
                             </motion.div>

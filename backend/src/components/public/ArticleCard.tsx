@@ -53,26 +53,26 @@ export function ArticleCard({
   if (variant === 'hero') {
     return (
       <Link href={`/${article.categories.slug}/${article.slug}`} className="block group cursor-pointer">
-        <div className="aspect-[4/5] overflow-hidden bg-gray-100 mb-3">
+        <div className="aspect-[16/10] overflow-hidden bg-gray-100 mb-5">
           <ImageWithFallback
             src={imageUrl}
             alt={article.media_assets?.altText || article.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
           />
         </div>
-        <p className="font-[var(--font-noto-sans)] font-bold text-[10px] tracking-[1.4px] uppercase mb-2">
+        <p className="font-[var(--font-noto-sans)] font-normal text-[10px] tracking-[3px] uppercase mb-3 text-[#555]">
           {article.categories.name}
         </p>
-        <h2 className="font-[var(--font-noto-sans-jp)] font-medium text-[18px] leading-[1.4] mb-3 group-hover:underline">
+        <h2 className="font-[var(--font-noto-sans-jp)] font-normal text-[22px] md:text-[28px] leading-[1.4] mb-4 group-hover:opacity-70 transition-opacity">
           {article.title}
         </h2>
         {showAuthor && (
-          <p className="font-[var(--font-noto-sans)] font-bold text-[10px] tracking-[1.2px] uppercase mb-1">
+          <p className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[2px] uppercase mb-1 text-[#777]">
             By {article.authors.name}
           </p>
         )}
         {showDate && formattedDate && (
-          <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] text-[#666]">
+          <p className="font-[var(--font-noto-sans-jp)] font-light text-[11px] text-[#999] tracking-[0.5px]">
             {formattedDate}
           </p>
         )}
@@ -82,23 +82,23 @@ export function ArticleCard({
 
   if (variant === 'horizontal') {
     return (
-      <Link href={`/${article.categories.slug}/${article.slug}`} className="flex gap-3 cursor-pointer group">
-        <div className="w-[100px] h-[100px] flex-shrink-0 bg-gray-100 overflow-hidden">
+      <Link href={`/${article.categories.slug}/${article.slug}`} className="flex gap-4 cursor-pointer group">
+        <div className="w-[110px] h-[110px] flex-shrink-0 bg-gray-100 overflow-hidden">
           <ImageWithFallback
             src={imageUrl}
             alt={article.media_assets?.altText || article.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
           />
         </div>
-        <div className="flex-1">
-          <p className="font-[var(--font-noto-sans)] font-bold text-[9px] tracking-[1.4px] uppercase mb-1">
+        <div className="flex-1 flex flex-col justify-center">
+          <p className="font-[var(--font-noto-sans)] font-normal text-[9px] tracking-[2.5px] uppercase mb-2 text-[#666]">
             {article.categories.name}
           </p>
-          <h3 className="font-[var(--font-noto-sans-jp)] font-medium text-[13px] leading-[1.4] mb-2 line-clamp-2 group-hover:underline">
+          <h3 className="font-[var(--font-noto-sans-jp)] font-normal text-[14px] leading-[1.5] mb-2 line-clamp-2 group-hover:opacity-70 transition-opacity">
             {article.title}
           </h3>
           {showDate && formattedDate && (
-            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] text-[#666]">
+            <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-[#999] tracking-[0.5px]">
               {formattedDate}
             </p>
           )}
@@ -135,26 +135,26 @@ export function ArticleCard({
   // Default grid variant
   return (
     <Link href={`/${article.categories.slug}/${article.slug}`} className="cursor-pointer group">
-      <div className="aspect-square overflow-hidden bg-gray-100 mb-2">
+      <div className="aspect-[4/5] overflow-hidden bg-gray-100 mb-3">
         <ImageWithFallback
           src={imageUrl}
           alt={article.media_assets?.altText || article.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
         />
       </div>
-      <p className="font-[var(--font-noto-sans)] font-bold text-[9px] tracking-[1.4px] uppercase mb-1">
+      <p className="font-[var(--font-noto-sans)] font-normal text-[9px] tracking-[2.5px] uppercase mb-2 text-[#666]">
         {article.categories.name}
       </p>
-      <h3 className="font-[var(--font-noto-sans-jp)] font-medium leading-[1.4] text-[12px] group-hover:underline line-clamp-2">
+      <h3 className="font-[var(--font-noto-sans-jp)] font-normal leading-[1.5] text-[13px] group-hover:opacity-70 transition-opacity line-clamp-2">
         {article.title}
       </h3>
       {showAuthor && (
-        <p className="font-[var(--font-noto-sans)] font-bold text-[9px] tracking-[1.2px] uppercase mt-2">
+        <p className="font-[var(--font-noto-sans)] font-light text-[9px] tracking-[2px] uppercase mt-3 text-[#777]">
           By {article.authors.name}
         </p>
       )}
       {showDate && formattedDate && (
-        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] text-[#666] mt-1">
+        <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-[#999] mt-1 tracking-[0.5px]">
           {formattedDate}
         </p>
       )}

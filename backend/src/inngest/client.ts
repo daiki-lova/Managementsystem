@@ -62,6 +62,18 @@ export type Events = {
       userId: string;
     };
   };
+  // V6パイプライン（体験談深掘り + 監修者強化 + 自然なスクール紹介）
+  "article/generate-pipeline-v6": {
+    data: {
+      jobId: string;
+      knowledgeItemId?: string; // 指定の受講生の声ID（オプション）
+      categoryId: string;
+      authorId: string;
+      brandId: string;
+      conversionIds: string[];
+      userId: string;
+    };
+  };
   // 画像生成イベント
   "article/generate-images": {
     data: {

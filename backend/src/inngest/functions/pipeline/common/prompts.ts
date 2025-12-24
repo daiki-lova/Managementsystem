@@ -1348,6 +1348,61 @@ export function insertCTABanner(html: string, banner: CTABanner): string {
 }
 
 /**
+ * 自然なテキスト形式のCTAを挿入（バナーなし）
+ * 記事の流れの中で、さりげなく無料登録へ誘導
+ */
+export function insertNaturalCTA(html: string, cta: { name: string; url: string }): string {
+  // 自然な誘導テキスト（複数パターンからランダム選択）
+  const ctaPatterns = [
+    `<aside class="natural-cta" style="margin:40px 0;padding:24px 28px;background:#fafafa;border-left:4px solid #333;border-radius:0 8px 8px 0;">
+  <p style="margin:0 0 12px;font-size:1.05em;line-height:1.8;color:#333;">
+    この記事を読んで「私もやってみたい」と思った方へ。
+    まずは<a href="${cta.url}" style="color:#333;font-weight:600;text-decoration:underline;">無料の資料請求</a>から始めてみませんか？
+  </p>
+  <p style="margin:0;font-size:0.95em;color:#666;">
+    実際の受講生の声や、カリキュラムの詳細をお届けします。
+  </p>
+</aside>`,
+    `<aside class="natural-cta" style="margin:40px 0;padding:24px 28px;background:#fafafa;border-left:4px solid #333;border-radius:0 8px 8px 0;">
+  <p style="margin:0 0 12px;font-size:1.05em;line-height:1.8;color:#333;">
+    「でも、本当に自分にできるかな…」そう思っていませんか？
+    <a href="${cta.url}" style="color:#333;font-weight:600;text-decoration:underline;">無料相談</a>で、あなたの不安を解消できます。
+  </p>
+  <p style="margin:0;font-size:0.95em;color:#666;">
+    経験豊富なスタッフが、一人ひとりに合ったプランをご提案します。
+  </p>
+</aside>`,
+    `<aside class="natural-cta" style="margin:40px 0;padding:24px 28px;background:#fafafa;border-left:4px solid #333;border-radius:0 8px 8px 0;">
+  <p style="margin:0 0 12px;font-size:1.05em;line-height:1.8;color:#333;">
+    一歩踏み出すなら、今がチャンスかもしれません。
+    <a href="${cta.url}" style="color:#333;font-weight:600;text-decoration:underline;">${cta.name}</a>で、新しい自分に出会ってみませんか？
+  </p>
+</aside>`,
+  ];
+
+  // ランダムにパターンを選択
+  const ctaHtml = ctaPatterns[Math.floor(Math.random() * ctaPatterns.length)];
+
+  // 4番目のH2の前に挿入（記事の中盤〜後半）
+  const h2Matches = [...html.matchAll(/<h2[^>]*>/gi)];
+  const targetIndex = Math.min(3, h2Matches.length - 1); // 4番目のH2（0-indexed: 3）
+
+  if (targetIndex >= 1 && h2Matches[targetIndex]) {
+    const insertPosition = h2Matches[targetIndex].index!;
+    return html.slice(0, insertPosition) + ctaHtml + '\n\n' + html.slice(insertPosition);
+  }
+
+  // H2が足りない場合はまとめセクションの前に挿入
+  const summaryMatch = html.match(/<h2[^>]*>.*?(まとめ|おわりに|最後に)/i);
+  if (summaryMatch && summaryMatch.index) {
+    return html.slice(0, summaryMatch.index) + ctaHtml + '\n\n' + html.slice(summaryMatch.index);
+  }
+
+  // それでも見つからない場合は記事末尾
+  return html.replace(/<\/article>/i, `${ctaHtml}\n</article>`);
+}
+
+/**
  * 内部リンクが無い場合、関連記事セクションを挿入する
  */
 export function insertRelatedArticles(html: string, categorySlug: string): string {

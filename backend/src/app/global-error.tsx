@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+
 export default function GlobalError({
   error,
   reset,
@@ -7,6 +9,10 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error('Global error:', error);
+  }, [error]);
+
   return (
     <html lang="ja">
       <body>
@@ -21,6 +27,9 @@ export default function GlobalError({
           <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>
             エラーが発生しました
           </h2>
+          <p style={{ color: '#666', marginBottom: '24px' }}>
+            ページの読み込み中に問題が発生しました。
+          </p>
           <button
             onClick={() => reset()}
             style={{

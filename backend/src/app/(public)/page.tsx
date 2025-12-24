@@ -9,8 +9,8 @@ import {
 } from '@/lib/public-data';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 
-// ISR: 60秒ごとに再検証
-export const revalidate = 60;
+// ISR: 開発中は無効化
+export const revalidate = 0;
 
 // カテゴリーセクションコンポーネント
 function CategorySection({
@@ -27,40 +27,46 @@ function CategorySection({
   if (articles.length === 0) return null;
 
   const mainArticle = articles[0];
-  const subArticles = articles.slice(1, 5);
+  const subArticles = articles.slice(1, 4);
 
   return (
-    <section className="border-t border-[#e0e0e0] px-5 py-8 md:px-[64px] md:py-[80px]">
-      <div className="mb-5 flex items-center justify-between">
+    <section className="border-t border-[#e5e5e5] px-5 py-10 md:px-[80px] md:py-[100px]">
+      {/* Section Header */}
+      <div className="mb-8 md:mb-12 flex items-end justify-between">
         <div>
-          <h2 className="font-[var(--font-noto-sans)] font-bold text-[14px] md:text-[21px] tracking-[1.5px] md:tracking-[2.1px] uppercase">
+          <h2 className="font-[var(--font-noto-sans)] font-light text-[11px] md:text-[12px] tracking-[4px] md:tracking-[5px] uppercase text-black">
             {title}
           </h2>
-          <div className="h-[2px] md:h-[3px] w-[40px] md:w-[60px] bg-black mt-2" />
+          <div className="h-[1px] w-[50px] md:w-[70px] bg-black mt-3" />
         </div>
         {showViewMore && categorySlug && (
           <a
             href={`/${categorySlug}`}
-            className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.2px] uppercase underline hover:opacity-70"
+            className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[2px] uppercase text-[#666] hover:text-black transition-colors"
           >
-            More
+            View All
           </a>
         )}
       </div>
 
-      {/* Main Article */}
-      <div className="mb-6">
-        <ArticleCard article={mainArticle} variant="hero" />
-      </div>
-
-      {/* Sub Articles */}
-      {subArticles.length > 0 && (
-        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
-          {subArticles.map((article) => (
-            <ArticleCard key={article.id} article={article} variant="horizontal" />
-          ))}
+      {/* 2-Column Layout for Desktop */}
+      <div className="md:grid md:grid-cols-[1fr_340px] md:gap-12">
+        {/* Main Article */}
+        <div className="mb-8 md:mb-0">
+          <ArticleCard article={mainArticle} variant="hero" />
         </div>
-      )}
+
+        {/* Sub Articles - Vertical Stack */}
+        {subArticles.length > 0 && (
+          <div className="space-y-6 md:space-y-8">
+            {subArticles.map((article, index) => (
+              <div key={article.id} className="border-b border-[#eee] pb-6 md:pb-8 last:border-b-0">
+                <ArticleCard article={article} variant="horizontal" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -74,18 +80,32 @@ function TrendingSection({
   if (articles.length === 0) return null;
 
   return (
-    <section className="bg-[#f8f8f8] py-8 md:py-[60px]">
-      <div className="px-5 mb-5 md:px-[64px]">
-        <div className="border-t border-b border-[#e0e0e0] py-4">
-          <h2 className="font-[var(--font-noto-sans-jp)] font-light text-[14px] md:text-[18px] tracking-[1.8px] md:tracking-[2.5px] uppercase text-center">
-            TRENDING POST
+    <section className="py-12 md:py-[100px] border-t border-b border-[#e5e5e5]">
+      <div className="px-5 md:px-[80px]">
+        {/* Section Header */}
+        <div className="text-center mb-10 md:mb-14">
+          <p className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[4px] uppercase text-[#999] mb-2">
+            What&apos;s Popular
+          </p>
+          <h2 className="font-[var(--font-noto-sans)] font-light text-[13px] md:text-[14px] tracking-[5px] md:tracking-[6px] uppercase text-black">
+            Trending
           </h2>
         </div>
-      </div>
-      <div className="px-5 space-y-4 md:px-[64px] md:grid md:grid-cols-3 md:gap-8 md:space-y-0">
-        {articles.map((article) => (
-          <ArticleCard key={article.id} article={article} variant="horizontal" />
-        ))}
+
+        {/* Trending Articles with Numbers */}
+        <div className="space-y-8 md:grid md:grid-cols-3 md:gap-10 md:space-y-0">
+          {articles.map((article, index) => (
+            <div key={article.id} className="relative">
+              {/* Large Number */}
+              <span className="absolute -top-2 -left-2 md:-top-4 md:-left-4 font-[var(--font-noto-sans)] font-extralight text-[48px] md:text-[64px] text-[#f0f0f0] leading-none z-0 select-none">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <div className="relative z-10">
+                <ArticleCard article={article} variant="grid" showAuthor={false} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -99,16 +119,18 @@ function HeroSection({
 }) {
   if (!article) {
     return (
-      <section className="px-5 pt-6 pb-8 md:px-[64px] md:pt-[180px] md:pb-[80px]">
+      <section className="px-5 pt-8 pb-10 md:px-[80px] md:pt-[180px] md:pb-[100px]">
         <div className="text-center py-20">
-          <p className="text-gray-500">記事がまだ公開されていません</p>
+          <p className="font-[var(--font-noto-sans-jp)] font-light text-[#999] tracking-[1px]">
+            記事がまだ公開されていません
+          </p>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="px-5 pt-6 pb-8 md:px-[64px] md:pt-[180px] md:pb-[80px]">
+    <section className="px-5 pt-8 pb-10 md:px-[80px] md:pt-[180px] md:pb-[100px]">
       <ArticleCard article={article} variant="hero" />
     </section>
   );
@@ -123,15 +145,15 @@ function RecentPostsSection({
   if (articles.length === 0) return null;
 
   return (
-    <section className="border-t border-[#e0e0e0] px-5 py-8 md:px-[64px] md:py-[80px]">
-      <div className="mb-5">
-        <h2 className="font-[var(--font-noto-sans)] font-bold text-[14px] md:text-[21px] tracking-[1.5px] md:tracking-[2.1px] uppercase">
-          Recent Posts
+    <section className="border-t border-[#e5e5e5] px-5 py-10 md:px-[80px] md:py-[100px]">
+      <div className="mb-8 md:mb-12">
+        <h2 className="font-[var(--font-noto-sans)] font-light text-[11px] md:text-[12px] tracking-[4px] md:tracking-[5px] uppercase text-black">
+          Latest
         </h2>
-        <div className="h-[2px] md:h-[3px] w-[40px] md:w-[60px] bg-black mt-2" />
+        <div className="h-[1px] w-[50px] md:w-[70px] bg-black mt-3" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-8">
+      <div className="grid grid-cols-2 gap-5 md:grid-cols-4 md:gap-8">
         {articles.map((article) => (
           <ArticleCard key={article.id} article={article} variant="grid" showAuthor={false} />
         ))}
