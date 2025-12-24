@@ -13,14 +13,14 @@ export const isSupabaseConfigured =
 
 let hasLoggedMissingSupabase = false;
 function ensureSupabaseConfigured() {
-  if (isSupabaseConfigured) return;
+  if (isSupabaseConfigured) return true;
   if (!hasLoggedMissingSupabase) {
     console.warn(
-      "[supabase] SUPABASE_URL/ANON_KEY/SERVICE_ROLE_KEY are not set. Falling back to placeholder client; operations will be no-ops."
+      "[supabase] SUPABASE_URL/ANON_KEY/SERVICE_ROLE_KEY are not set. Falling back to placeholder client; operations will be limited."
     );
     hasLoggedMissingSupabase = true;
   }
-  throw new Error("Supabase is not configured.");
+  return false;
 }
 
 // Supabase Admin クライアント（サーバーサイド用）
@@ -48,7 +48,11 @@ export async function uploadImage(
   contentType: string,
   maxRetries: number = 3
 ): Promise<{ url: string; path: string }> {
-  ensureSupabaseConfigured();
+  if (!ensureSupabaseConfigured()) {
+    throw new Error(
+      "Supabase is not configured; image upload is unavailable in this environment."
+    );
+  }
 
   const bucketName = STORAGE_BUCKETS[bucket];
 
@@ -102,7 +106,11 @@ export async function deleteImage(
   bucket: keyof typeof STORAGE_BUCKETS,
   filePath: string
 ): Promise<void> {
-  ensureSupabaseConfigured();
+  if (!ensureSupabaseConfigured()) {
+    throw new Error(
+      "Supabase is not configured; image deletion is unavailable in this environment."
+    );
+  }
 
   const bucketName = STORAGE_BUCKETS[bucket];
 
@@ -117,7 +125,9 @@ export async function deleteImage(
 
 // セッションからユーザーを取得
 export async function getSessionUser(accessToken: string) {
-  ensureSupabaseConfigured();
+  if (!ensureSupabaseConfigured()) {
+    return null;
+  }
 
   const {
     data: { user },
