@@ -4,7 +4,6 @@ import svgPaths from "./svg-ybzm8jfd1u";
 import { ImageWithFallback } from "../ImageWithFallback";
 const logoImage = "/assets/figma/917eb3a33258754379746bcc4d875061f4d7fbfe.png";
 const footerLogoImage = "/assets/figma/17e8fd9b7ed5958fec1ad2e3f9bee7879aaa05d4.png";
-import { TrendingSection } from "./TrendingSection";
 import { PicturefabFiveNew, Link3New, Container3New, Picture5New, Link4New, Container4New } from "./RecentPostsComponents";
 import React, { useRef, useEffect, useState, Fragment } from "react";
 import NextLink from "next/link";
@@ -41,11 +40,11 @@ const getImage = (index: number) => sportImages[index % sportImages.length];
 
 function Border() {
   return (
-    <div className="absolute h-[100px] left-[64px] right-[64px] top-0" data-name="Border">
-      <div aria-hidden="true" className="absolute border-[#e0e0e0] border-[1px_0px] border-solid inset-0 pointer-events-none" style={{ height: '50px' }} />
-      <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Medium',sans-serif] h-[24px] justify-center leading-[0] left-0 not-italic text-[21px] text-black top-[25px] tracking-[2.1px] translate-y-[-50%] uppercase w-auto whitespace-nowrap">
-        <p className="leading-[24px]">RECENT POSTS</p>
-      </div>
+    <div className="flex items-center gap-4 py-4 mb-10 border-t border-[#e8e8e8]" data-name="Border">
+      <h2 className="font-['Noto_Sans',sans-serif] font-normal text-[12px] text-[#1a1a1a] tracking-[4px] uppercase">
+        Recent Posts
+      </h2>
+      <div className="w-8 h-px bg-[#1a1a1a]" />
     </div>
   );
 }
@@ -580,32 +579,29 @@ function Container15() {
   );
 }
 
-function Background() {
-  return <TrendingSection />;
-}
 
 function Border2({ title }: { title: string }) {
   const categorySlug = title.toLowerCase().replace(/\s+/g, '-');
 
   return (
-    <div className="relative h-[60px]" data-name="Border">
-      <div aria-hidden="true" className="absolute border-[#e0e0e0] border-[1px_0px] border-solid left-[64px] right-[64px] max-md:left-[20px] max-md:right-[20px] inset-y-0 pointer-events-none" style={{ height: '30px' }} />
-      <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Medium',sans-serif] h-[24px] justify-center leading-[0] left-[64px] max-md:left-[20px] not-italic text-[21px] text-black top-[15px] tracking-[2.1px] translate-y-[-50%] uppercase w-auto whitespace-nowrap max-md:text-[18px] max-md:tracking-[1.8px]">
-        <p className="leading-[24px]">{title}</p>
+    <div className="flex items-center justify-between py-4 mb-6 border-t border-[#e8e8e8]" data-name="Border">
+      <div className="flex items-center gap-4">
+        <h2 className="font-[var(--font-noto-sans)] font-bold text-[16px] text-[#1a1a1a] tracking-[3px] uppercase max-md:text-[14px] max-md:tracking-[2px]">
+          {title}
+        </h2>
+        <div className="w-10 h-[2px] bg-[#1a1a1a]" />
       </div>
-      <div
-        className="absolute right-[64px] max-md:right-[20px] top-[15px] translate-y-[-50%] cursor-pointer group"
-        data-name={`Item → Link → ${categorySlug}`}
+      <NextLink
+        href={`/${categorySlug}`}
+        className="flex items-center gap-2 group cursor-pointer"
       >
-        <div className="flex items-center gap-2">
-          <div className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] text-[14px] tracking-[2px] uppercase text-black group-hover:opacity-70 transition-opacity">
-            MORE
-          </div>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="group-hover:translate-x-1 transition-transform">
-            <path d="M7.5 5L12.5 10L7.5 15" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-      </div>
+        <span className="font-[var(--font-noto-sans)] font-normal text-[10px] tracking-[2px] uppercase text-[#888] group-hover:text-[#1a1a1a] transition-colors duration-300">
+          View All
+        </span>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#888] group-hover:text-[#1a1a1a] group-hover:translate-x-0.5 transition-all duration-300">
+          <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </NextLink>
     </div>
   );
 }
@@ -623,30 +619,30 @@ function SquareCard({ article, index, category }: { article?: PublicArticle; ind
 
   const cardContent = (
     <>
-      <div className="aspect-square w-full overflow-hidden">
+      <div className="aspect-[4/5] w-full overflow-hidden bg-gray-50">
         <ImageWithFallback
           alt={title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
           src={imageUrl}
         />
       </div>
-      <div className="mt-4">
-        <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[11.8px] text-black tracking-[1.8px] uppercase">
-          <p className="leading-[16px]">{categoryName}</p>
+      <div className="mt-3">
+        <div className="flex flex-col font-['Noto_Sans:Regular',sans-serif] h-[10px] justify-center leading-[0] not-italic text-[8px] text-[#777] tracking-[2px] uppercase">
+          <p className="leading-[12px]">{categoryName}</p>
         </div>
-        <div className="h-[66px] mt-4 overflow-hidden">
-          <div className="font-['Noto_Sans_JP:Medium',sans-serif] font-medium leading-[22px] text-[18px] text-black tracking-[-0.225px]">
+        <div className="h-[42px] mt-2 overflow-hidden">
+          <div className="font-['Noto_Sans_JP:Regular',sans-serif] font-normal leading-[1.5] text-[11px] text-black tracking-[0.15px] group-hover:opacity-70 transition-opacity">
             <p className="line-clamp-2">{title}</p>
           </div>
         </div>
-        <div className="mt-4">
-          <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[12px] text-black tracking-[1.964px] uppercase">
-            <p className="leading-[16.36px] tracking-[0.05em]">By {author}</p>
+        <div className="mt-2">
+          <div className="flex flex-col font-['Noto_Sans:Light',sans-serif] h-[10px] justify-center leading-[0] not-italic text-[8px] text-[#999] tracking-[1.5px] uppercase">
+            <p className="leading-[12px]">By {author}</p>
           </div>
         </div>
-        <div className="mt-2">
-          <div className="flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[14px] justify-center leading-[0] text-[12px] text-black tracking-[-0.1px]">
-            <p className="leading-[14px]">{dateStr}</p>
+        <div className="mt-1">
+          <div className="flex flex-col font-['Noto_Sans_JP:Light',sans-serif] font-light h-[12px] justify-center leading-[0] text-[9px] text-[#bbb] tracking-[0.3px]">
+            <p className="leading-[12px]">{dateStr}</p>
           </div>
         </div>
       </div>
@@ -680,34 +676,23 @@ function DynamicVerticalCard({ article, className }: { article: PublicArticle; c
   return (
     <NextLink
       href={articleUrl}
-      className={`${className} group cursor-pointer hover:opacity-90 transition-opacity block`}
+      className={`${className} group cursor-pointer block`}
       data-name="Button"
     >
-      <div className="aspect-[352/352] w-full overflow-hidden">
+      <div className="aspect-[4/5] w-full overflow-hidden bg-[#f7f7f7]">
         <ImageWithFallback
           alt={article.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           src={imageUrl}
         />
       </div>
       <div className="mt-4">
-        <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[11.8px] text-black tracking-[1.8px] uppercase">
-          <p className="leading-[16px]">{categoryName}</p>
-        </div>
-        <div className="h-[66px] mt-4 overflow-hidden">
-          <div className="font-['Noto_Sans_JP:Medium',sans-serif] font-medium leading-[22px] text-[18px] text-black tracking-[-0.225px]">
-            <p className="line-clamp-2">{article.title}</p>
-          </div>
-        </div>
-        <div className="mt-4">
-          <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[12px] text-black tracking-[1.964px] uppercase">
-            <p className="leading-[16.36px] tracking-[0.05em]">By {article.authors.name}</p>
-          </div>
-        </div>
-        <div className="mt-2">
-          <div className="flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[14px] justify-center leading-[0] text-[12px] text-black tracking-[-0.1px]">
-            <p className="leading-[14px]">{dateStr}</p>
-          </div>
+        <p className="font-['Noto_Sans',sans-serif] font-normal text-[9px] text-[#666] tracking-[2.5px] uppercase">{categoryName}</p>
+        <h3 className="mt-2.5 font-['Noto_Sans_JP',sans-serif] font-normal text-[13px] text-[#1a1a1a] tracking-[0.2px] leading-[1.6] line-clamp-2 group-hover:text-[#666] transition-colors duration-300">{article.title}</h3>
+        <div className="mt-3 flex items-center gap-2">
+          <span className="font-['Noto_Sans',sans-serif] font-light text-[9px] text-[#999] tracking-[1px]">{article.authors.name}</span>
+          <span className="text-[#ccc]">·</span>
+          <span className="font-['Noto_Sans_JP',sans-serif] font-light text-[9px] text-[#999] tracking-[0.3px]">{dateStr}</span>
         </div>
       </div>
     </NextLink>
@@ -724,26 +709,21 @@ function DynamicHeroCard({ article, className, isLarge = false }: { article: Pub
   const articleUrl = `/${article.categories.slug}/${article.slug}`;
 
   return (
-    <NextLink href={articleUrl} className={`${className} group cursor-pointer overflow-hidden rounded-[2px] block`} data-name="HeroCard">
+    <NextLink href={articleUrl} className={`${className} group cursor-pointer overflow-hidden block`} data-name="HeroCard">
       <div className={`relative w-full h-full`}>
         <ImageWithFallback
           alt={article.title}
-          className="absolute inset-0 size-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="absolute inset-0 size-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           src={imageUrl}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(0,0,0,0.8)] via-[rgba(0,0,0,0.2)] to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-12 max-md:p-6 flex flex-col justify-end">
-          <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[#f8f8f8] text-[11.8px] tracking-[1.8px] uppercase mb-4 max-md:mb-3">
-            <p className="leading-[16px]">{categoryName}</p>
-          </div>
-          <div className={`font-['Noto_Sans_JP:Medium',sans-serif] font-medium ${isLarge ? "text-[32px] leading-[1.3] max-md:text-[22px]" : "text-[28px] leading-[1.3] max-md:text-[20px]"} text-white tracking-[0.8px] mb-6 max-md:mb-3 overflow-hidden`}>
-            <p className="line-clamp-3">{article.title}</p>
-          </div>
-          <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[12px] text-white tracking-[1.964px] uppercase mb-2">
-            <p className="leading-[16.36px]">By {article.authors.name}</p>
-          </div>
-          <div className="flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[14px] justify-center leading-[0] text-[12px] text-white tracking-[-0.1px]">
-            <p className="leading-[14px]">{dateStr}</p>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-6 max-md:p-4 flex flex-col justify-end">
+          <p className="font-['Noto_Sans',sans-serif] font-normal text-[10px] text-white/90 tracking-[3px] uppercase mb-3">{categoryName}</p>
+          <h2 className={`font-['Noto_Sans_JP',sans-serif] font-normal ${isLarge ? "text-[18px] max-md:text-[14px]" : "text-[15px] max-md:text-[12px]"} text-white tracking-[0.3px] leading-[1.5] mb-4 line-clamp-3 group-hover:opacity-90 transition-opacity duration-300`}>{article.title}</h2>
+          <div className="flex items-center gap-2">
+            <span className="font-['Noto_Sans',sans-serif] font-light text-[9px] text-white/70 tracking-[1px]">{article.authors.name}</span>
+            <span className="text-white/40">·</span>
+            <span className="font-['Noto_Sans_JP',sans-serif] font-light text-[9px] text-white/60 tracking-[0.3px]">{dateStr}</span>
           </div>
         </div>
       </div>
@@ -756,7 +736,7 @@ function Container4Column({ articles = [], categories = [] }: { articles?: Publi
   return (
     <div className="relative mt-[20px]" data-name="Container">
       {/* デスクトップ用グリッド */}
-      <div className="grid grid-cols-4 gap-[32px] mx-[64px] max-md:hidden">
+      <div className="grid grid-cols-4 gap-[20px] mx-[64px] max-md:hidden">
         {articles && articles.length > 0 ? (
           articles.map((article) => (
             <SquareCard key={article.id} article={article} />
@@ -1304,7 +1284,7 @@ function Container28({ layout = "default" }: { layout?: "default" | "grid" }) {
   if (layout === "grid") {
     return (
       <div className="relative h-[1906.72px] overflow-hidden max-md:h-auto" data-name="Container" data-scroll-parent="yoga-section">
-        <div className="absolute inset-0 mx-[64px] max-md:mx-[20px] max-md:!relative grid grid-cols-4 gap-[32px] max-md:grid-cols-2">
+        <div className="absolute inset-0 mx-[64px] max-md:mx-[20px] max-md:!relative grid grid-cols-4 gap-[20px] max-md:grid-cols-2">
           <Button7 />
           <Button9 />
           <Button11A />
@@ -3623,9 +3603,9 @@ function Container87() {
 
 export function Main({ onArticleClick, articles = [], categories = [] }: { onArticleClick?: () => void, articles?: PublicArticle[], categories?: Category[] }) {
   return (
-    <div className="relative left-0 right-0 mt-[220px] max-md:mt-[60px]" data-name="Main">
-      {/* RECENT POSTS セクション (個別デザインに戻す) */}
-      <div className="relative h-[1244.03px] mx-[40px] mt-0 mb-[463.97px] max-md:mx-[20px] max-md:h-auto max-md:mb-20">
+    <div className="relative max-w-[1200px] mx-auto px-8 mt-[180px] max-md:mt-[48px] max-md:px-4" data-name="Main">
+      {/* RECENT POSTS セクション */}
+      <div className="mt-0 mb-[100px] max-md:mb-12">
         <Container5Inner
           onArticleClick={onArticleClick}
           articles={[...articles].sort((a, b) => {
@@ -3635,11 +3615,6 @@ export function Main({ onArticleClick, articles = [], categories = [] }: { onArt
           }).slice(0, 5)}
         />
       </div>
-
-      <Background />
-
-      {/* スペーサー */}
-      <div className="h-[120px]" />
 
       {/* 動的なカテゴリーセクション */}
       {(() => {
@@ -3660,8 +3635,8 @@ export function Main({ onArticleClick, articles = [], categories = [] }: { onArt
               key={category.id}
               title={category.name.toUpperCase()}
               articles={categoryArticles}
-              height={1600}
-              marginBottom={index === categories.length - 1 ? 200 : 80}
+              height={1200}
+              marginBottom={index === categories.length - 1 ? 100 : 80}
             />
           );
         });
@@ -3673,6 +3648,50 @@ export function Main({ onArticleClick, articles = [], categories = [] }: { onArt
 }
 
 // 2カラムスクロールセクションコンポーネント (動的拡張)
+// ジグザグカードコンポーネント（VOGUE風タイポグラフィ）
+function ZigzagCard({ article, variant }: { article: PublicArticle; variant: 'portrait' | 'square' | 'hero' }) {
+  const categoryName = article.categories?.name || 'LIFESTYLE';
+  const categorySlug = article.categories?.slug || 'lifestyle';
+  const imageUrl = article.media_assets?.url || getImage(0);
+  const articleUrl = `/${categorySlug}/${article.slug}`;
+  const dateStr = article.publishedAt
+    ? new Date(article.publishedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
+
+  // portrait: 縦長 (3:4), square: 正方形 (1:1), hero: 左側用 (3:4)
+  const aspectClass = variant === 'square' ? 'aspect-square' : 'aspect-[3/4]';
+
+  return (
+    <NextLink href={articleUrl} className="group cursor-pointer block">
+      <div className={`w-full overflow-hidden bg-[#f5f5f5] ${aspectClass}`}>
+        <ImageWithFallback
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+          src={imageUrl}
+          alt={article.title || ''}
+        />
+      </div>
+      <div className="mt-4">
+        <p className="font-[var(--font-noto-sans)] font-normal text-[10px] text-[#1a1a1a] tracking-[1.5px] uppercase">
+          {categoryName.toUpperCase()}
+        </p>
+        <h3 className="mt-2 font-[var(--font-noto-sans-jp)] font-semibold text-[14px] text-[#1a1a1a] leading-[1.7] line-clamp-2 group-hover:opacity-70 transition-opacity duration-300">
+          {article.title}
+        </h3>
+        <div className="mt-3">
+          <span className="font-['Noto_Sans',sans-serif] font-normal text-[9px] text-[#1a1a1a] tracking-[1px] uppercase">
+            BY {article.authors?.name?.toUpperCase() || 'UNKNOWN'}
+          </span>
+        </div>
+        <div className="mt-1">
+          <span className="font-['Noto_Sans_JP',sans-serif] font-normal text-[10px] text-[#666] tracking-[0.3px]">
+            {dateStr}
+          </span>
+        </div>
+      </div>
+    </NextLink>
+  );
+}
+
 function TwoColumnScrollSection({
   title,
   articles = [],
@@ -3688,37 +3707,21 @@ function TwoColumnScrollSection({
 }) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const rightColumnRef = useRef<HTMLDivElement>(null);
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const [calculatedHeight, setCalculatedHeight] = useState(height);
-  const isScrollCompleteRef = useRef(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const leftColumnRef = useRef<HTMLDivElement>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [sectionHeight, setSectionHeight] = useState<number | null>(null);
 
-  // ハイドレーション完了後にマウント状態を設定
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
+  // セクションの高さを計算
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const calculateHeight = () => {
-      if (!rightColumnRef.current) return;
+      if (!rightColumnRef.current || !leftColumnRef.current) return;
 
-      const headerHeight = 112;
-      const titleHeight = 60;
-      const heroHeight = 1056;
-      const rightColumnHeight = rightColumnRef.current.scrollHeight;
-      const viewportHeight = window.innerHeight;
-
-      // セクションの高さは少なくともヒーローとタイトルの合計分は必要
-      const minSectionHeight = heroHeight + titleHeight;
-
-      const visibleHeight = viewportHeight - headerHeight - titleHeight;
-      const scrollableDistance = Math.max(0, rightColumnHeight - visibleHeight);
-
-      // スクロール距離を考慮した高さ。スクロールが不要な場合でも minSectionHeight を確保
-      const totalHeight = Math.max(minSectionHeight, titleHeight + scrollableDistance + 100);
-      setCalculatedHeight(totalHeight);
+      const rightHeight = rightColumnRef.current.scrollHeight;
+      const leftHeight = leftColumnRef.current.scrollHeight;
+      // 右側のコンテンツの高さに基づいてセクションの高さを設定
+      setSectionHeight(Math.max(rightHeight, leftHeight));
     };
 
     calculateHeight();
@@ -3726,110 +3729,115 @@ function TwoColumnScrollSection({
     return () => window.removeEventListener('resize', calculateHeight);
   }, [articles]);
 
+  // スクロールロック処理
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !sectionHeight) return;
+
+    const section = sectionRef.current;
+    const rightColumn = rightColumnRef.current;
+    if (!section || !rightColumn) return;
 
     const handleWheel = (e: WheelEvent) => {
-      if (!sectionRef.current) return;
-
-      const rect = sectionRef.current.getBoundingClientRect();
+      const rect = section.getBoundingClientRect();
+      const headerHeight = 140;
       const viewportHeight = window.innerHeight;
-      const headerHeight = 112;
-      const titleHeight = 60;
 
-      const isInSection = rect.top <= headerHeight && rect.bottom >= viewportHeight;
+      // セクションがビューポート内でアクティブかチェック
+      const isActive = rect.top <= headerHeight && rect.bottom > viewportHeight * 0.5;
 
-      if (isInSection) {
-        if (!rightColumnRef.current) return;
-        const rightColumnHeight = rightColumnRef.current.scrollHeight;
-        const visibleHeight = viewportHeight - headerHeight - titleHeight;
-        const scrollableDistance = Math.max(0, rightColumnHeight - visibleHeight);
+      if (!isActive) return;
 
-        const delta = e.deltaY;
-        const newOffset = scrollOffset + delta;
+      const rightColumnHeight = rightColumn.scrollHeight;
+      const visibleHeight = viewportHeight - headerHeight;
+      const maxScroll = Math.max(0, rightColumnHeight - visibleHeight);
 
-        if (delta > 0) {
-          if (scrollOffset < scrollableDistance) {
-            e.preventDefault();
-            const finalOffset = Math.min(scrollableDistance, newOffset);
-            setScrollOffset(finalOffset);
-            if (finalOffset >= scrollableDistance) isScrollCompleteRef.current = true;
-          }
-        }
-        else if (delta < 0) {
-          if (scrollOffset > 0) {
-            e.preventDefault();
-            setScrollOffset(Math.max(0, newOffset));
-            isScrollCompleteRef.current = false;
-          }
-        }
-      } else {
-        // セクション外ではオフセットをリセットしない（Stickyの動作維持のため）
-        // ただし、完全にスクロールが終わっているかどうかの判定だけ更新
-        isScrollCompleteRef.current = false;
+      if (maxScroll <= 0) return;
+
+      const delta = e.deltaY * 0.8; // スクロール速度を調整
+      const newProgress = scrollProgress + delta;
+
+      // 下スクロール
+      if (delta > 0 && scrollProgress < maxScroll) {
+        e.preventDefault();
+        setScrollProgress(Math.min(maxScroll, newProgress));
+      }
+      // 上スクロール
+      else if (delta < 0 && scrollProgress > 0) {
+        e.preventDefault();
+        setScrollProgress(Math.max(0, newProgress));
       }
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, [scrollOffset]);
+  }, [scrollProgress, sectionHeight]);
 
   return (
     <div
       ref={sectionRef}
-      className="relative mx-[40px] two-column-scroll-section max-md:mx-[20px] max-md:h-auto max-md:mb-20"
+      className="relative two-column-scroll-section max-md:mb-10"
       style={{
-        height: `${calculatedHeight}px`,
-        marginBottom: `${marginBottom}px`,
-        marginTop: topMargin > 0 ? `${topMargin}px` : undefined
+        marginTop: topMargin > 0 ? `${topMargin}px` : undefined,
+        marginBottom: '40px'
       }}
     >
-      <div className="sticky z-20 bg-white max-md:relative max-md:z-0 max-md:bg-transparent" style={{ top: '92px' }}>
-        <Border2 title={title} />
-      </div>
+      {/* セクションタイトル */}
+      <Border2 title={title} />
 
-      <div className="relative h-full max-md:h-auto overflow-hidden max-md:overflow-visible">
-        {/* デスクトップ用：左側の大きな最新記事 (固定) */}
-        <div className="absolute left-[64px] right-[832px] top-0 h-[1056px] max-md:hidden">
-          {articles && articles.length > 0 ? (
-            <DynamicHeroCard article={articles[0]} className="h-full w-full" isLarge={true} />
-          ) : (
-            <Container19 />
-          )}
+      <div
+        className="relative max-md:block md:flex md:gap-8"
+        style={{ minHeight: sectionHeight ? `${sectionHeight}px` : 'auto' }}
+      >
+        {/* デスクトップ用：左側の大きな最新記事 (sticky) */}
+        <div className="hidden md:block md:w-[45%] md:flex-shrink-0">
+          <div ref={leftColumnRef} className="sticky top-[140px]">
+            {articles && articles.length > 0 ? (
+              <ZigzagCard article={articles[0]} variant="hero" />
+            ) : (
+              <Container19 />
+            )}
+          </div>
         </div>
 
-        {/* 右側のスクロールカラム (またはモバイル全リスト) */}
+        {/* 右側: 2×3グリッド ジグザグレイアウト (6カード) */}
         <div
           ref={rightColumnRef}
-          className="absolute left-[800px] right-[64px] top-0 max-md:!relative max-md:!h-auto max-md:!left-0 max-md:!right-0 grid grid-cols-2 gap-x-[32px] gap-y-[48px] max-md:gap-[16px]"
+          className="max-md:grid max-md:grid-cols-2 max-md:gap-3 md:w-[55%] md:grid md:grid-cols-2 md:gap-5"
           style={{
-            transform: isMounted && window.innerWidth > 768 ? `translateY(-${scrollOffset}px)` : 'none',
-            willChange: isMounted ? 'transform' : undefined
+            transform: `translateY(-${scrollProgress}px)`,
           }}
         >
           {articles && articles.length > 0 ? (
             (() => {
-              const displayArticles = articles.slice(0, 7); // 1(Hero) + 6(List)
+              // 左に1枚（Hero）、右に最大6枚 = 計7記事
+              const rightCards = articles.slice(1, 7);
               const hasMore = articles.length > 7;
+              // ジグザグパターン: 縦長・正方形が交互
+              // Row 1: portrait | square
+              // Row 2: square | portrait
+              // Row 3: portrait | square
+              const patterns: Array<'portrait' | 'square'> = [
+                'portrait', 'square',  // Row 1
+                'square', 'portrait',  // Row 2
+                'portrait', 'square',  // Row 3
+              ];
               return (
                 <>
-                  {displayArticles.map((article, idx) => (
-                    <Fragment key={article.id}>
-                      {/* モバイルのみ：最新記事をヒーロー形式で先頭に */}
-                      {idx === 0 && (
-                        <DynamicHeroCard article={article} className="hidden max-md:block max-md:col-span-2 mb-4" isLarge={true} />
-                      )}
-                      {/* リスト表示：デスクトップはidx=0を除外、モバイルも1枚目を除いてカード */}
-                      {idx > 0 && (
-                        <DynamicVerticalCard article={article} className="relative w-full h-auto" />
-                      )}
-                    </Fragment>
+                  {/* モバイルのみ：最新記事をヒーロー形式で先頭に */}
+                  <div className="hidden max-md:block max-md:col-span-2 mb-4">
+                    <ZigzagCard article={articles[0]} variant="portrait" />
+                  </div>
+
+                  {/* 2×3グリッド ジグザグパターン */}
+                  {rightCards.map((article, index) => (
+                    <ZigzagCard key={article.id} article={article} variant={patterns[index] || 'portrait'} />
                   ))}
+
                   {hasMore && (
-                    <div className="col-span-2 flex justify-center mt-8 pb-12">
-                      <div className="px-12 py-4 border border-black cursor-pointer hover:bg-black hover:text-white transition-all font-['Noto_Sans_CJK_JP:Bold',sans-serif] text-[12px] tracking-[2px] uppercase">
+                    <div className="col-span-2 flex justify-center mt-10 pb-6">
+                      <button className="px-8 py-2.5 border border-[#ddd] cursor-pointer hover:border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white transition-all duration-300 font-['Noto_Sans',sans-serif] font-light text-[10px] tracking-[2px] uppercase text-[#666]">
                         View More
-                      </div>
+                      </button>
                     </div>
                   )}
                 </>
@@ -3872,36 +3880,38 @@ function FourColumnSection({
   );
 }
 
-// Container5Inner (動的拡張) - 一番大きい画像が最新記事
+// Container5Inner (動的拡張) - 中央に大きな画像、左右に縦2枚ずつ
 function Container5Inner({ onArticleClick, articles = [] }: { onArticleClick?: () => void; articles?: PublicArticle[] }) {
   return (
     <>
       <Border />
-      <div className="md:contents max-md:grid max-md:grid-cols-2 max-md:gap-[16px] max-md:mt-20">
+      <div className="max-md:grid max-md:grid-cols-2 max-md:gap-[12px] max-md:mt-8">
         {articles.length > 0 ? (
           (() => {
             const latest = articles[0];
             const others = articles.slice(1, 5);
-            const positions = [
-              "absolute h-[540.36px] left-[64px] right-[1192px] top-[93.69px]",
-              "absolute h-[540.36px] left-[64px] right-[1192px] top-[685.86px]",
-              "absolute h-[560.17px] left-[1192px] right-[64px] top-[93.69px]",
-              "absolute h-[560.17px] left-[1192px] right-[64px] top-[685.86px]"
-            ];
+            // others[0]=左上, others[1]=左下, others[2]=右上, others[3]=右下
             return (
               <>
-                {/* 中央の一番大きいカード (最新記事) */}
-                <DynamicHeroCard
-                  article={latest}
-                  className="absolute h-[1152.33px] left-[448px] right-[448px] top-[92px] max-md:relative max-md:h-auto max-md:left-0 max-md:right-0 max-md:top-0 max-md:col-span-2 order-first md:order-none"
-                />
-                {/* 周囲の4枚のカード */}
-                {others.map((article, index) => (
-                  <DynamicVerticalCard
-                    key={article.id}
-                    article={article}
-                    className={`${positions[index]} max-md:relative max-md:h-auto max-md:left-0 max-md:right-0 max-md:top-0`}
-                  />
+                {/* デスクトップ: 左2枚 + 中央ヒーロー + 右2枚 */}
+                <div className="hidden md:grid md:grid-cols-[1fr_1.6fr_1fr] md:gap-6 md:items-start">
+                  {/* 左側の2カード */}
+                  <div className="flex flex-col gap-5">
+                    <DynamicVerticalCard article={others[0]} className="w-full" />
+                    <DynamicVerticalCard article={others[1]} className="w-full" />
+                  </div>
+                  {/* 中央の大きなカード */}
+                  <DynamicHeroCard article={latest} className="w-full aspect-[4/5]" isLarge={true} />
+                  {/* 右側の2カード */}
+                  <div className="flex flex-col gap-5">
+                    <DynamicVerticalCard article={others[2]} className="w-full" />
+                    <DynamicVerticalCard article={others[3]} className="w-full" />
+                  </div>
+                </div>
+                {/* モバイル用 */}
+                <DynamicHeroCard article={latest} className="md:hidden col-span-2 aspect-square" isLarge={true} />
+                {others.map((article) => (
+                  <DynamicVerticalCard key={article.id} article={article} className="md:hidden" />
                 ))}
               </>
             );
