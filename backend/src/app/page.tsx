@@ -2,7 +2,9 @@ import { getPublishedArticles, getCategories } from '@/lib/public-data';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 import HomePage from '@/components/public/figma/HomePage';
 
-export const revalidate = 60;
+// 動的レンダリングを強制（ビルド時のDB接続を回避）
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function PublicHomePage() {
   const [
