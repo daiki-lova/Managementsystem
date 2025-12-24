@@ -1,22 +1,38 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase Admin クライアント（サーバーサイド用）
-export const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
+const supabaseUrl =
+  process.env.SUPABASE_URL || "http://localhost:54321/placeholder-project";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "anon-placeholder";
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "service-role-placeholder";
+
+export const isSupabaseConfigured =
+  Boolean(process.env.SUPABASE_URL) &&
+  Boolean(process.env.SUPABASE_ANON_KEY) &&
+  Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+let hasLoggedMissingSupabase = false;
+function ensureSupabaseConfigured() {
+  if (isSupabaseConfigured) return true;
+  if (!hasLoggedMissingSupabase) {
+    console.warn(
+      "[supabase] SUPABASE_URL/ANON_KEY/SERVICE_ROLE_KEY are not set. Falling back to placeholder client; operations will be limited."
+    );
+    hasLoggedMissingSupabase = true;
   }
-);
+  return false;
+}
+
+// Supabase Admin クライアント（サーバーサイド用）
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
 
 // Supabase クライアント（公開キー用）
-export const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ストレージバケット名
 export const STORAGE_BUCKETS = {
@@ -32,6 +48,12 @@ export async function uploadImage(
   contentType: string,
   maxRetries: number = 3
 ): Promise<{ url: string; path: string }> {
+  if (!ensureSupabaseConfigured()) {
+    throw new Error(
+      "Supabase is not configured; image upload is unavailable in this environment."
+    );
+  }
+
   const bucketName = STORAGE_BUCKETS[bucket];
 
   // BufferをUint8Arrayに変換（Node.js fetch互換性向上）
@@ -84,6 +106,12 @@ export async function deleteImage(
   bucket: keyof typeof STORAGE_BUCKETS,
   filePath: string
 ): Promise<void> {
+  if (!ensureSupabaseConfigured()) {
+    throw new Error(
+      "Supabase is not configured; image deletion is unavailable in this environment."
+    );
+  }
+
   const bucketName = STORAGE_BUCKETS[bucket];
 
   const { error } = await supabaseAdmin.storage
@@ -97,6 +125,10 @@ export async function deleteImage(
 
 // セッションからユーザーを取得
 export async function getSessionUser(accessToken: string) {
+  if (!ensureSupabaseConfigured()) {
+    return null;
+  }
+
   const {
     data: { user },
     error,

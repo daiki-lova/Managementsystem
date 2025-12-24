@@ -3,6 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --font-noto-sans-jp: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", "Meiryo",
+    "Helvetica Neue", Arial, sans-serif;
+  --font-noto-sans: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --font-montserrat: "Montserrat", "Helvetica Neue", Arial, sans-serif;
 }
 
 @theme inline {
@@ -22,5 +26,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-noto-sans-jp);
 }

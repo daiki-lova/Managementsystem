@@ -1,4 +1,4 @@
-import prisma from './prisma';
+import prisma, { isDatabaseConfigured } from './prisma';
 import { cache } from 'react';
 
 import { PublicArticle, Category } from './public-types';
@@ -6,6 +6,17 @@ export type { PublicArticle, Category };
 
 // ISR用のrevalidate設定（60秒）
 export const REVALIDATE_INTERVAL = 60;
+
+const emptyArticlesResult = { articles: [] as PublicArticle[], total: 0 };
+
+let hasLoggedMissingDatabase = false;
+function logMissingDatabase() {
+  if (hasLoggedMissingDatabase || isDatabaseConfigured) return;
+  hasLoggedMissingDatabase = true;
+  console.warn(
+    "[public-data] DATABASE_URL is not set. Falling back to empty public data responses."
+  );
+}
 
 // 記事クエリ用のselect定義
 const articleSelect = {
@@ -90,6 +101,11 @@ export const getPublishedArticles = cache(async (
   limit: number = 20,
   offset: number = 0
 ): Promise<{ articles: PublicArticle[]; total: number }> => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return emptyArticlesResult;
+  }
+
   const where = {
     status: 'PUBLISHED' as const,
     publishedAt: { not: null },
@@ -121,6 +137,11 @@ export const getPublishedArticles = cache(async (
 export const getArticleBySlug = cache(async (
   slug: string
 ): Promise<PublicArticle | null> => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return null;
+  }
+
   const article = await prisma.articles.findFirst({
     where: {
       slug,
@@ -137,6 +158,11 @@ export const getArticleBySlug = cache(async (
 
 // カテゴリ一覧取得
 export const getCategories = cache(async () => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return [];
+  }
+
   return prisma.categories.findMany({
     select: {
       id: true,
@@ -152,6 +178,11 @@ export const getCategories = cache(async () => {
 
 // カテゴリ詳細取得
 export const getCategoryBySlug = cache(async (slug: string) => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return null;
+  }
+
   return prisma.categories.findUnique({
     where: { slug },
     select: {
@@ -171,6 +202,11 @@ export const getRelatedArticles = cache(async (
   categoryId: string,
   limit: number = 8
 ): Promise<PublicArticle[]> => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return [];
+  }
+
   const articles = await prisma.articles.findMany({
     where: {
       status: 'PUBLISHED',
@@ -190,6 +226,11 @@ export const getRelatedArticles = cache(async (
 export const getPopularArticles = cache(async (
   limit: number = 5
 ): Promise<PublicArticle[]> => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return [];
+  }
+
   const articles = await prisma.articles.findMany({
     where: {
       status: 'PUBLISHED',
@@ -209,6 +250,11 @@ export const getPopularArticles = cache(async (
 export const getTrendingArticles = cache(async (
   limit: number = 3
 ): Promise<PublicArticle[]> => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return [];
+  }
+
   // 直近7日間の記事を取得
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -233,6 +279,11 @@ export const getTrendingArticles = cache(async (
 export const getArticleByOldSlug = cache(async (
   oldSlug: string
 ): Promise<{ newSlug: string } | null> => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return null;
+  }
+
   const history = await prisma.slug_history.findUnique({
     where: { oldSlug },
     select: { newSlug: true },
@@ -243,6 +294,11 @@ export const getArticleByOldSlug = cache(async (
 
 // タグ一覧取得
 export const getTags = cache(async () => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return [];
+  }
+
   return prisma.tags.findMany({
     select: {
       id: true,
@@ -258,6 +314,11 @@ export const getTags = cache(async () => {
 
 // タグ詳細取得
 export const getTagBySlug = cache(async (slug: string) => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return null;
+  }
+
   return prisma.tags.findUnique({
     where: { slug },
     select: {
@@ -274,6 +335,11 @@ export const getArticlesByTag = cache(async (
   limit: number = 20,
   offset: number = 0
 ): Promise<{ articles: PublicArticle[]; total: number }> => {
+  if (!isDatabaseConfigured) {
+    logMissingDatabase();
+    return emptyArticlesResult;
+  }
+
   const tag = await prisma.tags.findUnique({
     where: { slug: tagSlug },
     select: { id: true },
