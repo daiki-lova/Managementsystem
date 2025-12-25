@@ -12,9 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト構成
 
-| 名称 | ディレクトリ | ポート | 説明 |
-|------|-------------|--------|------|
-| **メディアサイト・管理画面** | `/backend` | 3000 | 公開サイト + CMS管理画面 (Next.js) |
+| 名称 | ポート | 説明 |
+|------|--------|------|
+| **メディアサイト・管理画面** | 3000 | 公開サイト + CMS管理画面 (Next.js) |
 
 - 公開サイト: `http://localhost:3000/`
 - 管理画面: `http://localhost:3000/admin`
@@ -30,15 +30,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ```bash
-npm install --prefix backend  # 依存関係インストール
-npm run dev                   # 開発サーバー起動 (http://localhost:3000)
-npm run build                 # 本番ビルド
+npm install    # 依存関係インストール
+npm run dev    # 開発サーバー起動 (http://localhost:3000)
+npm run build  # 本番ビルド
 ```
 
 ## Architecture
 
 ### Stack
-- Next.js 15 + TypeScript
+- Next.js 16 + TypeScript
 - Tailwind CSS + shadcn/ui (Radix UI)
 - Prisma + Supabase (PostgreSQL)
 - Inngest for async AI generation
@@ -46,7 +46,6 @@ npm run build                 # 本番ビルド
 
 ### Key File Structure
 ```
-backend/
 ├── src/
 │   ├── app/
 │   │   ├── (public)/         # 公開サイトのページ
@@ -60,6 +59,8 @@ backend/
 │   ├── inngest/              # Inngest関数（AI生成パイプライン）
 │   └── lib/                  # ユーティリティ
 ├── prisma/                   # Prismaスキーマ・マイグレーション
+├── public/                   # 静的ファイル
+└── e2e/                      # E2Eテスト
 ```
 
 ### AI生成パイプライン
@@ -68,7 +69,7 @@ backend/
 2. 記事生成 (`anthropic/claude-opus-4.5`)
 3. 画像生成 (`google/gemini-3-pro-image-preview`)
 
-設定は `/backend/src/inngest/functions/pipeline/common/openrouter.ts` の `STAGE_MODEL_CONFIG` でハードコード。
+設定は `/src/inngest/functions/pipeline/common/openrouter.ts` の `STAGE_MODEL_CONFIG` でハードコード。
 
 ## External APIs
 - **OpenRouter**: AI生成（記事・画像）
