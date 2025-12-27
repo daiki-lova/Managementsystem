@@ -241,7 +241,7 @@ function AuthorProfile({
         <h3 className="font-[var(--font-noto-sans)] font-bold text-[14px] md:text-[16px] tracking-[1.2px] md:tracking-[1.4px] uppercase mb-1 md:mb-[8px]">
           {author.name}
         </h3>
-        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#666] tracking-[0.2px]">
+        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-black tracking-[0.2px]">
           {author.role}
         </p>
       </div>
@@ -462,15 +462,15 @@ export default function PreviewPage({
         {/* 著者・日付情報 */}
         <div className="text-center mb-8 md:mb-[60px] space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.4px] md:tracking-[1.964px] uppercase">
+            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] text-black tracking-[1.4px] md:tracking-[1.964px] uppercase">
               By
             </span>
-            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.4px] md:tracking-[1.964px] uppercase">
+            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] text-black tracking-[1.4px] md:tracking-[1.964px] uppercase">
               {article.author.name}
             </span>
           </div>
           {formattedDate && (
-            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#666] md:text-[#1f1f1f] tracking-[-0.1px]">
+            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-black tracking-[-0.1px]">
               {formattedDate}
             </p>
           )}

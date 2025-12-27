@@ -109,7 +109,7 @@ export function Header({ categories = [], onToggleMenu }: HeaderProps) {
               <Link
                 key={cat.slug}
                 href={`/${cat.slug}`}
-                className="font-bold text-[10px] tracking-[1.2px] uppercase hover:opacity-70 transition-opacity font-[var(--font-noto-sans)]"
+                className="font-bold text-[10px] text-black tracking-[1.2px] uppercase hover:opacity-70 transition-opacity font-[var(--font-noto-sans)]"
               >
                 {cat.name}
               </Link>

@@ -15,7 +15,7 @@ export default function NotFound() {
           <h2 className="font-[var(--font-noto-sans-jp)] font-medium text-[18px] md:text-[24px] text-black mb-6">
             ページが見つかりませんでした
           </h2>
-          <p className="font-[var(--font-noto-sans-jp)] font-light text-[14px] md:text-[16px] text-[#666] mb-10 max-w-[400px] mx-auto">
+          <p className="font-[var(--font-noto-sans-jp)] font-light text-[14px] md:text-[16px] text-black mb-10 max-w-[400px] mx-auto">
             お探しのページは削除されたか、URLが変更された可能性があります。
           </p>
           <Link

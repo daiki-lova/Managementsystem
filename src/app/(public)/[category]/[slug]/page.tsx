@@ -293,7 +293,7 @@ function RelatedArticles({
 
   return (
     <section className="mt-10 md:mt-[60px]">
-      <h3 className="font-[var(--font-noto-sans)] font-bold text-[16px] md:text-[20px] tracking-[1.4px] uppercase mb-5 md:mb-[32px]">
+      <h3 className="font-[var(--font-noto-sans)] font-bold text-[16px] md:text-[20px] text-black tracking-[1.4px] uppercase mb-5 md:mb-[32px]">
         Related Articles
       </h3>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-[24px]">
@@ -311,7 +311,7 @@ function RelatedArticles({
               />
             </div>
             <div className="mb-1 md:mb-2">
-              <span className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[10px] tracking-[1.4px] md:tracking-[1.6px] uppercase">
+              <span className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[10px] text-black tracking-[1.4px] md:tracking-[1.6px] uppercase">
                 {article.categories.name}
               </span>
             </div>
@@ -335,7 +335,7 @@ function PopularArticlesSidebar({
 
   return (
     <div className="border border-[#e0e0e0] p-[24px]">
-      <h4 className="font-[var(--font-noto-sans)] font-bold text-[14px] tracking-[1.4px] uppercase mb-[24px]">
+      <h4 className="font-[var(--font-noto-sans)] font-bold text-[14px] text-black tracking-[1.4px] uppercase mb-[24px]">
         Popular Articles
       </h4>
       <div className="space-y-[24px]">
@@ -391,16 +391,16 @@ function AuthorProfile({
             className="w-full h-full object-cover"
           />
         </div>
-        <h3 className="font-[var(--font-noto-sans)] font-bold text-[14px] md:text-[16px] tracking-[1.2px] md:tracking-[1.4px] uppercase mb-1 md:mb-[8px]">
+        <h3 className="font-[var(--font-noto-sans)] font-bold text-[14px] md:text-[16px] text-black tracking-[1.2px] md:tracking-[1.4px] uppercase mb-1 md:mb-[8px]">
           {author.name}
         </h3>
-        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#666] tracking-[0.2px]">
+        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-black tracking-[0.2px]">
           {author.role}
         </p>
       </div>
 
       <div className="mb-4 md:mb-[20px]">
-        <h4 className="font-[var(--font-noto-sans)] font-bold text-[11px] md:text-[13px] tracking-[1.2px] uppercase mb-2 md:mb-[12px]">
+        <h4 className="font-[var(--font-noto-sans)] font-bold text-[11px] md:text-[13px] text-black tracking-[1.2px] uppercase mb-2 md:mb-[12px]">
           Profile
         </h4>
         <p className="font-[var(--font-noto-sans-jp)] font-light leading-[1.6] text-[12px] md:text-[13px] text-[#1f1f1f] tracking-[0.2px]">
@@ -410,7 +410,7 @@ function AuthorProfile({
 
       {qualifications.length > 0 && (
         <div>
-          <h4 className="font-[var(--font-noto-sans)] font-bold text-[11px] md:text-[13px] tracking-[1.2px] uppercase mb-2 md:mb-[12px]">
+          <h4 className="font-[var(--font-noto-sans)] font-bold text-[11px] md:text-[13px] text-black tracking-[1.2px] uppercase mb-2 md:mb-[12px]">
             Certifications
           </h4>
           <ul className="space-y-1 md:space-y-2">
@@ -441,7 +441,7 @@ function TagsSection({
   return (
     <section className="mt-10 pt-6 md:mt-[60px] md:pt-[40px] border-t border-[#e0e0e0]">
       <div className="mb-3 md:mb-[16px]">
-        <span className="font-[var(--font-noto-sans)] font-bold text-[12px] md:text-[14px] tracking-[1.2px] md:tracking-[1.4px] uppercase">
+        <span className="font-[var(--font-noto-sans)] font-bold text-[12px] md:text-[14px] text-black tracking-[1.2px] md:tracking-[1.4px] uppercase">
           Tags
         </span>
       </div>
@@ -450,7 +450,7 @@ function TagsSection({
           <Link
             key={tag.id}
             href={`/tag/${tag.slug}`}
-            className="px-3 md:px-4 py-2 border border-black hover:bg-black hover:text-white transition-colors whitespace-nowrap font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[13px]"
+            className="px-3 md:px-4 py-2 border border-black text-black hover:bg-black hover:text-white transition-colors whitespace-nowrap font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[13px]"
           >
             {tag.name}
           </Link>
@@ -536,15 +536,15 @@ export default async function ArticlePage({
         {/* 著者・日付情報 */}
         <div className="text-center mb-8 md:mb-[60px] space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.4px] md:tracking-[1.964px] uppercase">
+            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] text-black tracking-[1.4px] md:tracking-[1.964px] uppercase">
               By
             </span>
-            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.4px] md:tracking-[1.964px] uppercase">
+            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] text-black tracking-[1.4px] md:tracking-[1.964px] uppercase">
               {article.authors.name}
             </span>
           </div>
           {formattedDate && (
-            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#666] md:text-[#1f1f1f] tracking-[-0.1px]">
+            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-black tracking-[-0.1px]">
               {formattedDate}
             </p>
           )}
