@@ -121,13 +121,13 @@ function ArticleGrid({
             />
           </div>
           <div className="mt-3 md:mt-4">
-            <p className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[11.8px] tracking-[1.4px] md:tracking-[1.8px] uppercase mb-2 md:mb-4">
+            <p className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[11.8px] text-black tracking-[1.4px] md:tracking-[1.8px] uppercase mb-2 md:mb-4">
               {categoryName}
             </p>
             <h2 className="font-[var(--font-noto-sans-jp)] font-medium leading-[1.4] text-[13px] md:text-[18px] text-black group-hover:underline line-clamp-3">
               {article.title}
             </h2>
-            <p className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[12px] tracking-[1.2px] md:tracking-[1.964px] uppercase mt-2 md:mt-4">
+            <p className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[12px] text-black tracking-[1.2px] md:tracking-[1.964px] uppercase mt-2 md:mt-4">
               By {article.authors.name}
             </p>
             <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] md:text-[12px] text-black mt-1 md:mt-2">
@@ -182,7 +182,7 @@ export default async function CategoryPage({
       <main className="px-5 py-8 md:px-[104px] md:py-[100px]">
         {/* カテゴリータイトル */}
         <div className="mb-8 md:mb-[80px]">
-          <h1 className="font-[var(--font-noto-sans)] font-bold tracking-[1.5px] md:text-[48px] md:tracking-[2px] uppercase">
+          <h1 className="font-[var(--font-noto-sans)] font-bold text-black tracking-[1.5px] md:text-[48px] md:tracking-[2px] uppercase">
             {category.name}
           </h1>
           <div className="h-[3px] md:h-[4px] w-[60px] md:w-[120px] bg-black mt-3 md:mt-[24px]" />
