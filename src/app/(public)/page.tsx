@@ -43,7 +43,7 @@ function CategorySection({
         {showViewMore && categorySlug && (
           <a
             href={`/${categorySlug}`}
-            className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[2px] uppercase text-[#666] hover:text-black transition-colors"
+            className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[2px] uppercase text-black hover:text-black transition-colors"
           >
             View All
           </a>
@@ -85,7 +85,7 @@ function TrendingSection({
       <div className="px-5 md:px-[80px]">
         {/* Section Header */}
         <div className="text-center mb-10 md:mb-14">
-          <p className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[4px] uppercase text-[#999] mb-2">
+          <p className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[4px] uppercase text-black mb-2">
             What&apos;s Popular
           </p>
           <h2 className="font-[var(--font-noto-sans)] font-light text-[13px] md:text-[14px] tracking-[5px] md:tracking-[6px] uppercase text-black">
@@ -122,7 +122,7 @@ function HeroSection({
     return (
       <section className="px-5 pt-8 pb-10 md:px-[80px] md:pt-[180px] md:pb-[100px]">
         <div className="text-center py-20">
-          <p className="font-[var(--font-noto-sans-jp)] font-light text-[#999] tracking-[1px]">
+          <p className="font-[var(--font-noto-sans-jp)] font-light text-black tracking-[1px]">
             記事がまだ公開されていません
           </p>
         </div>

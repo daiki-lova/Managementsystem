@@ -130,7 +130,7 @@ function ArticleGrid({
             <p className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[12px] tracking-[1.2px] md:tracking-[1.964px] uppercase mt-2 md:mt-4">
               By {article.authors.name}
             </p>
-            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] md:text-[12px] text-[#666] md:text-black mt-1 md:mt-2">
+            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] md:text-[12px] text-black mt-1 md:mt-2">
               {article.publishedAt
                 ? new Date(article.publishedAt).toLocaleDateString('ja-JP', {
                   year: 'numeric',
@@ -191,7 +191,7 @@ export default async function CategoryPage({
         {/* 記事がない場合 */}
         {articles.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-500 font-[var(--font-noto-sans-jp)]">
+            <p className="text-black font-[var(--font-noto-sans-jp)]">
               このカテゴリーには記事がまだありません
             </p>
           </div>

@@ -241,7 +241,7 @@ function AuthorProfile({
         <h3 className="font-[var(--font-noto-sans)] font-bold text-[14px] md:text-[16px] tracking-[1.2px] md:tracking-[1.4px] uppercase mb-1 md:mb-[8px]">
           {author.name}
         </h3>
-        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#666] tracking-[0.2px]">
+        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#333] tracking-[0.2px]">
           {author.role}
         </p>
       </div>
@@ -470,7 +470,7 @@ export default function PreviewPage({
             </span>
           </div>
           {formattedDate && (
-            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#666] md:text-[#1f1f1f] tracking-[-0.1px]">
+            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#333] tracking-[-0.1px]">
               {formattedDate}
             </p>
           )}

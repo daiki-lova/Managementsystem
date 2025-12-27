@@ -127,7 +127,7 @@ function ArticleGrid({
             <p className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[12px] tracking-[1.2px] md:tracking-[1.964px] uppercase mt-2 md:mt-4">
               By {article.authors.name}
             </p>
-            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] md:text-[12px] text-[#666] md:text-black mt-1 md:mt-2">
+            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[10px] md:text-[12px] text-black mt-1 md:mt-2">
               {article.publishedAt
                 ? new Date(article.publishedAt).toLocaleDateString('ja-JP', {
                   year: 'numeric',
@@ -179,13 +179,13 @@ export default async function TagPage({
         {/* タグタイトル */}
         <div className="mb-8 md:mb-[80px]">
           <div className="flex items-center gap-3">
-            <span className="text-[24px] md:text-[36px] text-gray-400">#</span>
+            <span className="text-[24px] md:text-[36px] text-black">#</span>
             <h1 className="font-[var(--font-noto-sans-jp)] font-bold text-[24px] md:text-[48px] tracking-[1.5px] md:tracking-[2px]">
               {tag.name}
             </h1>
           </div>
           <div className="h-[3px] md:h-[4px] w-[60px] md:w-[120px] bg-black mt-3 md:mt-[24px]" />
-          <p className="font-[var(--font-noto-sans-jp)] text-[14px] md:text-[16px] text-gray-600 mt-4">
+          <p className="font-[var(--font-noto-sans-jp)] text-[14px] md:text-[16px] text-black mt-4">
             {total}件の記事
           </p>
         </div>
@@ -193,7 +193,7 @@ export default async function TagPage({
         {/* 記事がない場合 */}
         {articles.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-500 font-[var(--font-noto-sans-jp)]">
+            <p className="text-black font-[var(--font-noto-sans-jp)]">
               このタグには記事がまだありません
             </p>
           </div>
