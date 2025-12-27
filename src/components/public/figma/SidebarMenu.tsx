@@ -129,7 +129,7 @@ export default function SidebarMenu({ onNavigate, scale, categories = [], isOpen
 
           {/* フッター */}
           <div className="border-t border-gray-200 p-6">
-            <p className="text-gray-500 text-[10px] tracking-[1px] uppercase">
+            <p className="text-gray-700 text-[10px] tracking-[1px] uppercase">
               © 2025 Radiance
             </p>
           </div>

@@ -17,7 +17,7 @@ export function Footer({ categories = [] }: FooterProps) {
             alt="RADIANCE Logo"
             className="h-[50px] w-auto mx-auto max-md:mx-0 mb-3 max-md:mb-2 object-contain max-md:h-8"
           />
-          <p className="text-[#777] text-[11px] max-md:text-[9px] tracking-[2.5px] max-md:tracking-[1.5px] uppercase font-[var(--font-noto-sans)]">
+          <p className="text-[#bbb] text-[11px] max-md:text-[9px] tracking-[2.5px] max-md:tracking-[1.5px] uppercase font-[var(--font-noto-sans)]">
             心と体を輝かせるライフスタイルマガジン
           </p>
         </div>
@@ -51,7 +51,7 @@ export function Footer({ categories = [] }: FooterProps) {
               <Link
                 key={cat.slug}
                 href={`/${cat.slug}`}
-                className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-[var(--font-noto-sans)]"
+                className="text-[#ccc] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-[var(--font-noto-sans)]"
               >
                 {cat.name}
               </Link>
@@ -66,19 +66,19 @@ export function Footer({ categories = [] }: FooterProps) {
         <div className="flex justify-center items-center gap-8 mb-8 max-md:flex-col max-md:items-start max-md:gap-3 max-md:mb-6">
           <Link
             href="/contact"
-            className="text-[#999] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-[var(--font-noto-sans-jp)]"
+            className="text-[#ccc] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-[var(--font-noto-sans-jp)]"
           >
             お問い合わせ
           </Link>
           <Link
             href="/about"
-            className="text-[#999] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-[var(--font-noto-sans-jp)]"
+            className="text-[#ccc] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-[var(--font-noto-sans-jp)]"
           >
             運営会社
           </Link>
           <Link
             href="/privacy"
-            className="text-[#999] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-[var(--font-noto-sans-jp)]"
+            className="text-[#ccc] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-[var(--font-noto-sans-jp)]"
           >
             プライバシーポリシー
           </Link>
@@ -86,7 +86,7 @@ export function Footer({ categories = [] }: FooterProps) {
 
         {/* Copyright */}
         <div className="text-center max-md:text-left">
-          <p className="text-[#555] text-[11px] max-md:text-[10px] tracking-[2px] max-md:tracking-[1px] uppercase font-[var(--font-noto-sans-jp)] font-light">
+          <p className="text-[#999] text-[11px] max-md:text-[10px] tracking-[2px] max-md:tracking-[1px] uppercase font-[var(--font-noto-sans-jp)] font-light">
             &copy; 2025 Radiance. All rights reserved.
           </p>
         </div>

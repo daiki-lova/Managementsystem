@@ -280,7 +280,7 @@ export default function ArticlePage({ onNavigate }: ArticlePageProps) {
                       <h3 className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] text-[16px] tracking-[1.4px] uppercase mb-[8px]">
                         YUKI TANAKA
                       </h3>
-                      <p className="font-['Noto_Sans_JP:Medium',sans-serif] text-[12px] text-[#666] tracking-[0.2px]">
+                      <p className="font-['Noto_Sans_JP:Medium',sans-serif] text-[12px] text-[#333] tracking-[0.2px]">
                         ヨガ・ピラティスインストラクター
                       </p>
                     </div>
@@ -383,7 +383,7 @@ export default function ArticlePage({ onNavigate }: ArticlePageProps) {
               <span className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] text-[10px] tracking-[1.4px] uppercase">By</span>
               <span className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] text-[10px] tracking-[1.4px] uppercase">YUKI TANAKA</span>
             </div>
-            <p className="font-['Noto_Sans_JP:Medium',sans-serif] text-[11px] text-[#666]">
+            <p className="font-['Noto_Sans_JP:Medium',sans-serif] text-[11px] text-[#333]">
               2025年11月18日
             </p>
           </div>
@@ -395,7 +395,7 @@ export default function ArticlePage({ onNavigate }: ArticlePageProps) {
               className="w-full h-auto object-cover" 
               src="https://images.unsplash.com/photo-1610562269919-86791081ad29?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHlvZ2ElMjBwb3NlfGVufDF8fHx8MTc2MzUxNTA3N3ww&ixlib=rb-4.1.0&q=80&w=1080" 
             />
-            <p className="font-['Noto_Sans_JP:DemiLight',sans-serif] text-[12px] text-[#666] mt-2">
+            <p className="font-['Noto_Sans_JP:DemiLight',sans-serif] text-[12px] text-[#333] mt-2">
               ヨガは心と体のバランスを整える古代からの実践法
             </p>
           </div>
@@ -424,7 +424,7 @@ export default function ArticlePage({ onNavigate }: ArticlePageProps) {
                 className="w-full h-auto object-cover" 
                 src="https://images.unsplash.com/photo-1604467731651-3d8b9c702b86?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxhdGVzJTIwc3R1ZGlvfGVufDF8fHx8MTc2MzQwMzMwMHww&ixlib=rb-4.1.0&q=80&w=1080" 
               />
-              <p className="font-['Noto_Sans_JP:DemiLight',sans-serif] text-[12px] text-[#666] mt-2">
+              <p className="font-['Noto_Sans_JP:DemiLight',sans-serif] text-[12px] text-[#333] mt-2">
                 ピラティスは体幹強化に効果的なエクササイズ
               </p>
             </div>
@@ -489,7 +489,7 @@ export default function ArticlePage({ onNavigate }: ArticlePageProps) {
               <h3 className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] tracking-[1.2px] uppercase mb-1">
                 YUKI TANAKA
               </h3>
-              <p className="font-['Noto_Sans_JP:Medium',sans-serif] text-[11px] text-[#666]">
+              <p className="font-['Noto_Sans_JP:Medium',sans-serif] text-[11px] text-[#333]">
                 ヨガ・ピラティスインストラクター
               </p>
             </div>
