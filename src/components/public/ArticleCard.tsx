@@ -60,19 +60,19 @@ export function ArticleCard({
             className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
           />
         </div>
-        <p className="font-[var(--font-noto-sans)] font-normal text-[10px] tracking-[3px] uppercase mb-3 text-[#555]">
+        <p className="font-[var(--font-noto-sans)] font-normal text-[10px] tracking-[3px] uppercase mb-3 text-black">
           {article.categories.name}
         </p>
         <h2 className="font-[var(--font-noto-sans-jp)] font-normal text-[22px] md:text-[28px] leading-[1.4] mb-4 group-hover:opacity-70 transition-opacity">
           {article.title}
         </h2>
         {showAuthor && (
-          <p className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[2px] uppercase mb-1 text-[#777]">
+          <p className="font-[var(--font-noto-sans)] font-light text-[10px] tracking-[2px] uppercase mb-1 text-black">
             By {article.authors.name}
           </p>
         )}
         {showDate && formattedDate && (
-          <p className="font-[var(--font-noto-sans-jp)] font-light text-[11px] text-[#999] tracking-[0.5px]">
+          <p className="font-[var(--font-noto-sans-jp)] font-light text-[11px] text-[#333] tracking-[0.5px]">
             {formattedDate}
           </p>
         )}
@@ -91,14 +91,14 @@ export function ArticleCard({
           />
         </div>
         <div className="flex-1 flex flex-col justify-center">
-          <p className="font-[var(--font-noto-sans)] font-normal text-[9px] tracking-[2.5px] uppercase mb-2 text-[#666]">
+          <p className="font-[var(--font-noto-sans)] font-normal text-[9px] tracking-[2.5px] uppercase mb-2 text-black">
             {article.categories.name}
           </p>
           <h3 className="font-[var(--font-noto-sans-jp)] font-normal text-[14px] leading-[1.5] mb-2 line-clamp-2 group-hover:opacity-70 transition-opacity">
             {article.title}
           </h3>
           {showDate && formattedDate && (
-            <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-[#999] tracking-[0.5px]">
+            <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-[#333] tracking-[0.5px]">
               {formattedDate}
             </p>
           )}
@@ -124,7 +124,7 @@ export function ArticleCard({
           {article.title}
         </h3>
         {showDate && formattedDate && (
-          <p className="font-[var(--font-noto-sans-jp)] font-medium text-[9px] text-[#666]">
+          <p className="font-[var(--font-noto-sans-jp)] font-medium text-[9px] text-[#333]">
             {formattedDate}
           </p>
         )}
@@ -142,19 +142,19 @@ export function ArticleCard({
           className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
         />
       </div>
-      <p className="font-[var(--font-noto-sans)] font-normal text-[9px] tracking-[2.5px] uppercase mb-2 text-[#666]">
+      <p className="font-[var(--font-noto-sans)] font-normal text-[9px] tracking-[2.5px] uppercase mb-2 text-black">
         {article.categories.name}
       </p>
       <h3 className="font-[var(--font-noto-sans-jp)] font-normal leading-[1.5] text-[13px] group-hover:opacity-70 transition-opacity line-clamp-2">
         {article.title}
       </h3>
       {showAuthor && (
-        <p className="font-[var(--font-noto-sans)] font-light text-[9px] tracking-[2px] uppercase mt-3 text-[#777]">
+        <p className="font-[var(--font-noto-sans)] font-light text-[9px] tracking-[2px] uppercase mt-3 text-black">
           By {article.authors.name}
         </p>
       )}
       {showDate && formattedDate && (
-        <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-[#999] mt-1 tracking-[0.5px]">
+        <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-[#333] mt-1 tracking-[0.5px]">
           {formattedDate}
         </p>
       )}

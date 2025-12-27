@@ -595,10 +595,10 @@ function Border2({ title }: { title: string }) {
         href={`/${categorySlug}`}
         className="flex items-center gap-2 group cursor-pointer"
       >
-        <span className="font-[var(--font-noto-sans)] font-normal text-[10px] tracking-[2px] uppercase text-[#888] group-hover:text-[#1a1a1a] transition-colors duration-300">
+        <span className="font-[var(--font-noto-sans)] font-normal text-[10px] tracking-[2px] uppercase text-[#333] group-hover:text-[#1a1a1a] transition-colors duration-300">
           View All
         </span>
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#888] group-hover:text-[#1a1a1a] group-hover:translate-x-0.5 transition-all duration-300">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#333] group-hover:text-[#1a1a1a] group-hover:translate-x-0.5 transition-all duration-300">
           <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </NextLink>
@@ -627,7 +627,7 @@ function SquareCard({ article, index, category }: { article?: PublicArticle; ind
         />
       </div>
       <div className="mt-3">
-        <div className="flex flex-col font-['Noto_Sans:Regular',sans-serif] h-[10px] justify-center leading-[0] not-italic text-[8px] text-[#777] tracking-[2px] uppercase">
+        <div className="flex flex-col font-['Noto_Sans:Regular',sans-serif] h-[10px] justify-center leading-[0] not-italic text-[8px] text-black tracking-[2px] uppercase">
           <p className="leading-[12px]">{categoryName}</p>
         </div>
         <div className="h-[42px] mt-2 overflow-hidden">
@@ -636,12 +636,12 @@ function SquareCard({ article, index, category }: { article?: PublicArticle; ind
           </div>
         </div>
         <div className="mt-2">
-          <div className="flex flex-col font-['Noto_Sans:Light',sans-serif] h-[10px] justify-center leading-[0] not-italic text-[8px] text-[#999] tracking-[1.5px] uppercase">
+          <div className="flex flex-col font-['Noto_Sans:Light',sans-serif] h-[10px] justify-center leading-[0] not-italic text-[8px] text-black tracking-[1.5px] uppercase">
             <p className="leading-[12px]">By {author}</p>
           </div>
         </div>
         <div className="mt-1">
-          <div className="flex flex-col font-['Noto_Sans_JP:Light',sans-serif] font-light h-[12px] justify-center leading-[0] text-[9px] text-[#bbb] tracking-[0.3px]">
+          <div className="flex flex-col font-['Noto_Sans_JP:Light',sans-serif] font-light h-[12px] justify-center leading-[0] text-[9px] text-[#333] tracking-[0.3px]">
             <p className="leading-[12px]">{dateStr}</p>
           </div>
         </div>
@@ -687,12 +687,12 @@ function DynamicVerticalCard({ article, className }: { article: PublicArticle; c
         />
       </div>
       <div className="mt-4">
-        <p className="font-['Noto_Sans',sans-serif] font-normal text-[9px] text-[#666] tracking-[2.5px] uppercase">{categoryName}</p>
+        <p className="font-['Noto_Sans',sans-serif] font-normal text-[9px] text-black tracking-[2.5px] uppercase">{categoryName}</p>
         <h3 className="mt-2.5 font-['Noto_Sans_JP',sans-serif] font-normal text-[13px] text-[#1a1a1a] tracking-[0.2px] leading-[1.6] line-clamp-2 group-hover:text-[#666] transition-colors duration-300">{article.title}</h3>
         <div className="mt-3 flex items-center gap-2">
-          <span className="font-['Noto_Sans',sans-serif] font-light text-[9px] text-[#999] tracking-[1px]">{article.authors.name}</span>
+          <span className="font-['Noto_Sans',sans-serif] font-light text-[9px] text-[#333] tracking-[1px]">{article.authors.name}</span>
           <span className="text-[#ccc]">·</span>
-          <span className="font-['Noto_Sans_JP',sans-serif] font-light text-[9px] text-[#999] tracking-[0.3px]">{dateStr}</span>
+          <span className="font-['Noto_Sans_JP',sans-serif] font-light text-[9px] text-[#333] tracking-[0.3px]">{dateStr}</span>
         </div>
       </div>
     </NextLink>
@@ -3683,7 +3683,7 @@ function ZigzagCard({ article, variant }: { article: PublicArticle; variant: 'po
           </span>
         </div>
         <div className="mt-1">
-          <span className="font-['Noto_Sans_JP',sans-serif] font-normal text-[10px] text-[#666] tracking-[0.3px]">
+          <span className="font-['Noto_Sans_JP',sans-serif] font-normal text-[10px] text-[#333] tracking-[0.3px]">
             {dateStr}
           </span>
         </div>
@@ -3835,7 +3835,7 @@ function TwoColumnScrollSection({
 
                   {hasMore && (
                     <div className="col-span-2 flex justify-center mt-10 pb-6">
-                      <button className="px-8 py-2.5 border border-[#ddd] cursor-pointer hover:border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white transition-all duration-300 font-['Noto_Sans',sans-serif] font-light text-[10px] tracking-[2px] uppercase text-[#666]">
+                      <button className="px-8 py-2.5 border border-[#ddd] cursor-pointer hover:border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white transition-all duration-300 font-['Noto_Sans',sans-serif] font-light text-[10px] tracking-[2px] uppercase text-[#333]">
                         View More
                       </button>
                     </div>
@@ -4563,7 +4563,7 @@ export function Footer({ categories = [] }: { categories?: Category[] }) {
         {/* ロゴとキャッチコピー */}
         <div className="flex flex-col items-center mb-12 max-md:mb-8">
           <img src={footerLogoImage} alt="Radiance Logo" className="h-[60px] w-auto mb-4 invert" />
-          <p className="text-[#777] text-[11px] max-md:text-[9px] tracking-[2.5px] max-md:tracking-[1.5px] uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">
+          <p className="text-[#bbb] text-[11px] max-md:text-[9px] tracking-[2.5px] max-md:tracking-[1.5px] uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">
             心と体を輝かせるライフスタイルマガジン
           </p>
         </div>
@@ -4605,7 +4605,7 @@ export function Footer({ categories = [] }: { categories?: Category[] }) {
               { name: 'Side Business', slug: 'side-business' },
               { name: 'Skills', slug: 'skills' }
             ]).map((cat) => (
-              <a key={cat.slug} href="#" className="text-[#999] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">{cat.name}</a>
+              <a key={cat.slug} href="#" className="text-[#ccc] hover:text-white text-[12px] tracking-[1.5px] transition-colors uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">{cat.name}</a>
             ))}
           </div>
         </div>
@@ -4615,14 +4615,14 @@ export function Footer({ categories = [] }: { categories?: Category[] }) {
 
         {/* 下部リンク */}
         <div className="flex justify-center items-center gap-8 mb-8 max-md:flex-col max-md:items-start max-md:gap-3 max-md:mb-6">
-          <a href="#" className="text-[#999] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-['Noto_Sans_JP:Regular',sans-serif]">お問い合わせ</a>
-          <a href="#" className="text-[#999] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-['Noto_Sans_JP:Regular',sans-serif]">運営会社</a>
-          <a href="#" className="text-[#999] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-['Noto_Sans_JP:Regular',sans-serif]">プライバシーポリシー</a>
+          <a href="#" className="text-[#ccc] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-['Noto_Sans_JP:Regular',sans-serif]">お問い合わせ</a>
+          <a href="#" className="text-[#ccc] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-['Noto_Sans_JP:Regular',sans-serif]">運営会社</a>
+          <a href="#" className="text-[#ccc] hover:text-white text-[12px] max-md:text-[11px] tracking-[1.5px] max-md:tracking-[1px] transition-colors uppercase font-['Noto_Sans_JP:Regular',sans-serif]">プライバシーポリシー</a>
         </div>
 
         {/* コピーライト */}
         <div className="text-center max-md:text-left">
-          <p className="text-[#555] text-[11px] max-md:text-[10px] tracking-[2px] max-md:tracking-[1px] uppercase font-['Noto_Sans_JP:Light',sans-serif]">
+          <p className="text-[#999] text-[11px] max-md:text-[10px] tracking-[2px] max-md:tracking-[1px] uppercase font-['Noto_Sans_JP:Light',sans-serif]">
             © 2025 Radiance. All rights reserved.
           </p>
         </div>
