@@ -293,7 +293,7 @@ function RelatedArticles({
 
   return (
     <section className="mt-10 md:mt-[60px]">
-      <h3 className="font-[var(--font-noto-sans)] font-bold text-[16px] md:text-[20px] tracking-[1.4px] uppercase mb-5 md:mb-[32px]">
+      <h3 className="font-[var(--font-noto-sans)] font-bold text-[16px] md:text-[20px] text-black tracking-[1.4px] uppercase mb-5 md:mb-[32px]">
         Related Articles
       </h3>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-[24px]">
@@ -311,7 +311,7 @@ function RelatedArticles({
               />
             </div>
             <div className="mb-1 md:mb-2">
-              <span className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[10px] tracking-[1.4px] md:tracking-[1.6px] uppercase">
+              <span className="font-[var(--font-noto-sans)] font-bold text-[9px] md:text-[10px] text-black tracking-[1.4px] md:tracking-[1.6px] uppercase">
                 {article.categories.name}
               </span>
             </div>
@@ -335,7 +335,7 @@ function PopularArticlesSidebar({
 
   return (
     <div className="border border-[#e0e0e0] p-[24px]">
-      <h4 className="font-[var(--font-noto-sans)] font-bold text-[14px] tracking-[1.4px] uppercase mb-[24px]">
+      <h4 className="font-[var(--font-noto-sans)] font-bold text-[14px] text-black tracking-[1.4px] uppercase mb-[24px]">
         Popular Articles
       </h4>
       <div className="space-y-[24px]">
@@ -394,7 +394,7 @@ function AuthorProfile({
         <h3 className="font-[var(--font-noto-sans)] font-bold text-[14px] md:text-[16px] text-black tracking-[1.2px] md:tracking-[1.4px] uppercase mb-1 md:mb-[8px]">
           {author.name}
         </h3>
-        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#333] tracking-[0.2px]">
+        <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-black tracking-[0.2px]">
           {author.role}
         </p>
       </div>
@@ -536,15 +536,15 @@ export default async function ArticlePage({
         {/* 著者・日付情報 */}
         <div className="text-center mb-8 md:mb-[60px] space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.4px] md:tracking-[1.964px] uppercase">
+            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] text-black tracking-[1.4px] md:tracking-[1.964px] uppercase">
               By
             </span>
-            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] tracking-[1.4px] md:tracking-[1.964px] uppercase">
+            <span className="font-[var(--font-noto-sans)] font-bold text-[10px] md:text-[12px] text-black tracking-[1.4px] md:tracking-[1.964px] uppercase">
               {article.authors.name}
             </span>
           </div>
           {formattedDate && (
-            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-[#333] md:text-[#1f1f1f] tracking-[-0.1px]">
+            <p className="font-[var(--font-noto-sans-jp)] font-medium text-[11px] md:text-[12px] text-black tracking-[-0.1px]">
               {formattedDate}
             </p>
           )}

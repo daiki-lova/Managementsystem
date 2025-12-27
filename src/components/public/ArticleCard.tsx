@@ -72,7 +72,7 @@ export function ArticleCard({
           </p>
         )}
         {showDate && formattedDate && (
-          <p className="font-[var(--font-noto-sans-jp)] font-light text-[11px] text-[#333] tracking-[0.5px]">
+          <p className="font-[var(--font-noto-sans-jp)] font-light text-[11px] text-black tracking-[0.5px]">
             {formattedDate}
           </p>
         )}
@@ -98,7 +98,7 @@ export function ArticleCard({
             {article.title}
           </h3>
           {showDate && formattedDate && (
-            <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-[#333] tracking-[0.5px]">
+            <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-black tracking-[0.5px]">
               {formattedDate}
             </p>
           )}
@@ -124,7 +124,7 @@ export function ArticleCard({
           {article.title}
         </h3>
         {showDate && formattedDate && (
-          <p className="font-[var(--font-noto-sans-jp)] font-medium text-[9px] text-[#333]">
+          <p className="font-[var(--font-noto-sans-jp)] font-medium text-[9px] text-black">
             {formattedDate}
           </p>
         )}
@@ -154,7 +154,7 @@ export function ArticleCard({
         </p>
       )}
       {showDate && formattedDate && (
-        <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-[#333] mt-1 tracking-[0.5px]">
+        <p className="font-[var(--font-noto-sans-jp)] font-light text-[10px] text-black mt-1 tracking-[0.5px]">
           {formattedDate}
         </p>
       )}
