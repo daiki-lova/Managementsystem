@@ -13,9 +13,13 @@ const CSRF_SKIP_PATHS = [
 ];
 
 // 許可するオリジン（環境変数から設定）
+// 環境変数の末尾の改行・空白を除去
+const cleanEnv = (value: string | undefined): string | undefined =>
+  value?.trim().replace(/\\n/g, '');
+
 const ALLOWED_ORIGINS = [
-  process.env.NEXTAUTH_URL || "http://localhost:3000",
-  process.env.FRONTEND_URL || "http://localhost:5173",
+  cleanEnv(process.env.NEXTAUTH_URL) || "http://localhost:3000",
+  cleanEnv(process.env.FRONTEND_URL) || "http://localhost:5173",
   "http://localhost:3000", // バックエンド自身（プロキシ経由のリクエスト用）
   "http://localhost:4000", // 開発サーバー（代替ポート）
   "http://localhost:5174", // Vite開発サーバー（代替ポート）
