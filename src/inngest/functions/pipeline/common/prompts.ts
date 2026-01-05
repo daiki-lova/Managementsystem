@@ -71,8 +71,8 @@ export const DEFAULT_ARTICLE_PROMPT = `## 🚫 絶対禁止フレーズ（使用
 
 ### 2️⃣ **監修者のblockquote引用【必須・1〜2回】**
 記事の中盤に監修者の発言をblockquote形式で**必ず1〜2回**挿入すること。
-**以下のテンプレートをそのまま使うこと：**
-<blockquote style="margin:32px 0;padding:24px;background:linear-gradient(135deg,#F5F5F5 0%,#fff 100%);border-left:4px solid #333;border-radius:0 12px 12px 0;font-style:normal;">
+**以下のテンプレートをそのまま使うこと（グレー背景で発言を明確に）：**
+<blockquote style="margin:32px 0;padding:24px;background:#f0f0f0;border-left:4px solid #333;border-radius:0 12px 12px 0;font-style:normal;">
   <p style="margin:0 0 12px;font-size:1.05em;line-height:1.8;color:#333;">「監修者の発言内容をここに書く。読者への助言や専門的な見解を含める。」</p>
   <cite style="display:block;font-size:0.9em;color:#666;font-style:normal;">— {{SUPERVISOR_NAME}}（{{SUPERVISOR_ROLE}}）</cite>
 </blockquote>
@@ -266,31 +266,33 @@ export const DEFAULT_ARTICLE_PROMPT = `## 🚫 絶対禁止フレーズ（使用
 
 ---
 
-## 文体ガイドライン（人間らしい文章のために）
+## 文体ガイドライン（厳守）
 
-### 語尾のバリエーション（同じ語尾を3回連続禁止）
-- 「です」「ます」「でした」「ました」
-- 「ですね」（親しみを込める場合のみ、使いすぎ注意）
-- 「〜しょう」「〜ましょう」（提案・勧誘）
-- 体言止め「〜というポイント。」
-- 「〜のです」「〜んです」（説明・強調）
+### 基本文体：「です・ます」調に統一
+- 文末は必ず「です」「ます」「でした」「ました」「でしょう」「ましょう」のいずれか
+- ❌ 小説風・口語調の禁止：「〜だ」「〜である」「〜なのだ」「〜だよね」「〜かな」
+- ❌ タメ口禁止：「〜だよ」「〜だね」「〜じゃない？」
+- 語尾のバリエーション（同じ語尾を3回連続禁止）
+
+### 引用・発言のスタイル（グレー背景で明確に）
+誰かの発言や考えを引用する際は、必ずグレー背景を使用：
+**インライン引用**:
+<span style="background:#f0f0f0;padding:2px 8px;border-radius:4px;">「発言内容」</span>
+**段落引用**:
+<div style="background:#f5f5f5;padding:16px 20px;border-radius:8px;margin:16px 0;">
+  <p style="margin:0;color:#333;">引用内容</p>
+</div>
 
 ### 接続詞のバリエーション
 - 逆接: 「しかし」「ただ」「一方で」「とはいえ」「ところが」
-- 順接: 「そのため」「だから」「なので」
-- 添加: 「加えて」「その上」「しかも」
+- 順接: 「そのため」「ですから」「したがって」
+- 添加: 「また」「さらに」「加えて」
 - 転換: 「ところで」「さて」
 - 例示: 「たとえば」「具体的には」「一例を挙げると」
 
 ### 一文の長さ
 - 基本は40〜60字
-- 短文（20字以下）と長文（80字まで）を混ぜてリズムを作る
 - 読点（、）を適度に入れる
-
-### 人間らしさのコツ
-- 完璧すぎない表現を使う
-- 体験や感情を交える（「私も最初は不安でした」など）
-- 読者への語りかけを入れる（「あなたも〜ではありませんか」）
 
 ---
 
@@ -975,8 +977,8 @@ ${REFERENCE_FORMAT_RULES}
 
 <h2 style="font-size:1.5em;font-weight:bold;margin:48px 0 24px;color:#333;border-bottom:3px solid #333;padding-bottom:12px;">受講生の声</h2>
 
-<blockquote style="margin:24px 0;padding:20px 24px;background:#F9FAFB;border-left:4px solid #333;border-radius:0 8px 8px 0;">
-  <p style="margin:0 0 12px;font-style:italic;color:#444;">[実際の受講生の声。情報バンクから引用]</p>
+<blockquote style="margin:24px 0;padding:20px 24px;background:#f0f0f0;border-left:4px solid #333;border-radius:0 8px 8px 0;">
+  <p style="margin:0 0 12px;color:#333;">[実際の受講生の声。情報バンクから引用]</p>
   <cite style="font-size:0.9em;color:#666;">— [名前]さん（[背景]）</cite>
 </blockquote>
 
@@ -1013,15 +1015,21 @@ ${REFERENCE_FORMAT_RULES}
 4. **リスト・表も上記のスタイルをコピー** - 一貫したデザイン
 5. **各要素に必ずインラインスタイルを含める** - CSSクラスのみは不可
 
-### 文体ガイドライン（人間らしい文章のために）
+### 文体ガイドライン（厳守）
 
-* 一文は20〜80字を基本に、短文と長文を混ぜる
-* 語尾は「です」「ます」「でしょう」「ですね」を循環（**同じ語尾を3回連続で使わない**）
-* 接続詞を多様化：「しかし」「ただ」「実は」「というのも」「一方で」「ところで」「さて」
+**基本文体：「です・ます」調に統一**
+* 文末は必ず「です」「ます」「でした」「ました」「でしょう」「ましょう」のいずれか
+* ❌ 小説風・口語調の禁止：「〜だ」「〜である」「〜なのだ」「〜だよね」「〜かな」
+* ❌ タメ口禁止：「〜だよ」「〜だね」「〜じゃない？」
+* 語尾は「です」「ます」「でしょう」を循環（**同じ語尾を3回連続で使わない**）
+
+**引用・発言はグレー背景で明確に**
+* インライン: <span style="background:#f0f0f0;padding:2px 8px;border-radius:4px;">「発言」</span>
+* 段落: <div style="background:#f5f5f5;padding:16px 20px;border-radius:8px;margin:16px 0;">引用内容</div>
+
+* 接続詞を多様化：「しかし」「ただ」「一方で」「ところで」「さて」
 * 監修者の口癖やフレーズを自然に2〜3回織り込む
-* 体言止めを適度に使用（「〜というポイント。」「〜の効果。」）
-* 完璧すぎない文章を意識（人間らしい揺らぎを持たせる）
-* 読者に語りかけるような「私も最初は不安でした」などの体験的表現を入れる
+* 一文は40〜60字を基本に
 ${brand.tone ? `* トーン: ${brand.tone}` : ''}
 
 ### 画像プレースホルダー（必須・3箇所）
@@ -1078,7 +1086,7 @@ const ARTICLE_STYLES = {
   table: `width:100%;border-collapse:collapse;margin:24px 0;`,
   th: `padding:12px 16px;border:1px solid #E5E7EB;text-align:left;background:#F3F4F6;font-weight:bold;color:#333;`,
   td: `padding:12px 16px;border:1px solid #E5E7EB;color:#333;`,
-  blockquote: `margin:24px 0;padding:20px 24px;background:#F9FAFB;border-left:4px solid #666;border-radius:0 8px 8px 0;font-style:italic;color:#333;`,
+  blockquote: `margin:24px 0;padding:20px 24px;background:#f0f0f0;border-left:4px solid #333;border-radius:0 8px 8px 0;font-style:normal;color:#333;`,
   details: `margin-bottom:16px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;`,
   summary: `padding:16px;background:#F9FAFB;cursor:pointer;font-weight:600;color:#333;`,
   strong: `font-weight:bold;color:#333;`,
@@ -1438,7 +1446,7 @@ export function insertSupervisorQuote(
   }
 
   const quoteHtml = `
-<blockquote style="margin:32px 0;padding:24px;background:linear-gradient(135deg,#F5F5F5 0%,#fff 100%);border-left:4px solid #333;border-radius:0 12px 12px 0;font-style:normal;">
+<blockquote style="margin:32px 0;padding:24px;background:#f0f0f0;border-left:4px solid #333;border-radius:0 12px 12px 0;font-style:normal;">
   <p style="margin:0 0 12px;font-size:1.05em;line-height:1.8;color:#333;">「この記事のポイントを押さえて実践していただければ、きっと良い変化が感じられるはずです。無理なく、自分のペースで続けていきましょう。」</p>
   <cite style="display:block;font-size:0.9em;color:#666;font-style:normal;">— ${supervisor.name}（${supervisor.role}）</cite>
 </blockquote>`;
