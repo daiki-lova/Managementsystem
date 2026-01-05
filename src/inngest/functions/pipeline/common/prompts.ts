@@ -274,14 +274,20 @@ export const DEFAULT_ARTICLE_PROMPT = `## 🚫 絶対禁止フレーズ（使用
 - ❌ タメ口禁止：「〜だよ」「〜だね」「〜じゃない？」
 - 語尾のバリエーション（同じ語尾を3回連続禁止）
 
-### 引用・発言のスタイル（グレー背景で明確に）
-誰かの発言や考えを引用する際は、必ずグレー背景を使用：
-**インライン引用**:
-<span style="background:#f0f0f0;padding:2px 8px;border-radius:4px;">「発言内容」</span>
-**段落引用**:
-<div style="background:#f5f5f5;padding:16px 20px;border-radius:8px;margin:16px 0;">
-  <p style="margin:0;color:#333;">引用内容</p>
-</div>
+### 発言・セリフの視覚的区別（必須）
+記事中の「」で囲まれた発言・セリフ・考えは、**本文と視覚的に区別**できるようにすること：
+- インデント、行間、フォントスタイルなど、読者が「これは誰かの発言だ」と一目で分かる工夫をする
+- 発言者の属性（年齢・職業など）を明記：「〇〇さん（30代・会社員）」
+- 長い発言は独立した段落として、短い発言は文中に自然に組み込む
+
+**例（発言を明確に）**:
+<p style="margin:20px 0;padding-left:20px;border-left:3px solid #ccc;color:#333;">30代会社員のAさんは「毎日10分のヨガで、肩こりがかなり楽になりました」と話します。</p>
+
+**または箇条書き風に**:
+<ul style="list-style:none;margin:20px 0;padding:0;">
+  <li style="margin:12px 0;padding-left:16px;border-left:3px solid #999;color:#333;">「最初は体が硬くて不安でした」（40代・主婦）</li>
+  <li style="margin:12px 0;padding-left:16px;border-left:3px solid #999;color:#333;">「3ヶ月で姿勢が変わった実感があります」（30代・デスクワーク）</li>
+</ul>
 
 ### 接続詞のバリエーション
 - 逆接: 「しかし」「ただ」「一方で」「とはいえ」「ところが」
