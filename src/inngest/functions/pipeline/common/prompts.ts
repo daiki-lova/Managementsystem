@@ -90,6 +90,23 @@ export const DEFAULT_ARTICLE_PROMPT = `## 🚫 絶対禁止フレーズ（使用
 ### 4️⃣ **「まとめ」セクション【必須】**
 記事の要点を箇条書きで整理
 
+### 5️⃣ **受講生・体験者の発言スタイル【必須・最重要】**
+「」で囲まれた発言・セリフは、**必ず左ボーダー付きスタイル**で視覚的に区別すること。
+**⚠️ 通常の<p>タグで発言を書いたら減点！必ず以下のスタイルを使うこと：**
+
+✅ 正しい例（左ボーダー付き）:
+<p style="margin:20px 0;padding-left:20px;border-left:3px solid #ccc;color:#333;">「毎日10分のヨガで、肩こりがかなり楽になりました」と田中さん（30代・会社員）は話します。</p>
+
+✅ 複数の声を並べる場合:
+<ul style="list-style:none;margin:20px 0;padding:0;">
+  <li style="margin:12px 0;padding-left:16px;border-left:3px solid #999;color:#333;">「最初は体が硬くて不安でした」（40代・主婦）</li>
+  <li style="margin:12px 0;padding-left:16px;border-left:3px solid #999;color:#333;">「3ヶ月で姿勢が変わった実感があります」（30代・デスクワーク）</li>
+</ul>
+
+❌ 絶対ダメな例（通常の段落）:
+<p style="margin-bottom:20px;color:#333;">「ヨガを始めてよかった」と田中さんは話す。</p>
+↑これは減点！発言は必ず左ボーダー付きで書くこと！
+
 □ **比較表（table）** - 1つ以上、**必ず以下の構造で**書くこと：
 
 ⚠️ **テーブル構造の絶対ルール**:
