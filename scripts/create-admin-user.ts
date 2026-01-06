@@ -10,8 +10,8 @@ import { createClient } from '@supabase/supabase-js';
 // .envファイルを読み込む
 config();
 
-const supabaseUrl = 'https://towhsfpfillkftcgqflp.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvd2hzZnBmaWxsa2Z0Y2dxZmxwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTI2MTEwNSwiZXhwIjoyMDgwODM3MTA1fQ.5VkurH3RA4T4lpVMNDAHQfAeVqzYDoVp5ejjzNdk51w';
+const supabaseUrl = 'https://example.supabase.co';
+const supabaseServiceKey = 'your-supabase-service-role-key';
 
 // Service Role キーでSupabaseクライアントを作成（管理者権限）
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
