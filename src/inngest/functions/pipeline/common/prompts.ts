@@ -1118,7 +1118,9 @@ const ARTICLE_STYLES = {
   highlight: `margin:24px 0;padding:20px;background:#F3F4F6;border-radius:8px;color:#333;`,
   container: `max-width:800px;margin:0 auto;padding:24px;font-family:'Hiragino Sans','ヒラギノ角ゴ Pro W3','Noto Sans JP',sans-serif;line-height:1.8;color:#333;`,
   'cost-table': `margin:24px 0;overflow-x:auto;`,
-};;
+  // 発言・引用用スタイル（左ボーダー＋薄い背景）
+  dialogue: `margin:20px 0;padding:16px 20px;border-left:4px solid #999;background:#f9f9f9;border-radius:0 8px 8px 0;color:#333;`,
+};
 
 /**
  * HTMLタグにインラインスタイルを注入
@@ -1193,6 +1195,14 @@ function injectInlineStyles(html: string): string {
     if (match.includes('style=')) return match;
     return match.replace(/>$/, ` style="${ARTICLE_STYLES['cost-table']}">`);
   });
+
+  // 発言・引用のスタイリング（「」で始まる段落に左ボーダー＋背景を適用）
+  // パターン: <p style="...">「...」... → 発言スタイルに変更
+  // 発言で始まる段落を検出（「で始まるテキスト）
+  result = result.replace(
+    /<p\s+style="margin-bottom:20px;color:#333;"([^>]*)>(\s*「)/gi,
+    `<p style="${ARTICLE_STYLES.dialogue}"$1>$2`
+  );
 
   return result;
 }
