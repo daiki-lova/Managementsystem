@@ -1,5 +1,5 @@
 // 記事生成テストスクリプト
-const API_KEY = "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";
+const API_KEY = "your-openrouter-api-key";
 const MODEL = "openai/gpt-4o-mini";
 
 interface GeneratedContent {

@@ -14,7 +14,7 @@ async function main() {
     const updated = await prisma.system_settings.update({
       where: { id: "default" },
       data: {
-        openRouterApiKey: "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"
+        openRouterApiKey: "your-openrouter-api-key"
       },
     });
     console.log("Updated openRouterApiKey:", updated.openRouterApiKey);
