@@ -580,14 +580,26 @@ export default async function ArticlePage({
                       [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-2 [&_ol]:mb-6
                       [&_li]:font-light [&_li]:leading-[1.8] [&_li]:text-[#1f1f1f] [&_li]:text-[16px] [&_li]:tracking-[0.4px]
                       [&_a]:text-blue-600 [&_a]:underline [&_a:hover]:text-blue-800
-                      [&_blockquote]:border-l-4 [&_blockquote]:border-black [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:mb-6
+                      [&_blockquote]:border-l-4 [&_blockquote]:border-black [&_blockquote]:pl-4 [&_blockquote]:not-italic [&_blockquote]:mb-6 [&_blockquote]:text-[#1f1f1f] [&_blockquote]:bg-[#f5f5f5] [&_blockquote]:py-5 [&_blockquote]:pr-5 [&_blockquote]:rounded-r-lg
+                      [&_blockquote_p]:text-[#1f1f1f] [&_blockquote_p]:mb-3 [&_blockquote_p]:leading-[1.8]
+                      [&_blockquote_cite]:text-[#555] [&_blockquote_cite]:text-sm [&_blockquote_cite]:block
+                      [&_.faq-question]:text-[#1f1f1f] [&_.faq-question]:font-medium [&_.faq-question]:mb-2
+                      [&_.faq-answer]:text-[#1f1f1f] [&_.faq-answer]:mb-4
+                      [&_.faq-item]:border-b [&_.faq-item]:border-gray-200 [&_.faq-item]:pb-4 [&_.faq-item]:mb-4
                       [&_figure]:mb-6 [&_figcaption]:text-[13px] [&_figcaption]:text-black [&_figcaption]:mt-3
                       [&_img]:w-full [&_img]:h-auto [&_img]:object-cover
                       [&_table]:w-full [&_table]:border-collapse [&_table]:mb-6
-                      [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_th]:bg-gray-50
-                      [&_td]:border [&_td]:border-gray-300 [&_td]:p-2
+                      [&_th]:border [&_th]:border-gray-300 [&_th]:p-3 [&_th]:bg-gray-50 [&_th]:text-[#1f1f1f] [&_th]:font-semibold [&_th]:text-left
+                      [&_td]:border [&_td]:border-gray-300 [&_td]:p-3 [&_td]:text-[#1f1f1f]
+                      [&_details]:border [&_details]:border-gray-200 [&_details]:rounded-lg [&_details]:mb-4 [&_details]:overflow-hidden
+                      [&_summary]:p-4 [&_summary]:bg-gray-50 [&_summary]:cursor-pointer [&_summary]:font-semibold [&_summary]:text-[#1f1f1f] [&_summary]:list-none
+                      [&_details>p]:p-4 [&_details>p]:text-[#1f1f1f] [&_details>p]:bg-white
                       [&_pre]:bg-gray-100 [&_pre]:p-4 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:mb-6
-                      [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded [&_code]:text-sm"
+                      [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
+                      [&_cite]:text-[#555] [&_cite]:text-sm
+                      [&_.natural-cta]:text-[#1f1f1f] [&_.natural-cta_p]:text-[#1f1f1f]
+                      [&_aside]:text-[#1f1f1f]
+                      [&>p:last-of-type]:text-[#444] [&>p:last-of-type]:text-sm [&>p:last-of-type]:leading-relaxed"
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(primaryHtmlBlock.content || '') }}
                   />
                 ) : (
