@@ -14,10 +14,12 @@ node_modules/
 /build/
 dist/
 
-# Environment files
-.env
-.env.local
-.env*.local
+# Environment files (NEVER commit secrets!)
+.env*
+!.env.example
+
+# Supabase temp files (may contain secrets)
+supabase/.temp/
 
 # Vercel
 .vercel
