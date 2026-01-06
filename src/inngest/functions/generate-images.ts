@@ -4,7 +4,7 @@ import { MediaSource, ArticleImageType, Prisma } from "@prisma/client";
 import { uploadImage } from "@/lib/supabase";
 import { randomUUID } from "crypto";
 import { getDecryptedSettings } from "@/lib/settings";
-import { buildImagePrompt, replacePlaceholderWithImage, DEFAULT_IMAGE_PROMPT } from "./pipeline/common/prompts";
+import { buildImagePrompt, replacePlaceholderWithImage, DEFAULT_IMAGE_PROMPT, ImageStyle } from "./pipeline/common/prompts";
 import { STAGE_MODEL_CONFIG } from "./pipeline/common/openrouter";
 import sharp from "sharp";
 
@@ -130,12 +130,17 @@ export const generateImages = inngest.createFunction(
     if (imagePlaceholders && imagePlaceholders.length > 0) {
       console.log(`[ImageGeneration] Processing ${imagePlaceholders.length} image placeholders`);
 
+      // 記事単位でスタイルを決定（同じ記事内は同じスタイルで統一）
+      const articleStyles: ImageStyle[] = ['realistic', 'handdrawn', 'scenic'];
+      const articleImageStyle = articleStyles[Math.floor(Math.random() * articleStyles.length)];
+      console.log(`[ImageGeneration] Article image style: ${articleImageStyle}`);
+
       for (let i = 0; i < imagePlaceholders.length; i++) {
         const placeholder = imagePlaceholders[i];
         const stepName = `generate-image-${placeholder.position}-${i}`;
 
         const imageUrl = await step.run(stepName, async () => {
-          // プロンプトを構築
+          // プロンプトを構築（サムネイル以外は記事単位のスタイルを使用）
           const prompt = buildImagePrompt({
             position: placeholder.position,
             context: placeholder.context,
@@ -143,6 +148,7 @@ export const generateImages = inngest.createFunction(
             articleTitle: articleTitle || article.title,
             categoryName: categoryName || article.categories.name,
             brandTone,
+            forceStyle: placeholder.position === 'hero' ? undefined : articleImageStyle, // サムネイルはリアル固定、他は記事スタイル
           });
 
           const fullPrompt = `${imageBasePrompt}\n\n${prompt}`;
