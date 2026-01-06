@@ -15,11 +15,15 @@ const CSRF_SKIP_PATHS = [
 // 許可するオリジン（環境変数から設定）
 // 環境変数の末尾の改行・空白を除去
 const cleanEnv = (value: string | undefined): string | undefined =>
-  value?.trim().replace(/\\n/g, '');
+  value?.trim().replace(/[\r\n]+/g, '');
 
 const ALLOWED_ORIGINS = [
   cleanEnv(process.env.NEXTAUTH_URL) || "http://localhost:3000",
   cleanEnv(process.env.FRONTEND_URL) || "http://localhost:5173",
+  cleanEnv(process.env.NEXT_PUBLIC_APP_URL), // Vercel本番URL
+  cleanEnv(process.env.VERCEL_URL) ? `https://${cleanEnv(process.env.VERCEL_URL)}` : undefined, // Vercel自動設定URL
+  // Vercel本番環境のURL（明示的に追加）
+  "https://managementsystem-daikis-projects-917fe1d6.vercel.app",
   "http://localhost:3000", // バックエンド自身（プロキシ経由のリクエスト用）
   "http://localhost:4000", // 開発サーバー（代替ポート）
   "http://localhost:5174", // Vite開発サーバー（代替ポート）
