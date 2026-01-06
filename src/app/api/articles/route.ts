@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
           title: true,
           slug: true,
           status: true,
+          version: true,
           publishedAt: true,
           createdAt: true,
           updatedAt: true,
