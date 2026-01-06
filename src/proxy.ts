@@ -17,7 +17,7 @@ const CSRF_SKIP_PATHS = [
 const cleanEnv = (value: string | undefined): string | undefined =>
   value?.trim().replace(/[\r\n]+/g, '');
 
-const ALLOWED_ORIGINS = [
+const ALLOWED_ORIGINS: string[] = [
   cleanEnv(process.env.NEXTAUTH_URL) || "http://localhost:3000",
   cleanEnv(process.env.FRONTEND_URL) || "http://localhost:5173",
   cleanEnv(process.env.NEXT_PUBLIC_APP_URL), // Vercel本番URL
@@ -29,7 +29,7 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5174", // Vite開発サーバー（代替ポート）
   "http://localhost:5175", // Vite開発サーバー（代替ポート）
   "http://localhost:5176", // Vite開発サーバー（代替ポート）
-].filter(Boolean);
+].filter((origin): origin is string => Boolean(origin));
 
 export function proxy(request: NextRequest) {
   const response = NextResponse.next();
