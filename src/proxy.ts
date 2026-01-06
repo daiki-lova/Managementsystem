@@ -31,6 +31,15 @@ const ALLOWED_ORIGINS: string[] = [
   "http://localhost:5176", // Vite開発サーバー（代替ポート）
 ].filter((origin): origin is string => Boolean(origin));
 
+// 許可されたホスト一覧（オリジンからホスト部分を抽出）
+const ALLOWED_HOSTS: string[] = ALLOWED_ORIGINS.map((origin) => {
+  try {
+    return new URL(origin).host;
+  } catch {
+    return "";
+  }
+}).filter(Boolean);
+
 export function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
@@ -73,17 +82,30 @@ export function proxy(request: NextRequest) {
       // Origin または Referer ヘッダーをチェック
       const requestOrigin = request.headers.get("origin");
       const referer = request.headers.get("referer");
+      const host = request.headers.get("host");
 
-      // Same-origin チェック
+      // 同一オリジンリクエストの検出
+      // ブラウザの同一オリジンリクエストはOriginヘッダーを送信しないことがある
+      // その場合、HostヘッダーとRefererで判断する
+      const isSameOrigin = host && ALLOWED_HOSTS.includes(host);
+
+      // Origin ヘッダーの検証
       const isValidOrigin =
         requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin);
+
+      // Referer ヘッダーの検証
       const isValidReferer =
         referer &&
         ALLOWED_ORIGINS.some((allowed) => referer.startsWith(allowed));
 
-      if (!isValidOrigin && !isValidReferer) {
+      // 同一オリジンでOrigin/Refererがない場合は許可
+      // （ブラウザの同一オリジンfetchリクエスト）
+      const isLikelySameOriginFetch =
+        isSameOrigin && !requestOrigin && !referer;
+
+      if (!isValidOrigin && !isValidReferer && !isLikelySameOriginFetch) {
         console.warn(
-          `CSRF validation failed: origin=${requestOrigin}, referer=${referer}, path=${pathname}`
+          `CSRF validation failed: origin=${requestOrigin}, referer=${referer}, host=${host}, path=${pathname}`
         );
         return new NextResponse(
           JSON.stringify({
