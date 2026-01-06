@@ -17,8 +17,8 @@ export const RATE_LIMIT_CONFIGS = {
   auth: { windowMs: 60 * 1000, maxRequests: 10 },
   // ログイン失敗: 5回/15分（ロックアウト）
   loginFailure: { windowMs: 15 * 60 * 1000, maxRequests: 5 },
-  // AI生成: 10リクエスト/時
-  generation: { windowMs: 60 * 60 * 1000, maxRequests: 10 },
+  // AI生成: 20リクエスト/時
+  generation: { windowMs: 60 * 60 * 1000, maxRequests: 20 },
   // ファイルアップロード: 30リクエスト/分
   upload: { windowMs: 60 * 1000, maxRequests: 30 },
   // 公開API: 60リクエスト/分
