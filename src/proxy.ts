@@ -24,6 +24,7 @@ const ALLOWED_ORIGINS: string[] = [
   cleanEnv(process.env.VERCEL_URL) ? `https://${cleanEnv(process.env.VERCEL_URL)}` : undefined, // Vercel自動設定URL
   // Vercel本番環境のURL（明示的に追加）
   "https://managementsystem-daikis-projects-917fe1d6.vercel.app",
+  "https://managementsystem-omega.vercel.app", // Vercel aliased URL
   "http://localhost:3000", // バックエンド自身（プロキシ経由のリクエスト用）
   "http://localhost:4000", // 開発サーバー（代替ポート）
   "http://localhost:5174", // Vite開発サーバー（代替ポート）
