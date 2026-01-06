@@ -1072,9 +1072,116 @@ ${brand.tone ? `* トーン: ${brand.tone}` : ''}
 **出力は\`<article style="...">\`で始まり\`</article>\`で終わること。インラインスタイル必須。**`;
 }
 
+// ========================================
+// 画像スタイル定義
+// ========================================
+
+/** 画像スタイルの種類 */
+export type ImageStyle = 'realistic' | 'handdrawn' | 'scenic';
+
+/** 画像スタイル別プロンプト */
+const IMAGE_STYLE_PROMPTS: Record<ImageStyle, string> = {
+  // リアルな写真風（サムネイル向け）
+  realistic: `photorealistic, high quality photograph, professional photography, natural lighting, sharp focus, 8k resolution`,
+  // 手描き水彩風（現在のスタイル）
+  handdrawn: `hand-drawn watercolor sketch style, loose line art with rough outlines, pale and transparent pastel colors, plain white background, gentle and airy atmosphere, minimalist composition`,
+  // ヨガスタジオ/自然風景（引きのポーズ）
+  scenic: `cinematic wide shot, yoga studio or natural outdoor setting, soft natural lighting, peaceful atmosphere, bokeh background, lifestyle photography style`,
+};
+
+/** ヨガポーズのバリエーション（30種類以上） */
+const YOGA_POSES = [
+  // 立位ポーズ
+  { name: 'Mountain Pose (Tadasana)', description: 'standing tall with feet together, arms at sides' },
+  { name: 'Tree Pose (Vrksasana)', description: 'standing on one leg with other foot on inner thigh, hands in prayer or raised' },
+  { name: 'Warrior I (Virabhadrasana I)', description: 'lunging forward with arms raised overhead' },
+  { name: 'Warrior II (Virabhadrasana II)', description: 'lunging with arms extended horizontally to sides' },
+  { name: 'Warrior III (Virabhadrasana III)', description: 'balancing on one leg with body and back leg parallel to floor' },
+  { name: 'Extended Side Angle (Utthita Parsvakonasana)', description: 'lunging with one arm reaching over ear' },
+  { name: 'Triangle Pose (Trikonasana)', description: 'standing with legs wide, reaching down to ankle and up to sky' },
+  { name: 'Half Moon (Ardha Chandrasana)', description: 'balancing on one leg with other leg and arm extended horizontally' },
+  { name: 'Chair Pose (Utkatasana)', description: 'sitting back with knees bent, arms raised overhead' },
+  { name: 'Eagle Pose (Garudasana)', description: 'standing on one leg with arms and legs wrapped' },
+  { name: 'Standing Forward Fold (Uttanasana)', description: 'bending forward from hips with hands reaching to floor' },
+  { name: 'Extended Hand to Toe (Utthita Hasta Padangusthasana)', description: 'standing on one leg holding other foot extended' },
+
+  // 座位ポーズ
+  { name: 'Easy Pose (Sukhasana)', description: 'sitting cross-legged with straight spine' },
+  { name: 'Lotus Pose (Padmasana)', description: 'sitting with feet on opposite thighs' },
+  { name: 'Staff Pose (Dandasana)', description: 'sitting with legs extended straight, hands beside hips' },
+  { name: 'Seated Forward Fold (Paschimottanasana)', description: 'sitting with legs extended, folding forward over legs' },
+  { name: 'Head to Knee (Janu Sirsasana)', description: 'sitting with one leg extended, folding toward that leg' },
+  { name: 'Bound Angle (Baddha Konasana)', description: 'sitting with soles of feet together, knees open' },
+  { name: 'Cow Face Pose (Gomukhasana)', description: 'sitting with legs crossed, arms behind back' },
+  { name: 'Seated Twist (Ardha Matsyendrasana)', description: 'sitting with one leg crossed, twisting toward bent knee' },
+  { name: 'Boat Pose (Navasana)', description: 'sitting with legs and torso lifted, balancing on sit bones' },
+
+  // 後屈ポーズ
+  { name: 'Cobra Pose (Bhujangasana)', description: 'lying prone with upper body lifted, arms supporting' },
+  { name: 'Upward Dog (Urdhva Mukha Svanasana)', description: 'arms straight, body lifted off floor, tops of feet down' },
+  { name: 'Bridge Pose (Setu Bandhasana)', description: 'lying on back with hips lifted, feet flat on floor' },
+  { name: 'Wheel Pose (Urdhva Dhanurasana)', description: 'full backbend with hands and feet on floor, body arched' },
+  { name: 'Camel Pose (Ustrasana)', description: 'kneeling with hips forward, reaching back to heels' },
+  { name: 'Bow Pose (Dhanurasana)', description: 'lying prone, holding ankles with back arched' },
+  { name: 'Fish Pose (Matsyasana)', description: 'lying on back with chest lifted, head tilted back' },
+
+  // 前屈・ストレッチ
+  { name: 'Downward Dog (Adho Mukha Svanasana)', description: 'inverted V-shape with hands and feet on floor' },
+  { name: "Child's Pose (Balasana)", description: 'kneeling with forehead on floor, arms extended or beside body' },
+  { name: 'Cat-Cow (Marjaryasana-Bitilasana)', description: 'on hands and knees, alternating arched and rounded spine' },
+  { name: 'Pigeon Pose (Eka Pada Rajakapotasana)', description: 'one leg bent in front, other leg extended behind' },
+  { name: 'Lizard Pose (Utthan Pristhasana)', description: 'low lunge with both hands inside front foot' },
+  { name: 'Wide-Legged Forward Fold (Prasarita Padottanasana)', description: 'standing with legs wide, folding forward' },
+
+  // バランス・逆転
+  { name: 'Crow Pose (Bakasana)', description: 'balancing on hands with knees on upper arms' },
+  { name: 'Side Crow (Parsva Bakasana)', description: 'balancing on hands with both legs to one side' },
+  { name: 'Headstand (Sirsasana)', description: 'inverted on head with legs straight up' },
+  { name: 'Shoulder Stand (Sarvangasana)', description: 'inverted on shoulders with legs straight up' },
+  { name: 'Plow Pose (Halasana)', description: 'lying on back with legs over head, toes touching floor' },
+  { name: 'Forearm Stand (Pincha Mayurasana)', description: 'balancing on forearms with legs vertical' },
+
+  // リラックス
+  { name: 'Corpse Pose (Savasana)', description: 'lying flat on back, completely relaxed' },
+  { name: 'Legs Up the Wall (Viparita Karani)', description: 'lying on back with legs extended up against wall' },
+  { name: 'Reclined Twist (Supta Matsyendrasana)', description: 'lying on back with knees dropped to one side' },
+  { name: 'Happy Baby (Ananda Balasana)', description: 'lying on back holding feet with knees bent toward armpits' },
+];
+
+/** 背景/シーンのバリエーション */
+const SCENE_BACKGROUNDS = [
+  'modern minimalist yoga studio with natural light',
+  'serene outdoor garden setting with soft morning light',
+  'beach at sunrise with calm ocean waves',
+  'mountain meadow with wildflowers',
+  'zen garden with bamboo and stones',
+  'rooftop terrace overlooking city skyline',
+  'forest clearing with dappled sunlight',
+  'clean white studio with large windows',
+  'peaceful lakeside at dawn',
+  'tropical paradise with palm trees',
+];
+
+/** ランダムにヨガポーズを選択 */
+function getRandomYogaPose(): typeof YOGA_POSES[number] {
+  return YOGA_POSES[Math.floor(Math.random() * YOGA_POSES.length)];
+}
+
+/** ランダムに背景を選択 */
+function getRandomBackground(): string {
+  return SCENE_BACKGROUNDS[Math.floor(Math.random() * SCENE_BACKGROUNDS.length)];
+}
+
+/** ランダムに画像スタイルを選択（記事内用、3パターン） */
+function getRandomImageStyle(): ImageStyle {
+  const styles: ImageStyle[] = ['realistic', 'handdrawn', 'scenic'];
+  return styles[Math.floor(Math.random() * styles.length)];
+}
+
 /**
  * Stage 3: 画像生成プロンプト
- * スタイル: 手描き水彩スケッチ風のエディトリアルイラスト
+ * サムネイル: リアル写真風、ヨガポーズ、様々な背景
+ * 記事内: 3パターン（リアル、手描き風、ヨガ風景）をランダム選択
  * アスペクト比: 16:9
  */
 export function buildImagePrompt(input: {
@@ -1084,14 +1191,35 @@ export function buildImagePrompt(input: {
   articleTitle: string;
   categoryName: string;
   brandTone?: string;
+  forceStyle?: ImageStyle; // 特定スタイルを強制
 }): string {
-  const { context, altHint, articleTitle } = input;
+  const { position, context, altHint, articleTitle, forceStyle } = input;
 
-  // コンテキストを英語のキーワードに変換するヘルパー
-  // altHintを使用（通常は英語または簡潔な日本語）
   const themeKeywords = altHint || context;
+  const yogaPose = getRandomYogaPose();
+  const background = getRandomBackground();
 
-  return `editorial illustration for a blog post in hand-drawn watercolor sketch style, loose line art with rough outlines, pale and transparent pastel colors, plain white background. The image is a conceptual visualization representing the theme of: ${themeKeywords}, gentle and airy atmosphere relevant to the topic, minimalist composition. No text, no letters, no words, no typography in the image.`;
+  // サムネイル（hero）はリアル写真スタイル
+  if (position === 'hero' || position === 'thumbnail' || position === 'cover') {
+    const poseDescription = `young Asian woman practicing ${yogaPose.name}, ${yogaPose.description}`;
+
+    return `${IMAGE_STYLE_PROMPTS.realistic}, ${poseDescription}, wearing stylish yoga attire, ${background}, the image relates to: ${themeKeywords}. Professional yoga photography, elegant and aspirational mood. No text, no letters, no words, no typography in the image. 16:9 horizontal aspect ratio.`;
+  }
+
+  // 記事内画像はランダムでスタイル選択（または強制指定）
+  const style = forceStyle || getRandomImageStyle();
+  const stylePrompt = IMAGE_STYLE_PROMPTS[style];
+
+  if (style === 'realistic') {
+    // リアル写真風
+    return `${stylePrompt}, young Asian woman in yoga pose demonstrating ${yogaPose.name}, ${yogaPose.description}, wearing comfortable yoga clothes, clean modern studio setting, the image illustrates: ${themeKeywords}. No text, no letters, no typography. 16:9 aspect ratio.`;
+  } else if (style === 'scenic') {
+    // ヨガ風景（引きのショット）
+    return `${stylePrompt}, woman practicing yoga ${yogaPose.name} in ${background}, full body visible in frame, peaceful and inspiring atmosphere, the scene relates to: ${themeKeywords}. No text, no letters, no typography. 16:9 aspect ratio.`;
+  } else {
+    // 手描き風（既存スタイル）
+    return `editorial illustration for a blog post in ${stylePrompt}. The image is a conceptual visualization representing the theme of: ${themeKeywords}, showing a graceful yoga practitioner. No text, no letters, no words, no typography in the image. 16:9 aspect ratio.`;
+  }
 }
 
 /**
