@@ -918,7 +918,51 @@ A ${personHint} ${inbodyPose2} on a yoga mat. Warm, encouraging atmosphere. Show
 }
 
 /**
- * リアルな写真風画像プロンプトを生成
+ * カバー画像専用プロンプトを生成
+ * 特徴: 綺麗な背景が主役、ヨガをする女性は小さめ（一覧サムネイル向け）
+ * 常にリアルな写真風で生成（イラストNG）
+ */
+function buildCoverImagePrompt(context: ArticleImageContext): string {
+  // 背景重視・リアル写真風のベーススタイル
+  const baseStyle = `Stunning wide-angle landscape photography featuring yoga. Shot from a distance showing the full scenic environment. Professional quality, cinematic composition, high resolution. A woman practicing yoga appears small in the frame, as part of the beautiful scenery. The focus is on the breathtaking natural backdrop, not the person. Realistic photo style, NOT illustration, NOT cartoon, NOT hand-drawn. No text overlays. No watermarks.`;
+
+  // 記事タイトルと体験談から人物像を推測
+  const combinedText = `${context.title} ${context.testimonialSummary}`.toLowerCase();
+
+  let personHint: string;
+  if (combinedText.includes("ママ") || combinedText.includes("子育て")) {
+    personHint = "young mother in her 30s in yoga attire";
+  } else if (combinedText.includes("40") || combinedText.includes("四十")) {
+    personHint = "elegant woman in her 40s in yoga attire";
+  } else {
+    personHint = "woman in stylish yoga wear";
+  }
+
+  // ヨガポーズ選択
+  const pose = selectYogaPose(context.title, YOGA_POSES_COVER);
+
+  // 複数の風景パターンからランダムに選択（タイトルでシード）
+  const sceneryOptions = [
+    `A ${personHint} ${pose} on a wooden deck overlooking misty mountains at golden sunrise. Silhouette against dramatic orange and pink sky. Wide panoramic view with the person taking up less than 20% of the frame. Breathtaking mountain landscape as the main subject.`,
+
+    `A ${personHint} ${pose} on a cliff edge facing the ocean at sunset. Warm golden light, dramatic sky with clouds. Wide landscape shot showing vast ocean horizon. The yoga practitioner is a small, elegant silhouette against the majestic seascape.`,
+
+    `A ${personHint} ${pose} in a serene bamboo forest at dawn. Soft misty atmosphere, rays of light filtering through tall bamboo. Shot from a distance showing the peaceful forest environment. The person is a small figure integrated into the natural setting.`,
+
+    `A ${personHint} ${pose} beside a tranquil lake reflecting snow-capped mountains. Early morning calm water, mirror-like reflections. Wide-angle landscape photography. The yoga practitioner appears small, harmoniously placed within the grand natural scenery.`,
+
+    `A ${personHint} ${pose} on a rooftop terrace at golden hour overlooking a modern city skyline. Warm sunset colors, urban landscape backdrop. The person is positioned to one side, with the expansive cityscape as the visual focus.`,
+  ];
+
+  // タイトルをシードとして使用して一貫した選択
+  const hash = context.title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const selectedScenery = sceneryOptions[hash % sceneryOptions.length];
+
+  return `${baseStyle}\n${selectedScenery}`;
+}
+
+/**
+ * リアルな写真風画像プロンプトを生成（本文画像向け・人物フォーカス）
  */
 function buildRealisticImagePrompt(
   slot: "cover" | "inbody_1" | "inbody_2",
@@ -1012,7 +1056,7 @@ A ${personHint} ${inbodyPose2} at sunset on a rooftop or terrace with city skyli
 
 /**
  * 画像スタイルに応じたプロンプトを取得
- * - カバー画像: 常にリアルな写真風
+ * - カバー画像: 常に背景重視のリアル写真風（一覧サムネイル向け）
  * - 本文画像: 選択されたスタイルを使用
  */
 function getImagePrompt(
@@ -1020,9 +1064,9 @@ function getImagePrompt(
   context: ArticleImageContext,
   imageStyle: ImageStyle
 ): string {
-  // カバー画像は常にリアルな写真風
+  // カバー画像は常に背景重視のリアル写真風（人物は小さめ）
   if (slot === "cover") {
-    return buildRealisticImagePrompt(slot, context);
+    return buildCoverImagePrompt(context);
   }
 
   // 本文画像は選択されたスタイルを使用
@@ -1056,7 +1100,7 @@ async function generateImagesV6(
     [ImageStyle.WATERCOLOR]: "手書き風水彩画（レガシー）",
   };
   const styleLabel = styleLabels[imageStyle] || "リアル写真風";
-  console.log(`[V6] Image style for body: ${styleLabel}, Cover: always realistic`);
+  console.log(`[V6] Image style for body: ${styleLabel}, Cover: scenic-realistic (背景重視)`);
 
   const slots: Array<{ slot: "cover" | "inbody_1" | "inbody_2"; description: string }> = [
     { slot: "cover", description: "カバー画像" },
