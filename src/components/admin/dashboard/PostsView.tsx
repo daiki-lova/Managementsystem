@@ -310,6 +310,7 @@ interface ArticlesTableProps {
     onRestore: (id: string) => void;
     onDeletePermanent: (id: string) => void;
     onUpdateStatus: (id: string, status: string, version: number) => void;
+    onUpdatePublishedAt?: (id: string, publishedAt: string | null, version: number) => void;
     onDuplicate: (article: ExtendedArticle) => void;
     isTrashView: boolean;
     // Bulk operation handlers (silent - no individual dialogs)
@@ -322,7 +323,107 @@ interface ArticlesTableProps {
     isReorderMode: boolean;
 }
 
-function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onDuplicate, isTrashView, onBulkDelete, onBulkDeletePermanent, onBulkRestore, onBulkSetDraft, onReorder, isReorderMode }: ArticlesTableProps) {
+// 公開日編集コンポーネント
+interface PublishedAtEditorProps {
+    article: ExtendedArticle;
+    onUpdate: (date: string | null) => void;
+}
+
+function PublishedAtEditor({ article, onUpdate }: PublishedAtEditorProps) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [date, setDate] = useState<Date | undefined>(() => {
+        if (article.publishedAt) {
+            // "yyyy-MM-dd HH:mm" 形式からパース
+            const parts = article.publishedAt.split(' ');
+            if (parts.length === 2) {
+                const [datePart, timePart] = parts;
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hours, minutes] = timePart.split(':').map(Number);
+                return new Date(year, month - 1, day, hours, minutes);
+            }
+        }
+        return undefined;
+    });
+    const [time, setTime] = useState<string>(() => {
+        if (article.publishedAt) {
+            const parts = article.publishedAt.split(' ');
+            if (parts.length === 2) {
+                return parts[1];
+            }
+        }
+        return '12:00';
+    });
+
+    const handleSave = () => {
+        if (date) {
+            const [hh, mm] = time.split(':').map(Number);
+            const newDate = new Date(date);
+            if (Number.isFinite(hh)) newDate.setHours(hh);
+            if (Number.isFinite(mm)) newDate.setMinutes(mm);
+            newDate.setSeconds(0, 0);
+            onUpdate(newDate.toISOString());
+        } else {
+            onUpdate(null);
+        }
+        setIsOpen(false);
+    };
+
+    const handleClear = () => {
+        setDate(undefined);
+        onUpdate(null);
+        setIsOpen(false);
+    };
+
+    return (
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+                <button className="text-[11px] text-neutral-500 font-mono hover:text-blue-600 hover:underline decoration-blue-300 underline-offset-2 transition-all cursor-pointer text-left">
+                    {article.publishedAt || <span className="text-neutral-300">未設定</span>}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-3 space-y-3">
+                    <div className="text-sm font-medium text-neutral-700">公開日を編集</div>
+                    <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        className="rounded-md border"
+                        locale={ja}
+                    />
+                    <div>
+                        <label className="text-xs text-neutral-500 block mb-1.5">時間</label>
+                        <Input
+                            type="time"
+                            value={time}
+                            onChange={(e) => setTime(e.target.value)}
+                            className="h-9"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 pt-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClear}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                            クリア
+                        </Button>
+                        <div className="flex-1" />
+                        <Button variant="outline" size="sm" onClick={() => setIsOpen(false)}>
+                            キャンセル
+                        </Button>
+                        <Button size="sm" onClick={handleSave}>
+                            保存
+                        </Button>
+                    </div>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onUpdatePublishedAt, onDuplicate, isTrashView, onBulkDelete, onBulkDeletePermanent, onBulkRestore, onBulkSetDraft, onReorder, isReorderMode }: ArticlesTableProps) {
     // Bulk action confirmation dialog state
     const [bulkConfirmDialog, setBulkConfirmDialog] = useState<{
         open: boolean;
@@ -920,11 +1021,19 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                                 <span className="text-[11px] text-neutral-500 font-mono">{Math.floor(article.pv * 0.02).toLocaleString()}</span>
                                             )}
 
-                                            {(column.id === 'updatedAt' || column.id === 'publishedAt') && (
+                                            {column.id === 'updatedAt' && (
                                                 <span className="text-[11px] text-neutral-500 font-mono">
-                                                    {/* @ts-ignore */}
-                                                    {article[column.id]}
+                                                    {article.updatedAt}
                                                 </span>
+                                            )}
+
+                                            {column.id === 'publishedAt' && (
+                                                <PublishedAtEditor
+                                                    article={article}
+                                                    onUpdate={(date) => {
+                                                        onUpdatePublishedAt?.(article.id, date, article.version || 1);
+                                                    }}
+                                                />
                                             )}
 
                                             {column.id === 'slug' && (
@@ -1122,6 +1231,10 @@ export function PostsView({
         updateArticle.mutate({ id, data: { status: status as 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'DELETED', version } });
     };
 
+    const handleUpdatePublishedAt = (id: string, publishedAt: string | null, version: number) => {
+        updateArticle.mutate({ id, data: { publishedAt, version } });
+    };
+
     const handleDuplicate = (article: ExtendedArticle) => {
         createArticle.mutate({
             title: `${article.title} (コピー)`,
@@ -1262,6 +1375,7 @@ export function PostsView({
                     onRestore={handleRestore}
                     onDeletePermanent={handleDeletePermanent}
                     onUpdateStatus={handleUpdateStatus}
+                    onUpdatePublishedAt={handleUpdatePublishedAt}
                     onDuplicate={handleDuplicate}
                     isTrashView={viewMode === 'trash'}
                     onBulkDelete={handleBulkDeleteSilent}
