@@ -964,29 +964,99 @@ A ${personHint} ${inbodyPose2} on a yoga mat. Golden hour lighting creating warm
 }
 
 /**
+ * 風景・雰囲気系（SCENIC）画像プロンプトを生成
+ * 朝日/夕日などの美しい背景と組み合わせたヨガ写真風
+ */
+function buildScenicImagePrompt(
+  slot: "cover" | "inbody_1" | "inbody_2",
+  context: ArticleImageContext
+): string {
+  // 風景・雰囲気系のベーススタイル
+  const baseStyle = `Stunning yoga photography with dramatic natural scenery. Professional quality, cinematic composition. Modern Asian woman in her 30s-40s with natural beauty, wearing stylish yoga attire. NOT traditional clothing, NOT kimono. Inspirational and aspirational mood. No text overlays. No watermarks.`;
+
+  // 記事タイトルと体験談の両方から人物像を抽出
+  const combinedText = `${context.title} ${context.testimonialSummary}`.toLowerCase();
+
+  let personHint: string;
+  if (combinedText.includes("ママ") || combinedText.includes("子育て") || combinedText.includes("主婦")) {
+    personHint = "serene young mother in her early 30s wearing elegant yoga clothes";
+  } else if (combinedText.includes("ol") || combinedText.includes("会社員") || combinedText.includes("働きながら")) {
+    personHint = "professional woman in her 30s wearing premium athletic wear";
+  } else if (combinedText.includes("40") || combinedText.includes("四十") || combinedText.includes("アラフォー")) {
+    personHint = "graceful woman in her 40s wearing sophisticated yoga attire";
+  } else if (combinedText.includes("50") || combinedText.includes("五十")) {
+    personHint = "elegant woman in her 50s wearing comfortable yoga clothes";
+  } else {
+    personHint = "beautiful young woman wearing stylish yoga wear";
+  }
+
+  // タイトルに基づいてヨガポーズを選択
+  const coverPose = selectYogaPose(context.title, YOGA_POSES_COVER);
+  const inbodyPose1 = selectYogaPose(context.title + "1", YOGA_POSES_INBODY);
+  const inbodyPose2 = selectYogaPose(context.title + "2", YOGA_POSES_COVER);
+
+  // スロットごとに異なる風景シーンを生成
+  const scenePrompts: Record<"cover" | "inbody_1" | "inbody_2", string> = {
+    cover: `${baseStyle}
+A ${personHint} ${coverPose} on a wooden deck overlooking misty mountains at sunrise. Golden hour lighting with warm sun rays. Silhouette with beautiful backlighting. Peaceful, meditative atmosphere with breathtaking natural scenery. Shot from behind or side angle.`,
+
+    inbody_1: `${baseStyle}
+A ${personHint} ${inbodyPose1} in an outdoor setting with lush green nature. Soft morning light filtering through trees. Yoga mat on grass or natural surface. Serene forest or garden backdrop. Harmonious blend of yoga practice and nature.`,
+
+    inbody_2: `${baseStyle}
+A ${personHint} ${inbodyPose2} at sunset on a rooftop or terrace with city skyline in the background. Warm golden and pink tones in the sky. Urban wellness lifestyle. Balance between modern life and mindful practice.`,
+  };
+
+  return scenePrompts[slot];
+}
+
+/**
  * 画像スタイルに応じたプロンプトを取得
+ * - カバー画像: 常にリアルな写真風
+ * - 本文画像: 選択されたスタイルを使用
  */
 function getImagePrompt(
   slot: "cover" | "inbody_1" | "inbody_2",
   context: ArticleImageContext,
   imageStyle: ImageStyle
 ): string {
-  if (imageStyle === ImageStyle.REALISTIC) {
+  // カバー画像は常にリアルな写真風
+  if (slot === "cover") {
     return buildRealisticImagePrompt(slot, context);
   }
-  // デフォルト: WATERCOLOR（手書き風水彩画）
-  return buildContextualImagePrompt(slot, context);
+
+  // 本文画像は選択されたスタイルを使用
+  switch (imageStyle) {
+    case ImageStyle.REALISTIC:
+      return buildRealisticImagePrompt(slot, context);
+    case ImageStyle.SCENIC:
+      return buildScenicImagePrompt(slot, context);
+    case ImageStyle.HANDDRAWN:
+      return buildContextualImagePrompt(slot, context);
+    case ImageStyle.WATERCOLOR:
+      // 後方互換性: WATERCOLORはHANDDRAWNと同じ
+      return buildContextualImagePrompt(slot, context);
+    default:
+      // デフォルト: リアル写真風
+      return buildRealisticImagePrompt(slot, context);
+  }
 }
 
 async function generateImagesV6(
   context: ArticleImageContext,
   apiKey: string,
-  imageStyle: ImageStyle = ImageStyle.WATERCOLOR
+  imageStyle: ImageStyle = ImageStyle.REALISTIC
 ): Promise<GeneratedImage[]> {
   const images: GeneratedImage[] = [];
 
-  const styleLabel = imageStyle === ImageStyle.REALISTIC ? "リアル写真風" : "手書き風水彩画";
-  console.log(`[V6] Image style: ${styleLabel}`);
+  const styleLabels: Record<ImageStyle, string> = {
+    [ImageStyle.REALISTIC]: "リアル写真風",
+    [ImageStyle.SCENIC]: "風景・雰囲気系",
+    [ImageStyle.HANDDRAWN]: "手書き風イラスト",
+    [ImageStyle.WATERCOLOR]: "手書き風水彩画（レガシー）",
+  };
+  const styleLabel = styleLabels[imageStyle] || "リアル写真風";
+  console.log(`[V6] Image style for body: ${styleLabel}, Cover: always realistic`);
 
   const slots: Array<{ slot: "cover" | "inbody_1" | "inbody_2"; description: string }> = [
     { slot: "cover", description: "カバー画像" },
@@ -1134,7 +1204,7 @@ export const generateArticlePipelineV6 = inngest.createFunction(
       const brandId = job.brandId;
       const userId = job.userId;
       const keyword = job.keyword;
-      const imageStyle = job.imageStyle || ImageStyle.WATERCOLOR;
+      const imageStyle = job.imageStyle || ImageStyle.REALISTIC;
 
       // コンバージョン情報を取得
       const conversions = job.generation_job_conversions.map(gjc => gjc.conversions);

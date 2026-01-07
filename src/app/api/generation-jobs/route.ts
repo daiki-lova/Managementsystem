@@ -32,8 +32,9 @@ const createJobSchema = z.object({
   scheduledAt: z.string().datetime().optional(),
   // パイプラインバージョン: V5またはV6（デフォルト: V6）
   pipelineVersion: z.enum(["v5", "v6"]).optional().default("v6"),
-  // 画像スタイル: WATERCOLOR（手書き風水彩画）またはREALISTIC（リアルな写真風）
-  imageStyle: z.enum(["WATERCOLOR", "REALISTIC"]).optional().default("WATERCOLOR"),
+  // 画像スタイル（本文画像用）: REALISTIC（リアル）、SCENIC（風景系）、HANDDRAWN（手書き）、WATERCOLOR（レガシー）
+  // カバー画像は常にリアル写真風
+  imageStyle: z.enum(["REALISTIC", "SCENIC", "HANDDRAWN", "WATERCOLOR"]).optional().default("REALISTIC"),
 });
 
 // GET /api/generation-jobs - ジョブ一覧取得

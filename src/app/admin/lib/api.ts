@@ -811,7 +811,7 @@ export const generationJobsApi = {
     pipelineVersion?: 'v3' | 'v5'; // V3: 受講生の声ベース, V5: V3 + Web検索 + LLMo最適化
     publishStrategy?: 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED';
     scheduledAt?: string;
-    imageStyle?: 'WATERCOLOR' | 'REALISTIC'; // 画像スタイル
+    imageStyle?: 'REALISTIC' | 'SCENIC' | 'HANDDRAWN' | 'WATERCOLOR'; // 本文画像スタイル（カバーは常にリアル）
   }) => api.post<{ jobs: GenerationJob[]; message: string }>('/api/generation-jobs', data),
 
   cancel: (id: string) => api.delete(`/api/generation-jobs/${id}`),

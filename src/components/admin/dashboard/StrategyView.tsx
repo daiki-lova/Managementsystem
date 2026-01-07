@@ -37,8 +37,8 @@ export type GeneratedArticleData = {
 // パイプラインモード（V5のみサポート）
 type PipelineMode = 'v5';
 
-// 画像スタイル
-type ImageStyleType = 'WATERCOLOR' | 'REALISTIC';
+// 画像スタイル（本文画像用 - カバー画像は常にリアル写真風）
+type ImageStyleType = 'REALISTIC' | 'SCENIC' | 'HANDDRAWN';
 
 export function StrategyView({
     onGenerate,
@@ -97,7 +97,7 @@ export function StrategyView({
     const [scheduleMode, setScheduleMode] = useState<'draft' | 'now' | 'schedule'>('draft');
     const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [postTime, setPostTime] = useState<string>('09:00');
-    const [imageStyle, setImageStyle] = useState<ImageStyleType>('WATERCOLOR');
+    const [imageStyle, setImageStyle] = useState<ImageStyleType>('REALISTIC');
 
     // Generation state
     const [genStatus, setGenStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
@@ -393,63 +393,96 @@ export function StrategyView({
                                 <Image size={14} className="text-neutral-500" />
                                 画像スタイル
                             </Label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setImageStyle('WATERCOLOR')}
-                                    className={cn(
-                                        "p-4 rounded-xl border-2 text-left transition-all",
-                                        imageStyle === 'WATERCOLOR'
-                                            ? "border-blue-500 bg-blue-50"
-                                            : "border-neutral-200 hover:border-neutral-300"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
-                                            imageStyle === 'WATERCOLOR' ? "bg-blue-100" : "bg-neutral-100"
-                                        )}>
-                                            🎨
-                                        </div>
-                                        <div>
-                                            <p className={cn(
-                                                "font-medium",
-                                                imageStyle === 'WATERCOLOR' ? "text-blue-900" : "text-neutral-900"
-                                            )}>
-                                                手書き風水彩画
-                                            </p>
-                                            <p className="text-xs text-neutral-500">
-                                                柔らかな線と淡い色合い
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
+                            <p className="text-xs text-neutral-500 mb-3">
+                                ※カバー画像は常にリアル写真風で生成されます
+                            </p>
+                            <div className="grid grid-cols-3 gap-3">
                                 <button
                                     type="button"
                                     onClick={() => setImageStyle('REALISTIC')}
                                     className={cn(
-                                        "p-4 rounded-xl border-2 text-left transition-all",
+                                        "p-3 rounded-xl border-2 text-left transition-all",
                                         imageStyle === 'REALISTIC'
                                             ? "border-violet-500 bg-violet-50"
                                             : "border-neutral-200 hover:border-neutral-300"
                                     )}
                                 >
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-col items-center gap-2">
                                         <div className={cn(
                                             "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
                                             imageStyle === 'REALISTIC' ? "bg-violet-100" : "bg-neutral-100"
                                         )}>
                                             📷
                                         </div>
-                                        <div>
+                                        <div className="text-center">
                                             <p className={cn(
-                                                "font-medium",
+                                                "font-medium text-sm",
                                                 imageStyle === 'REALISTIC' ? "text-violet-900" : "text-neutral-900"
                                             )}>
-                                                リアルな写真風
+                                                リアル写真
                                             </p>
                                             <p className="text-xs text-neutral-500">
-                                                本格的な写真のような仕上がり
+                                                スタジオ撮影風
+                                            </p>
+                                        </div>
+                                    </div>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setImageStyle('SCENIC')}
+                                    className={cn(
+                                        "p-3 rounded-xl border-2 text-left transition-all",
+                                        imageStyle === 'SCENIC'
+                                            ? "border-amber-500 bg-amber-50"
+                                            : "border-neutral-200 hover:border-neutral-300"
+                                    )}
+                                >
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
+                                            imageStyle === 'SCENIC' ? "bg-amber-100" : "bg-neutral-100"
+                                        )}>
+                                            🌅
+                                        </div>
+                                        <div className="text-center">
+                                            <p className={cn(
+                                                "font-medium text-sm",
+                                                imageStyle === 'SCENIC' ? "text-amber-900" : "text-neutral-900"
+                                            )}>
+                                                風景系
+                                            </p>
+                                            <p className="text-xs text-neutral-500">
+                                                朝日/夕日など
+                                            </p>
+                                        </div>
+                                    </div>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setImageStyle('HANDDRAWN')}
+                                    className={cn(
+                                        "p-3 rounded-xl border-2 text-left transition-all",
+                                        imageStyle === 'HANDDRAWN'
+                                            ? "border-blue-500 bg-blue-50"
+                                            : "border-neutral-200 hover:border-neutral-300"
+                                    )}
+                                >
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
+                                            imageStyle === 'HANDDRAWN' ? "bg-blue-100" : "bg-neutral-100"
+                                        )}>
+                                            🎨
+                                        </div>
+                                        <div className="text-center">
+                                            <p className={cn(
+                                                "font-medium text-sm",
+                                                imageStyle === 'HANDDRAWN' ? "text-blue-900" : "text-neutral-900"
+                                            )}>
+                                                手書き風
+                                            </p>
+                                            <p className="text-xs text-neutral-500">
+                                                水彩イラスト
                                             </p>
                                         </div>
                                     </div>
@@ -479,7 +512,10 @@ export function StrategyView({
                                         <span className="text-emerald-500">CV:</span> {selectedConversion?.name}
                                     </div>
                                     <div>
-                                        <span className="text-emerald-500">画像:</span> {imageStyle === 'WATERCOLOR' ? '手書き風' : 'リアル'}
+                                        <span className="text-emerald-500">画像:</span> {
+                                            imageStyle === 'REALISTIC' ? 'リアル写真' :
+                                            imageStyle === 'SCENIC' ? '風景系' : '手書き風'
+                                        }
                                     </div>
                                 </div>
                             </motion.div>

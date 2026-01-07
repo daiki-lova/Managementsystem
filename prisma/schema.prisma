@@ -550,8 +550,10 @@ enum PublishStrategy {
 }
 
 enum ImageStyle {
-  WATERCOLOR  // 手書き風水彩画
-  REALISTIC   // リアルな写真風
+  REALISTIC   // リアルな人物写真風（記事内）
+  SCENIC      // 風景・雰囲気系（朝日/夕日などのカバー系）
+  HANDDRAWN   // 手書き風イラスト
+  WATERCOLOR  // @deprecated - HANDDRAWNに統合予定
 }
 
 enum UserRole {
