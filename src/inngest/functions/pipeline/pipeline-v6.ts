@@ -809,7 +809,7 @@ async function generateArticleV6(
     prompt,
     {
       apiKey,
-      model: "anthropic/claude-sonnet-4",
+      // デフォルトの claude-opus-4.5 を使用（高品質な記事生成のため）
       maxTokens: 20000,
       temperature: 0.7,
     }
