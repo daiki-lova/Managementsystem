@@ -4,7 +4,8 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
     Search, Plus, MoreVertical, Copy, Eye, Trash2, ImageIcon,
     ChevronDown, ArrowUpZA, ArrowDownAZ, Sparkles, PenTool,
-    Send, Calendar as CalendarIcon, Ban, Loader2, RotateCcw, X, FileEdit
+    Send, Calendar as CalendarIcon, Ban, Loader2, RotateCcw, X, FileEdit,
+    GripVertical, ArrowUpDown, Check
 } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -74,6 +75,75 @@ interface ColumnConfig {
 }
 
 const COLUMN_TYPE = 'COLUMN';
+const ARTICLE_ROW_TYPE = 'ARTICLE_ROW';
+
+// 行のドラッグ＆ドロップ用コンポーネント
+interface DraggableRowProps {
+    index: number;
+    article: ExtendedArticle;
+    moveRow: (dragIndex: number, hoverIndex: number) => void;
+    onDragEnd: () => void;
+    isReorderMode: boolean;
+    children: React.ReactNode;
+    className?: string;
+}
+
+function DraggableRow({ index, article, moveRow, onDragEnd, isReorderMode, children, className }: DraggableRowProps) {
+    const ref = useRef<HTMLTableRowElement>(null);
+
+    const [{ isDragging }, drag, preview] = useDrag({
+        type: ARTICLE_ROW_TYPE,
+        item: { index, id: article.id },
+        canDrag: isReorderMode,
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+        end: () => {
+            onDragEnd();
+        },
+    });
+
+    const [, drop] = useDrop({
+        accept: ARTICLE_ROW_TYPE,
+        hover: (item: { index: number; id: string }) => {
+            if (!ref.current) return;
+            const dragIndex = item.index;
+            const hoverIndex = index;
+            if (dragIndex === hoverIndex) return;
+            moveRow(dragIndex, hoverIndex);
+            item.index = hoverIndex;
+        },
+    });
+
+    preview(drop(ref));
+
+    return (
+        <tr
+            ref={ref}
+            className={cn(className, isDragging && "opacity-50 bg-blue-50")}
+        >
+            {/* ドラッグハンドル */}
+            <td
+                ref={drag}
+                className={cn(
+                    "px-2 py-3.5 bg-white transition-colors border-r border-neutral-100/50 align-middle",
+                    isReorderMode ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+                )}
+            >
+                <div className="flex items-center justify-center">
+                    <GripVertical
+                        size={16}
+                        className={cn(
+                            "transition-colors",
+                            isReorderMode ? "text-neutral-400 hover:text-neutral-600" : "text-neutral-200"
+                        )}
+                    />
+                </div>
+            </td>
+            {children}
+        </tr>
+    );
+}
 
 interface DraggableHeaderProps {
     column: ColumnConfig;
@@ -247,9 +317,12 @@ interface ArticlesTableProps {
     onBulkDeletePermanent: (ids: string[]) => void;
     onBulkRestore: (ids: string[]) => void;
     onBulkSetDraft: (ids: string[]) => void;
+    // 順番変更
+    onReorder: (items: { id: string; displayOrder: number }[]) => void;
+    isReorderMode: boolean;
 }
 
-function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onDuplicate, isTrashView, onBulkDelete, onBulkDeletePermanent, onBulkRestore, onBulkSetDraft }: ArticlesTableProps) {
+function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onDuplicate, isTrashView, onBulkDelete, onBulkDeletePermanent, onBulkRestore, onBulkSetDraft, onReorder, isReorderMode }: ArticlesTableProps) {
     // Bulk action confirmation dialog state
     const [bulkConfirmDialog, setBulkConfirmDialog] = useState<{
         open: boolean;
@@ -266,6 +339,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
     });
 
     const [columns, setColumns] = useState<ColumnConfig[]>([
+        { id: 'order', label: '', width: 40, minWidth: 40 },
         { id: 'actions', label: '', width: 40, minWidth: 40 },
         { id: 'select', label: '', width: 40, minWidth: 40 },
         { id: 'status', label: 'ステータス', width: 100, minWidth: 100 },
@@ -312,6 +386,30 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
         });
     }, []);
 
+    // 順番変更用のローカルデータ
+    const [localData, setLocalData] = useState<ExtendedArticle[]>(data);
+    React.useEffect(() => {
+        setLocalData(data);
+    }, [data]);
+
+    const moveRow = useCallback((dragIndex: number, hoverIndex: number) => {
+        setLocalData((prevData) => {
+            const newData = [...prevData];
+            const [draggedItem] = newData.splice(dragIndex, 1);
+            newData.splice(hoverIndex, 0, draggedItem);
+            return newData;
+        });
+    }, []);
+
+    const handleDragEnd = useCallback(() => {
+        // ドラッグ終了時に順番をサーバーに保存
+        const reorderedItems = localData.map((item, index) => ({
+            id: item.id,
+            displayOrder: index,
+        }));
+        onReorder(reorderedItems);
+    }, [localData, onReorder]);
+
     const handleResizeStart = (e: React.MouseEvent, colId: string, currentWidth: number) => {
         e.preventDefault();
         const startX = e.clientX;
@@ -353,7 +451,9 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
         return values;
     }, [data]);
 
-    const filteredData = data.filter(item => {
+    // 順番変更モードの場合はlocalDataを使用、通常モードはフィルタ適用
+    const filteredData = (isReorderMode ? localData : data).filter(item => {
+        if (isReorderMode) return true; // 順番変更モードではフィルタを無効化
         return Object.entries(filters).every(([key, filterSet]) => {
             if (filterSet.size === 0) return true;
             // @ts-ignore
@@ -577,15 +677,23 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
-                        {filteredData.map((article) => (
-                            <tr
+                        {filteredData.map((article, rowIndex) => (
+                            <DraggableRow
                                 key={article.id}
+                                index={rowIndex}
+                                article={article}
+                                moveRow={moveRow}
+                                onDragEnd={handleDragEnd}
+                                isReorderMode={isReorderMode}
                                 className={cn(
                                     "group hover:bg-neutral-50/80 transition-colors",
                                     selectedIds.has(article.id) && "bg-blue-50/50 hover:bg-blue-50/60"
                                 )}
                             >
                                 {columns.map((column, colIndex) => {
+                                    // 'order'カラムはDraggableRow内でレンダリング
+                                    if (column.id === 'order') return null;
+
                                     const isSticky = ['select', 'actions', 'status'].includes(column.id);
                                     let left = 0;
                                     if (isSticky) {
@@ -827,7 +935,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                         </td>
                                     );
                                 })}
-                            </tr>
+                            </DraggableRow>
                         ))}
                     </tbody>
                 </table>
@@ -902,6 +1010,23 @@ export function PostsView({
     const createArticle = useCreateArticle();
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [isReorderMode, setIsReorderMode] = useState(false);
+
+    // 順番変更のAPI呼び出し
+    const handleReorder = async (items: { id: string; displayOrder: number }[]) => {
+        try {
+            const response = await fetch('/api/articles/reorder', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items }),
+            });
+            if (!response.ok) {
+                console.error('並び替えの保存に失敗しました');
+            }
+        } catch (error) {
+            console.error('並び替えエラー:', error);
+        }
+    };
 
     // Confirm Dialog States
     const [confirmDialog, setConfirmDialog] = useState<{
@@ -1082,6 +1207,28 @@ export function PostsView({
                             className="w-[300px] pl-11 h-12 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded-full text-sm font-medium transition-all"
                         />
                     </div>
+                    <Button
+                        variant={isReorderMode ? "default" : "outline"}
+                        onClick={() => setIsReorderMode(!isReorderMode)}
+                        className={cn(
+                            "h-12 !px-5 rounded-full font-medium gap-2 transition-all",
+                            isReorderMode
+                                ? "bg-blue-600 text-white hover:bg-blue-700"
+                                : "border-neutral-200 hover:bg-neutral-50"
+                        )}
+                    >
+                        {isReorderMode ? (
+                            <>
+                                <Check size={16} />
+                                完了
+                            </>
+                        ) : (
+                            <>
+                                <ArrowUpDown size={16} />
+                                順番を変更
+                            </>
+                        )}
+                    </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button className="h-12 !px-6 rounded-full bg-neutral-900 text-white font-bold hover:bg-neutral-800 shadow-sm gap-2">
@@ -1121,6 +1268,8 @@ export function PostsView({
                     onBulkDeletePermanent={handleBulkDeletePermanentSilent}
                     onBulkRestore={handleBulkRestoreSilent}
                     onBulkSetDraft={handleBulkSetDraftSilent}
+                    onReorder={handleReorder}
+                    isReorderMode={isReorderMode}
                 />
             </div>
 
