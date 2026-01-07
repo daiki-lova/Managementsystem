@@ -1,17 +1,17 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
-import { 
+import {
     Plus, Image, Code, Type, PanelRightClose, PanelRightOpen,
     Heading1, Heading2, Heading3, Heading4, Quote, ChevronLeft,
-    Banana, Upload, Library, Loader2, Download, Search, Sparkles, FileText
+    Banana, Upload, Library, Loader2, Search, Sparkles, FileText, User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/app/admin/lib/utils';
 import { AppMode, BlockData } from '@/app/admin/lib/types';
 import { HtmlBlock } from './HtmlBlock';
 import { PublishedEditWarning } from '../dashboard/PublishedEditWarning';
-import { useCategories, useTags } from '@/app/admin/lib/hooks';
+import { useCategories, useTags, useAuthors, useMedia, useUploadMedia, useGenerateMedia } from '@/app/admin/lib/hooks';
 import {
     Popover,
     PopoverContent,
@@ -37,12 +37,14 @@ interface EditorCanvasProps {
   blocks: BlockData[];
   setBlocks: (b: BlockData[]) => void;
   mode: AppMode;
-  
+
   // Metadata props
   thumbnail: string | undefined;
   setThumbnail: (url: string) => void;
   category: string;
   setCategory: (c: string) => void;
+  authorId: string | undefined;
+  setAuthorId: (id: string | undefined) => void;
   tags: string[];
   setTags: (t: string[]) => void;
   slug: string;
@@ -56,58 +58,61 @@ interface EditorCanvasProps {
   isPublished?: boolean;
 }
 
-const MOCK_IMAGES = [
-    "https://images.unsplash.com/photo-1664575602554-2087b04935a5?w=800&auto=format&fit=crop&q=60",
-    "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&auto=format&fit=crop&q=60",
-    "https://images.unsplash.com/photo-1684369681201-654a7275b32e?w=800&auto=format&fit=crop&q=60",
-    "https://images.unsplash.com/photo-1661956602116-aa6865609028?w=800&auto=format&fit=crop&q=60",
-];
 
-export function EditorCanvas({ 
+export function EditorCanvas({
     title, setTitle, blocks, setBlocks, mode,
-    thumbnail, setThumbnail, category, setCategory, tags, setTags, slug, setSlug, description, setDescription,
+    thumbnail, setThumbnail, category, setCategory, authorId, setAuthorId, tags, setTags, slug, setSlug, description, setDescription,
     metaTitle, setMetaTitle, ogImage, setOgImage,
     isPublished = false
 }: EditorCanvasProps) {
   const { data: categoriesResult } = useCategories({ page: 1, limit: 200 });
   const { data: tagsResult } = useTags({ page: 1, limit: 200 });
+  const { data: authorsResult } = useAuthors({ page: 1, limit: 200 });
 
   const availableCategories = (categoriesResult?.data ?? []).map((c: any) => c.name);
   const availableTags = (tagsResult?.data ?? []).map((t: any) => t.name);
+  const availableAuthors = (authorsResult?.data ?? []) as Array<{ id: string; name: string; role: string; imageUrl?: string }>;
+  const selectedAuthor = availableAuthors.find(a => a.id === authorId);
 
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
+
   // Simplified Sidebar State
   const [showMediaSelector, setShowMediaSelector] = useState(false);
   const [targetField, setTargetField] = useState<'thumbnail' | 'ogImage' | null>(null);
 
   // Media States
   const [mediaMode, setMediaMode] = useState<'library' | 'upload' | 'generate'>('library');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generatePrompt, setGeneratePrompt] = useState('');
-  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
-  const [userImages, setUserImages] = useState<string[]>([...MOCK_IMAGES]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Media hooks
+  const { data: mediaData } = useMedia({ page: 1, limit: 100 });
+  const uploadMedia = useUploadMedia();
+  const generateMedia = useGenerateMedia();
+  const libraryImages = (mediaData?.data ?? []).map((m: { url: string }) => m.url);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-        const url = URL.createObjectURL(file);
-        setUserImages([url, ...userImages]);
-        setMediaMode('library');
+        try {
+            await uploadMedia.mutateAsync({ file });
+            setMediaMode('library');
+        } catch (error) {
+            console.error('Upload failed:', error);
+        }
     }
   };
 
-  const handleGenerateImage = () => {
+  const handleGenerateImage = async () => {
     if (!generatePrompt) return;
-    setIsGenerating(true);
-    // Simulate AI generation
-    setTimeout(() => {
-        const mockGeneratedUrl = `https://source.unsplash.com/random/800x600/?${encodeURIComponent(generatePrompt)}&sig=${Date.now()}`;
-        setGeneratedImages([mockGeneratedUrl, ...generatedImages]);
-        setIsGenerating(false);
-    }, 2000);
+    try {
+        await generateMedia.mutateAsync(generatePrompt);
+        setGeneratePrompt('');
+        setMediaMode('library');
+    } catch (error) {
+        console.error('Generate failed:', error);
+    }
   };
 
   const addBlock = (type: BlockData['type'], afterId: string, content: string = '') => {
@@ -280,7 +285,7 @@ export function EditorCanvas({
                       {mediaMode === 'library' && (
                           <div className="space-y-4">
                               <div className="grid grid-cols-2 gap-2">
-                                  {userImages.map((url, i) => (
+                                  {libraryImages.map((url, i) => (
                                       <div 
                                         key={i} 
                                         className="group relative w-full rounded-md overflow-hidden bg-neutral-200 border border-neutral-200 shadow-sm hover:shadow-md transition-all"
@@ -337,7 +342,7 @@ export function EditorCanvas({
                                       </div>
                                   ))}
                               </div>
-                              {userImages.length === 0 && (
+                              {libraryImages.length === 0 && (
                                   <div className="text-center py-8 text-neutral-400 text-xs">
                                       画像がありません。<br/>アップロードまたは生成してください。
                                   </div>
@@ -349,15 +354,24 @@ export function EditorCanvas({
                       {mediaMode === 'upload' && (
                           <div className="space-y-4 h-full flex flex-col">
                               <div className="border-2 border-dashed border-neutral-200 rounded-lg flex-1 flex flex-col items-center justify-center text-neutral-400 hover:border-blue-400 hover:bg-blue-50/10 transition-all cursor-pointer relative bg-white">
-                                  <input 
-                                    type="file" 
-                                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                                    accept="image/*"
-                                    onChange={handleFileUpload}
-                                  />
-                                  <Upload size={32} className="mb-4 text-neutral-300" />
-                                  <span className="text-sm font-medium text-neutral-600">画像を選択またはドロップ</span>
-                                  <span className="text-xs text-neutral-400 mt-1">JPG, PNG, GIF up to 5MB</span>
+                                  {uploadMedia.isPending ? (
+                                      <>
+                                          <Loader2 size={32} className="mb-4 text-blue-500 animate-spin" />
+                                          <span className="text-sm font-medium text-neutral-600">アップロード中...</span>
+                                      </>
+                                  ) : (
+                                      <>
+                                          <input
+                                            type="file"
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                            accept="image/*"
+                                            onChange={handleFileUpload}
+                                          />
+                                          <Upload size={32} className="mb-4 text-neutral-300" />
+                                          <span className="text-sm font-medium text-neutral-600">画像を選択またはドロップ</span>
+                                          <span className="text-xs text-neutral-400 mt-1">JPG, PNG, GIF up to 5MB</span>
+                                      </>
+                                  )}
                               </div>
                           </div>
                       )}
@@ -379,12 +393,12 @@ export function EditorCanvas({
                                         value={generatePrompt}
                                         onChange={(e) => setGeneratePrompt(e.target.value)}
                                       />
-                                      <Button 
+                                      <Button
                                         onClick={handleGenerateImage}
-                                        disabled={isGenerating || !generatePrompt}
+                                        disabled={generateMedia.isPending || !generatePrompt}
                                         className="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 border border-yellow-500/20"
                                       >
-                                          {isGenerating ? (
+                                          {generateMedia.isPending ? (
                                               <>
                                                 <Loader2 size={14} className="animate-spin mr-2" /> 生成中...
                                               </>
@@ -397,73 +411,9 @@ export function EditorCanvas({
                                   </div>
                               </div>
 
-                              {generatedImages.length > 0 && (
-                                  <div className="space-y-2">
-                                      <div className="text-xs font-bold text-neutral-500 px-1">生成履歴</div>
-                                      <div className="grid grid-cols-2 gap-3">
-                                          {generatedImages.map((url, i) => (
-                                              <div 
-                                                key={i} 
-                                                className="group relative w-full rounded-lg overflow-hidden bg-neutral-200 border border-neutral-200 shadow-sm"
-                                                style={{ aspectRatio: '1/1' }}
-                                              >
-                                                  <img src={url} alt="Generated" className="w-full h-full object-cover" />
-                                                  
-                                                  {/* Action Overlay */}
-                                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
-                                                      <div className="flex gap-2 w-full">
-                                                        {targetField === 'thumbnail' ? (
-                                                            <button 
-                                                                onClick={() => {
-                                                                    setThumbnail(url);
-                                                                    setShowMediaSelector(false);
-                                                                    setTargetField(null);
-                                                                }}
-                                                                className="flex-1 bg-white text-neutral-900 text-[10px] py-1.5 rounded font-medium hover:bg-blue-50 flex items-center justify-center gap-1"
-                                                            >
-                                                                <Image size={12} /> カバーに設定
-                                                            </button>
-                                                        ) : targetField === 'ogImage' ? (
-                                                            <button 
-                                                                onClick={() => {
-                                                                    setOgImage(url);
-                                                                    setShowMediaSelector(false);
-                                                                    setTargetField(null);
-                                                                }}
-                                                                className="flex-1 bg-white text-neutral-900 text-[10px] py-1.5 rounded font-medium hover:bg-blue-50 flex items-center justify-center gap-1"
-                                                            >
-                                                                <Image size={12} /> OGPに設定
-                                                            </button>
-                                                        ) : (
-                                                            <>
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        const lastBlock = blocks[blocks.length - 1];
-                                                                        addBlock('image', lastBlock.id, url);
-                                                                        setShowMediaSelector(false);
-                                                                    }}
-                                                                    className="flex-1 bg-white text-neutral-900 text-[10px] py-1.5 rounded font-medium hover:bg-blue-50 flex items-center justify-center gap-1"
-                                                                >
-                                                                    <FileText size={12} /> 挿入
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        setUserImages([url, ...userImages]);
-                                                                        setMediaMode('library');
-                                                                    }}
-                                                                    className="flex-1 bg-neutral-800 text-white text-[10px] py-1.5 rounded font-medium hover:bg-neutral-700 flex items-center justify-center gap-1"
-                                                                >
-                                                                    <Download size={12} /> 保存
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                      </div>
-                                                  </div>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  </div>
-                              )}
+                              <div className="text-xs text-neutral-400 text-center mt-4 px-4">
+                                  生成された画像は自動的にライブラリに保存されます
+                              </div>
                           </div>
                       )}
                   </div>
@@ -549,6 +499,70 @@ export function EditorCanvas({
                                         </div>
                                     </PopoverContent>
                                   </Popover>
+                              </div>
+                          </PropertyRow>
+
+                          <PropertyRow label="監修者">
+                              <div className="w-full">
+                                  {selectedAuthor ? (
+                                      <div className="flex items-center gap-2 p-2 bg-neutral-50 rounded-lg border border-neutral-100">
+                                          {selectedAuthor.imageUrl ? (
+                                              <img src={selectedAuthor.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                          ) : (
+                                              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center">
+                                                  <User size={14} className="text-neutral-400" />
+                                              </div>
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                              <div className="text-xs font-medium text-neutral-800 truncate">{selectedAuthor.name}</div>
+                                              <div className="text-[10px] text-neutral-500 truncate">{selectedAuthor.role}</div>
+                                          </div>
+                                          <button
+                                              onClick={() => setAuthorId(undefined)}
+                                              className="text-neutral-400 hover:text-red-500 text-xs"
+                                          >
+                                              ×
+                                          </button>
+                                      </div>
+                                  ) : (
+                                      <Popover>
+                                          <PopoverTrigger asChild>
+                                              <button className="w-full text-left text-xs text-neutral-400 hover:text-neutral-600 px-1 py-2 flex items-center transition-colors border border-dashed border-neutral-200 rounded-lg hover:border-neutral-300">
+                                                  <User size={14} className="mr-2 text-neutral-300" />
+                                                  監修者を選択
+                                              </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-64 p-1" align="start">
+                                              <div className="max-h-64 overflow-y-auto space-y-0.5">
+                                                  {availableAuthors.length > 0 ? (
+                                                      availableAuthors.map(author => (
+                                                          <button
+                                                              key={author.id}
+                                                              onClick={() => setAuthorId(author.id)}
+                                                              className="w-full text-left px-2 py-2 hover:bg-neutral-100 rounded-lg cursor-pointer flex items-center gap-2"
+                                                          >
+                                                              {author.imageUrl ? (
+                                                                  <img src={author.imageUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+                                                              ) : (
+                                                                  <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center">
+                                                                      <User size={12} className="text-neutral-400" />
+                                                                  </div>
+                                                              )}
+                                                              <div className="flex-1 min-w-0">
+                                                                  <div className="text-xs font-medium text-neutral-700 truncate">{author.name}</div>
+                                                                  <div className="text-[10px] text-neutral-400 truncate">{author.role}</div>
+                                                              </div>
+                                                          </button>
+                                                      ))
+                                                  ) : (
+                                                      <div className="px-2 py-3 text-xs text-neutral-400 text-center">
+                                                          監修者が登録されていません
+                                                      </div>
+                                                  )}
+                                              </div>
+                                          </PopoverContent>
+                                      </Popover>
+                                  )}
                               </div>
                           </PropertyRow>
 
@@ -801,30 +815,43 @@ function BlockActionMenu({ onAdd, onDelete }: { onAdd: (t: BlockData['type']) =>
 }
 
 function BubbleMenu() {
+    const execCommand = (command: string, value?: string) => {
+        document.execCommand(command, false, value);
+    };
+
+    const handleLink = () => {
+        const url = prompt('URLを入力してください:', 'https://');
+        if (url) {
+            execCommand('createLink', url);
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: -50 }}
             exit={{ opacity: 0, y: 10 }}
             className="absolute left-0 z-50 flex items-center gap-1 p-1 bg-neutral-900 text-white rounded-lg shadow-xl"
-            style={{ left: '0%' }} 
+            style={{ left: '0%' }}
+            onMouseDown={(e) => e.preventDefault()}
         >
-            <ToolbarButton label="Bold" icon={<span className="font-bold font-serif">B</span>} />
-            <ToolbarButton label="Italic" icon={<span className="italic font-serif">i</span>} />
-            <ToolbarButton label="Link" icon={<span className="underline decoration-1">U</span>} />
+            <ToolbarButton label="Bold" icon={<span className="font-bold font-serif">B</span>} onClick={() => execCommand('bold')} />
+            <ToolbarButton label="Italic" icon={<span className="italic font-serif">i</span>} onClick={() => execCommand('italic')} />
+            <ToolbarButton label="Link" icon={<span className="underline decoration-1">U</span>} onClick={handleLink} />
             <div className="w-px h-4 bg-neutral-700 mx-1" />
-            <ToolbarButton label="H2" icon={<Heading2 size={14} />} />
-            <ToolbarButton label="H3" icon={<Heading3 size={14} />} />
-            <ToolbarButton label="Quote" icon={<Quote size={14} />} />
+            <ToolbarButton label="Underline" icon={<span className="underline">U</span>} onClick={() => execCommand('underline')} />
+            <ToolbarButton label="Strikethrough" icon={<span className="line-through">S</span>} onClick={() => execCommand('strikeThrough')} />
         </motion.div>
     )
 }
 
-function ToolbarButton({ label, icon }: { label: string, icon: React.ReactNode }) {
+function ToolbarButton({ label, icon, onClick }: { label: string, icon: React.ReactNode, onClick?: () => void }) {
     return (
-        <button 
+        <button
             className="p-1.5 hover:bg-neutral-700 rounded text-neutral-300 hover:text-white transition-colors"
             title={label}
+            onClick={onClick}
+            type="button"
         >
             {icon}
         </button>
@@ -832,21 +859,21 @@ function ToolbarButton({ label, icon }: { label: string, icon: React.ReactNode }
 }
 
 
-function BlockContent({ block, isFocused, onFocus, onChange, placeholder }: { 
-  block: BlockData, 
-  isFocused: boolean, 
+function BlockContent({ block, isFocused, onFocus, onChange, placeholder }: {
+  block: BlockData,
+  isFocused: boolean,
   onFocus: () => void,
   onChange: (s: string) => void,
   placeholder?: string
 }) {
   const inputRef = useRef<HTMLElement>(null);
 
-  // Sync for simple text blocks
+  // Sync for simple text blocks - use innerHTML to preserve formatting
   useEffect(() => {
     if (block.type === 'html' || block.type === 'image') return;
-    if (inputRef.current && inputRef.current.innerText !== block.content) {
+    if (inputRef.current && inputRef.current.innerHTML !== block.content) {
         if (!isFocused) {
-            inputRef.current.innerText = block.content;
+            inputRef.current.innerHTML = block.content;
         }
     }
   }, [block.content, isFocused, block.type]);
@@ -858,11 +885,12 @@ function BlockContent({ block, isFocused, onFocus, onChange, placeholder }: {
   if (block.type === 'h2') {
     return (
       <h2
-        className="text-3xl font-bold text-neutral-800 outline-none mb-4 mt-12 leading-tight empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300"
+        className="text-3xl font-bold text-neutral-800 outline-none mb-4 mt-12 leading-tight empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300 [&_a]:text-blue-600 [&_a]:underline"
         contentEditable
         onFocus={onFocus}
         suppressContentEditableWarning
-        onBlur={(e) => onChange(e.currentTarget.innerText || "")}
+        onBlur={(e) => onChange(e.currentTarget.innerHTML || "")}
+        onInput={(e) => onChange(e.currentTarget.innerHTML || "")}
         data-placeholder="見出し2"
         ref={inputRef as any}
       />
@@ -872,11 +900,12 @@ function BlockContent({ block, isFocused, onFocus, onChange, placeholder }: {
   if (block.type === 'h3') {
     return (
       <h3
-        className="text-2xl font-bold text-neutral-800 outline-none mb-3 mt-8 leading-tight empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300"
+        className="text-2xl font-bold text-neutral-800 outline-none mb-3 mt-8 leading-tight empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300 [&_a]:text-blue-600 [&_a]:underline"
         contentEditable
         onFocus={onFocus}
         suppressContentEditableWarning
-        onBlur={(e) => onChange(e.currentTarget.innerText || "")}
+        onBlur={(e) => onChange(e.currentTarget.innerHTML || "")}
+        onInput={(e) => onChange(e.currentTarget.innerHTML || "")}
         data-placeholder="見出し3"
         ref={inputRef as any}
       />
@@ -886,11 +915,12 @@ function BlockContent({ block, isFocused, onFocus, onChange, placeholder }: {
   if (block.type === 'h4') {
     return (
       <h4
-        className="text-xl font-bold text-neutral-800 outline-none mb-2 mt-6 leading-tight empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300"
+        className="text-xl font-bold text-neutral-800 outline-none mb-2 mt-6 leading-tight empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300 [&_a]:text-blue-600 [&_a]:underline"
         contentEditable
         onFocus={onFocus}
         suppressContentEditableWarning
-        onBlur={(e) => onChange(e.currentTarget.innerText || "")}
+        onBlur={(e) => onChange(e.currentTarget.innerHTML || "")}
+        onInput={(e) => onChange(e.currentTarget.innerHTML || "")}
         data-placeholder="見出し4"
         ref={inputRef as any}
       />
@@ -923,12 +953,13 @@ function BlockContent({ block, isFocused, onFocus, onChange, placeholder }: {
 
   return (
     <p
-      className="text-[1.05rem] text-neutral-800 leading-[1.8] outline-none py-1 min-h-[1.8em] empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300 cursor-text"
+      className="text-[1.05rem] text-neutral-800 leading-[1.8] outline-none py-1 min-h-[1.8em] empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300 cursor-text [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_i]:italic [&_u]:underline [&_s]:line-through"
       contentEditable
       ref={inputRef as any}
       onFocus={onFocus}
       suppressContentEditableWarning
-      onBlur={(e) => onChange(e.currentTarget.innerText || "")}
+      onBlur={(e) => onChange(e.currentTarget.innerHTML || "")}
+      onInput={(e) => onChange(e.currentTarget.innerHTML || "")}
       data-placeholder={placeholder || "テキストを入力、または '/' でコマンド..."}
       onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {

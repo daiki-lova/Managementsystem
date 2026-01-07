@@ -923,9 +923,6 @@ A ${personHint} ${inbodyPose2} on a yoga mat. Warm, encouraging atmosphere. Show
  * 常にリアルな写真風で生成（イラストNG）
  */
 function buildCoverImagePrompt(context: ArticleImageContext): string {
-  // 背景重視・リアル写真風のベーススタイル
-  const baseStyle = `Stunning wide-angle landscape photography featuring yoga. Shot from a distance showing the full scenic environment. Professional quality, cinematic composition, high resolution. A woman practicing yoga appears small in the frame, as part of the beautiful scenery. The focus is on the breathtaking natural backdrop, not the person. Realistic photo style, NOT illustration, NOT cartoon, NOT hand-drawn. No text overlays. No watermarks.`;
-
   // 記事タイトルと体験談から人物像を推測
   const combinedText = `${context.title} ${context.testimonialSummary}`.toLowerCase();
 
@@ -941,24 +938,57 @@ function buildCoverImagePrompt(context: ArticleImageContext): string {
   // ヨガポーズ選択
   const pose = selectYogaPose(context.title, YOGA_POSES_COVER);
 
-  // 複数の風景パターンからランダムに選択（タイトルでシード）
-  const sceneryOptions = [
-    `A ${personHint} ${pose} on a wooden deck overlooking misty mountains at golden sunrise. Silhouette against dramatic orange and pink sky. Wide panoramic view with the person taking up less than 20% of the frame. Breathtaking mountain landscape as the main subject.`,
+  // 3つの構図パターン
+  type CompositionType = "CLOSE" | "MEDIUM" | "WIDE";
+  const compositions: Record<CompositionType, { baseStyle: string; sceneryOptions: string[] }> = {
+    // CLOSE: 人物にフォーカス（30-50%）、背景ぼかし
+    CLOSE: {
+      baseStyle: `Professional yoga photography with shallow depth of field. Focus on the yoga practitioner with a beautifully blurred background. The person takes up 30-50% of the frame. Soft, dreamy bokeh effect. Realistic photo style, NOT illustration, NOT cartoon. High resolution, magazine quality. No text overlays. No watermarks.`,
+      sceneryOptions: [
+        `A ${personHint} ${pose} in the foreground with soft golden morning light. Blurred mountains and mist in the background. Intimate portrait-style composition with natural warm lighting.`,
+        `A ${personHint} ${pose} captured in close-up with ocean waves softly blurred behind. Sunset glow illuminating her face and form. Shallow depth of field creating dreamy atmosphere.`,
+        `A ${personHint} ${pose} with a serene expression, soft-focus bamboo forest creating green bokeh behind. Gentle morning light filtering through, highlighting her peaceful practice.`,
+        `A ${personHint} ${pose} in sharp focus with a tranquil lake and mountains as soft, painterly background. Early morning golden hour light wrapping around her form.`,
+        `A ${personHint} ${pose} on a rooftop at golden hour, city lights creating beautiful bokeh behind. Focus on her graceful form against the dreamy urban sunset backdrop.`,
+      ],
+    },
+    // MEDIUM: 人物と環境のバランス（15-30%）
+    MEDIUM: {
+      baseStyle: `Balanced yoga lifestyle photography showing both practitioner and environment. The person takes up 15-30% of the frame, harmoniously placed within the scenic setting. Professional composition with clear subject and context. Realistic photo style, NOT illustration, NOT cartoon. High resolution. No text overlays. No watermarks.`,
+      sceneryOptions: [
+        `A ${personHint} ${pose} on a wooden deck with misty mountains visible behind. Medium shot showing both her graceful pose and the majestic mountain landscape. Golden sunrise creating warm atmosphere.`,
+        `A ${personHint} ${pose} on coastal rocks with the ocean stretching to the horizon. Balanced composition with dramatic sky and waves complementing her flowing pose. Sunset colors reflecting off the water.`,
+        `A ${personHint} ${pose} along a bamboo forest path, trees framing her on both sides. The forest creates depth while she remains a clear focal point. Soft morning mist and dappled light.`,
+        `A ${personHint} ${pose} at the edge of a pristine lake with mountain reflections. She is positioned to one side, allowing the stunning natural mirror effect to share the frame.`,
+        `A ${personHint} ${pose} on a stylish rooftop terrace with city skyline behind. Architectural elements and urban landscape provide context while she remains the clear subject.`,
+      ],
+    },
+    // WIDE: 風景メイン、人物は点景（5-15%）
+    WIDE: {
+      baseStyle: `Stunning wide-angle landscape photography featuring yoga. Shot from a distance showing the full scenic environment. The focus is on the breathtaking natural backdrop, with the yoga practitioner appearing small (5-15% of frame) as part of the grand scenery. Cinematic composition, high resolution. Realistic photo style, NOT illustration, NOT cartoon. No text overlays. No watermarks.`,
+      sceneryOptions: [
+        `A ${personHint} ${pose} as a small silhouette on a wooden deck overlooking vast misty mountains at golden sunrise. Dramatic orange and pink sky dominates the frame. Breathtaking panoramic mountain landscape as the main subject.`,
+        `A ${personHint} ${pose} as a tiny figure on a cliff edge facing an endless ocean at sunset. Warm golden light, dramatic cloudscape. Wide landscape shot with vast ocean horizon commanding attention.`,
+        `A ${personHint} ${pose} as a small figure deep within a serene bamboo forest at dawn. Soft misty atmosphere, rays of light filtering through towering bamboo. The peaceful forest environment is the star.`,
+        `A ${personHint} ${pose} as a small presence beside a tranquil lake reflecting snow-capped mountains. Mirror-like reflections and grand natural scenery dominate. Wide-angle landscape photography.`,
+        `A ${personHint} ${pose} as a silhouette on a distant rooftop terrace at golden hour. Expansive modern city skyline spreads across the frame. Urban landscape is the visual focus.`,
+      ],
+    },
+  };
 
-    `A ${personHint} ${pose} on a cliff edge facing the ocean at sunset. Warm golden light, dramatic sky with clouds. Wide landscape shot showing vast ocean horizon. The yoga practitioner is a small, elegant silhouette against the majestic seascape.`,
+  // 完全ランダムで構図を選択（Math.random使用）
+  const compositionTypes: CompositionType[] = ["CLOSE", "MEDIUM", "WIDE"];
+  const randomCompositionIndex = Math.floor(Math.random() * 3);
+  const selectedComposition = compositionTypes[randomCompositionIndex];
+  const composition = compositions[selectedComposition];
+  
+  // 風景パターンもランダム選択
+  const randomSceneryIndex = Math.floor(Math.random() * composition.sceneryOptions.length);
+  const selectedScenery = composition.sceneryOptions[randomSceneryIndex];
 
-    `A ${personHint} ${pose} in a serene bamboo forest at dawn. Soft misty atmosphere, rays of light filtering through tall bamboo. Shot from a distance showing the peaceful forest environment. The person is a small figure integrated into the natural setting.`,
+  console.log(`[Cover Image] Composition: ${selectedComposition}, Scenery: ${randomSceneryIndex + 1}/5`);
 
-    `A ${personHint} ${pose} beside a tranquil lake reflecting snow-capped mountains. Early morning calm water, mirror-like reflections. Wide-angle landscape photography. The yoga practitioner appears small, harmoniously placed within the grand natural scenery.`,
-
-    `A ${personHint} ${pose} on a rooftop terrace at golden hour overlooking a modern city skyline. Warm sunset colors, urban landscape backdrop. The person is positioned to one side, with the expansive cityscape as the visual focus.`,
-  ];
-
-  // タイトルをシードとして使用して一貫した選択
-  const hash = context.title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const selectedScenery = sceneryOptions[hash % sceneryOptions.length];
-
-  return `${baseStyle}\n${selectedScenery}`;
+  return `${composition.baseStyle}\n${selectedScenery}`;
 }
 
 /**

@@ -24,7 +24,7 @@ import { Input } from '@/components/admin/ui/input';
 import type { AppMode, BlockData, ViewState } from './lib/types';
 import { useAuth } from './lib/auth-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { useArticle, useCategories, useTags, useCreateArticle, useUpdateArticle } from './lib/hooks';
+import { useArticle, useCategories, useTags, useAuthors, useCreateArticle, useUpdateArticle } from './lib/hooks';
 import { ApiError, articlesApi } from './lib/api';
 
 export default function AdminPage() {
@@ -70,6 +70,7 @@ export default function AdminPage() {
   // Article Metadata State
   const [thumbnail, setThumbnail] = useState<string | undefined>();
   const [category, setCategory] = useState("");
+  const [authorId, setAuthorId] = useState<string | undefined>();
   const [tags, setTags] = useState<string[]>([]);
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
@@ -80,6 +81,7 @@ export default function AdminPage() {
   const { data: articleData } = useArticle(currentArticleId);
   const { data: categoriesData } = useCategories({ page: 1, limit: 200 });
   const { data: tagsData } = useTags({ page: 1, limit: 200 });
+  const { data: authorsData } = useAuthors({ page: 1, limit: 200 });
 
   const createArticle = useCreateArticle();
   const updateArticle = useUpdateArticle();
@@ -144,6 +146,7 @@ export default function AdminPage() {
 
       setThumbnail(articleData.media_assets?.url);
       setCategory(articleData.categories?.name || "");
+      setAuthorId(articleData.authors?.id || undefined);
       setTags(
         (articleData.tags?.map((t) => t.name) ??
           // Backward compatibility if API returns join table shape
@@ -204,6 +207,7 @@ export default function AdminPage() {
       metaTitle: metaTitle.trim() ? metaTitle.trim() : undefined,
       metaDescription: description.trim() ? description.trim() : undefined,
       categoryId: resolveCategoryId(),
+      authorId: authorId,
       tagIds: 'ok' in tagIdsResult ? tagIdsResult.ids : undefined,
       status: 'DRAFT' as const,
     };
@@ -393,6 +397,7 @@ export default function AdminPage() {
       setBlocks([{ id: '1', type: 'p', content: '' }]);
       setThumbnail(undefined);
       setCategory("");
+      setAuthorId(undefined);
       setTags([]);
       setSlug("");
       setDescription("");
@@ -509,6 +514,8 @@ export default function AdminPage() {
           setThumbnail={setThumbnail}
           category={category}
           setCategory={setCategory}
+          authorId={authorId}
+          setAuthorId={setAuthorId}
           tags={tags}
           setTags={setTags}
           slug={slug}

@@ -119,7 +119,7 @@ export const getPublishedArticles = cache(async (
   const [articles, total] = await Promise.all([
     prisma.articles.findMany({
       where,
-      orderBy: { publishedAt: 'desc' },
+      orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
       skip: offset,
       take: limit,
       select: articleSelect,
@@ -214,7 +214,7 @@ export const getRelatedArticles = cache(async (
       categoryId,
       id: { not: articleId },
     },
-    orderBy: { publishedAt: 'desc' },
+    orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     take: limit,
     select: articleSelect,
   });
@@ -238,6 +238,7 @@ export const getPopularArticles = cache(async (
     },
     orderBy: [
       { publishedAt: 'desc' }, // TODO: アナリティクスのPVでソート
+      { createdAt: 'desc' },
     ],
     take: limit,
     select: articleSelect,
@@ -267,7 +268,7 @@ export const getTrendingArticles = cache(async (
         gte: sevenDaysAgo,
       },
     },
-    orderBy: { publishedAt: 'desc' },
+    orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     take: limit,
     select: articleSelect,
   });
@@ -360,7 +361,7 @@ export const getArticlesByTag = cache(async (
   const [articles, total] = await Promise.all([
     prisma.articles.findMany({
       where,
-      orderBy: { publishedAt: 'desc' },
+      orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
       skip: offset,
       take: limit,
       select: articleSelect,
