@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { AuthProvider } from "./lib/auth-context";
 import { QueryProvider } from "./lib/query-client";
 import { ToasterWrapper } from "./lib/toaster-wrapper";
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <QueryProvider>

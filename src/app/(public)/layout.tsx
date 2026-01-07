@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "RADIANCE - 心と体を輝かせるライフスタイルマガジン",
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 export default function PublicLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return <>{children}</>;
 }
