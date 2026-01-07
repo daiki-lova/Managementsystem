@@ -8,80 +8,72 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ヨガメディア管理システム - AI生成コンテンツを管理するCMS。Next.jsベースの統合アプリケーション。
-
-## プロジェクト構成
-
-| 名称 | ポート | 説明 |
-|------|--------|------|
-| **メディアサイト・管理画面** | 3000 | 公開サイト + CMS管理画面 (Next.js) |
-
-- 公開サイト: `http://localhost:3000/`
-- 管理画面: `http://localhost:3000/admin`
-
-※「バックエンド」はSupabase等のデータベース/API層を指す。
-
-### 開発用ログイン情報
-- **メール**: admin@radiance.jp
-- **パスワード**: dev123
-
-※開発環境限定。本番ではSupabase Authで認証。
+ヨガメディア管理システム - A CMS for managing AI-generated yoga/wellness content. The frontend was generated via Figma Make and currently uses mock data. Backend integration with Prisma/Supabase is planned.
 
 ## Development Commands
 
 ```bash
-npm install    # 依存関係インストール
-npm run dev    # 開発サーバー起動 (http://localhost:3000)
-npm run build  # 本番ビルド
+npm install    # Install dependencies
+npm run dev    # Start dev server (http://localhost:3000)
+npm run build  # Production build
 ```
 
 ## Architecture
 
-### Stack
-- Next.js 16 + TypeScript
+### Frontend Stack
+- React 18 + TypeScript + Vite
 - Tailwind CSS + shadcn/ui (Radix UI)
-- Prisma + Supabase (PostgreSQL)
-- Inngest for async AI generation
-- TanStack Query for data fetching
+- Framer Motion for animations
+- State: React hooks only (no global state management yet)
 
 ### Key File Structure
 ```
-├── src/
-│   ├── app/
-│   │   ├── (public)/         # 公開サイトのページ
-│   │   ├── admin/            # 管理画面
-│   │   └── api/              # APIルート
-│   ├── components/
-│   │   ├── admin/            # 管理画面コンポーネント
-│   │   │   ├── dashboard/    # ダッシュボードビュー
-│   │   │   └── ui/           # UIプリミティブ
-│   │   └── public/           # 公開サイトコンポーネント
-│   ├── inngest/              # Inngest関数（AI生成パイプライン）
-│   └── lib/                  # ユーティリティ
-├── prisma/                   # Prismaスキーマ・マイグレーション
-├── public/                   # 静的ファイル
-└── e2e/                      # E2Eテスト
+src/
+├── App.tsx              # Main routing: login → dashboard → editor
+├── types.ts             # Core type definitions
+├── components/
+│   ├── ui/              # shadcn/ui primitives
+│   ├── dashboard/       # All dashboard views (PostsView, StrategyView, etc.)
+│   ├── editor/          # Block-based article editor
+│   └── auth/            # LoginView
 ```
 
-### AI生成パイプライン
-3ステップパイプライン:
-1. タイトル生成 (`anthropic/claude-opus-4.5`)
-2. 記事生成 (`anthropic/claude-opus-4.5`)
-3. 画像生成 (`google/gemini-3-pro-image-preview`)
+### View State Flow
+`App.tsx` manages view state via `useState<ViewState>`:
+- `'dashboard'` → renders `Dashboard` component with tab-based navigation
+- `'editor'` → renders `EditorCanvas` for article editing
 
-設定は `/src/inngest/functions/pipeline/common/openrouter.ts` の `STAGE_MODEL_CONFIG` でハードコード。
+Dashboard uses internal `DashboardTab` state for sub-navigation (home, posts, strategy, knowledge, authors, conversions, media, categories, tags, settings).
 
-## External APIs
-- **OpenRouter**: AI生成（記事・画像）
-- **DataForSEO**: 検索ボリューム取得
-- **Supabase**: データベース・認証・ストレージ
+### Block Editor
+Articles use a Notion-style block structure defined in `types.ts`:
+```typescript
+interface BlockData {
+  id: string;
+  type: 'p' | 'h2' | 'h3' | 'h4' | 'image' | 'html';
+  content: string;
+  metadata?: any;
+}
+```
+
+### Data Layer (Current State)
+- All data is mock/hardcoded within components
+- Each dashboard view contains its own `MOCK_*` data arrays
+- No API calls implemented yet
+
+## Planned Backend (see docs/)
+- **ORM**: Prisma with PostgreSQL (Supabase)
+- **Auth**: Supabase Auth
+- **Jobs**: Inngest for async AI generation
+- **External APIs**: OpenRouter (AI), Keywords Everywhere, GA4, Search Console
 
 ## Documentation
-- `docs/requirements-v2.md` - 要件仕様
-- `docs/schema-design.md` - Prismaスキーマ設計
+- `docs/requirements-v2.md` - Complete requirements specification
+- `docs/schema-design.md` - Prisma schema design
+- `docs/frontend-structure.md` - Frontend architecture details
 
 ## Implementation Notes
 - Import `motion` from `'motion/react'` (not `framer-motion`)
-- Import `toast` from `'sonner'`
-- UI follows shadcn/ui patterns with `cn()` utility
+- Import `toast` from `'sonner'` (not `sonner@version`)
+- UI follows shadcn/ui patterns with `cn()` utility for class merging
 - All timestamps use JST (Japan Standard Time)

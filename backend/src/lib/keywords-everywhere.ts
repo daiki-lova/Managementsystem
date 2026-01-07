@@ -1,0 +1,202 @@
+// Keywords Everywhere API クライアント
+
+interface KeywordData {
+  keyword: string;
+  volume: number;
+  cpc: number;
+  competition: number;
+  trend: number[];
+}
+
+interface KeywordsEverywhereResponse {
+  data: KeywordData[];
+  credits: number;
+  time: number;
+}
+
+interface SearchParams {
+  keywords: string[];
+  country?: string;
+  currency?: string;
+}
+
+export class KeywordsEverywhereClient {
+  private apiKey: string;
+  private baseUrl = "https://api.keywordseverywhere.com/v1";
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey.trim();
+  }
+
+  // キーワードのボリュームデータを取得
+  async getKeywordData(params: SearchParams): Promise<KeywordData[]> {
+    const { keywords, country = "jp", currency = "JPY" } = params;
+
+    const body = new URLSearchParams({
+      country: country.toLowerCase(),
+      currency: currency.toLowerCase(),
+      dataSource: "gkp", // Google Keyword Planner
+    });
+    // Keywords Everywhere APIは配列形式（kw[]）を期待する
+    for (const keyword of keywords) {
+      body.append("kw[]", keyword);
+    }
+
+    const response = await fetch(`${this.baseUrl}/get_keyword_data`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("Keywords Everywhere API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.slice(0, 500),
+      });
+      throw new Error(
+        `Keywords Everywhere API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.slice(0, 500)}` : ""}`
+      );
+    }
+
+    const data: KeywordsEverywhereResponse = await response.json();
+    return data.data;
+  }
+
+  // 関連キーワードを取得
+  async getRelatedKeywords(
+    keyword: string,
+    country = "jp"
+  ): Promise<KeywordData[]> {
+    const response = await fetch(`${this.baseUrl}/get_related_keywords`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        country: country.toLowerCase(),
+        currency: "jpy",
+        dataSource: "gkp",
+        kw: keyword,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("Keywords Everywhere API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.slice(0, 500),
+      });
+      throw new Error(
+        `Keywords Everywhere API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.slice(0, 500)}` : ""}`
+      );
+    }
+
+    const data: KeywordsEverywhereResponse = await response.json();
+    return data.data;
+  }
+
+  // ロングテールキーワードを取得
+  async getLongTailKeywords(
+    keyword: string,
+    country = "jp"
+  ): Promise<KeywordData[]> {
+    const response = await fetch(`${this.baseUrl}/get_longtail_keywords`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        country: country.toLowerCase(),
+        currency: "jpy",
+        dataSource: "gkp",
+        kw: keyword,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("Keywords Everywhere API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.slice(0, 500),
+      });
+      throw new Error(
+        `Keywords Everywhere API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.slice(0, 500)}` : ""}`
+      );
+    }
+
+    const data: KeywordsEverywhereResponse = await response.json();
+    return data.data;
+  }
+}
+
+// デフォルト推奨検索ボリュームゾーン
+export const DEFAULT_VOLUME_RANGE = {
+  min: 300,
+  max: 2000,
+};
+
+// 推奨検索ボリュームゾーン（後方互換性のため残す）
+export const RECOMMENDED_VOLUME_RANGE = DEFAULT_VOLUME_RANGE;
+
+// 検索ボリューム範囲の型
+export interface VolumeRange {
+  min: number;
+  max: number;
+}
+
+// キーワードが推奨ゾーン内かチェック
+export function isInRecommendedRange(
+  volume: number,
+  range: VolumeRange = DEFAULT_VOLUME_RANGE
+): boolean {
+  return volume >= range.min && volume <= range.max;
+}
+
+// キーワードデータをスコアリング
+export function scoreKeyword(
+  keyword: KeywordData,
+  range: VolumeRange = DEFAULT_VOLUME_RANGE
+): number {
+  let score = 0;
+
+  // ボリュームスコア（推奨範囲内で高得点）
+  if (isInRecommendedRange(keyword.volume, range)) {
+    score += 50;
+  } else if (keyword.volume > 0 && keyword.volume < range.min) {
+    score += 20;
+  } else if (keyword.volume > range.max) {
+    score += 30;
+  }
+
+  // 競合スコア（低いほど良い）
+  if (keyword.competition < 0.3) {
+    score += 30;
+  } else if (keyword.competition < 0.6) {
+    score += 20;
+  } else {
+    score += 10;
+  }
+
+  // トレンドスコア（上昇傾向で高得点）
+  if (keyword.trend && keyword.trend.length >= 2) {
+    const recentTrend = keyword.trend.slice(-3);
+    const isUpward = recentTrend[recentTrend.length - 1] > recentTrend[0];
+    if (isUpward) {
+      score += 20;
+    }
+  }
+
+  return score;
+}

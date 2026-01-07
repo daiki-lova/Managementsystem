@@ -1,0 +1,497 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model analytics_data {
+  id               String   @id
+  articleId        String
+  date             DateTime @db.Date
+  pageViews        Int      @default(0)
+  organicViews     Int      @default(0)
+  conversionClicks Int      @default(0)
+  bounceRate       Int      @default(0)
+  avgTimeOnPage    Float    @default(0)
+  keywords         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  articles         articles @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, date])
+  @@index([articleId])
+  @@index([date])
+}
+
+model article_conversions {
+  id           String      @id
+  articleId    String
+  conversionId String
+  position     Int         @default(0)
+  clickCount   Int         @default(0)
+  createdAt    DateTime    @default(now())
+  articles     articles    @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  conversions  conversions @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+  @@index([conversionId])
+}
+
+model article_images {
+  id           String           @id
+  articleId    String
+  mediaAssetId String
+  type         ArticleImageType
+  position     Int              @default(0)
+  createdAt    DateTime         @default(now())
+  articles     articles         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  media_assets media_assets     @relation(fields: [mediaAssetId], references: [id])
+
+  @@index([articleId])
+  @@index([mediaAssetId])
+}
+
+model article_knowledge_items {
+  articleId       String
+  knowledgeItemId String
+  createdAt       DateTime        @default(now())
+  articles        articles        @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  knowledge_items knowledge_items @relation(fields: [knowledgeItemId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, knowledgeItemId])
+  @@index([articleId])
+  @@index([knowledgeItemId])
+}
+
+model article_tags {
+  articleId String
+  tagId     String
+  createdAt DateTime @default(now())
+  articles  articles @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tags      tags     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+  @@index([articleId])
+  @@index([tagId])
+}
+
+model articles {
+  id                      String                    @id
+  title                   String
+  blocks                  Json
+  slug                    String                    @unique
+  status                  ArticleStatus             @default(DRAFT)
+  publishedAt             DateTime?
+  deletedAt               DateTime?
+  version                 Int                       @default(1)
+  displayOrder            Int                       @default(0)
+  metaTitle               String?
+  metaDescription         String?
+  ogpImageUrl             String?
+  previousSlug            String?
+  categoryId              String
+  authorId                String
+  thumbnailId             String?
+  generationJobId         String?
+  createdById             String
+  brandId                 String
+  // LLMO (LLM Optimization) fields
+  llmoShortSummary        String?                   @db.Text
+  llmoKeyTakeaways        Json?
+  schemaJsonLd            Json?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  analytics_data          analytics_data[]
+  article_conversions     article_conversions[]
+  article_images          article_images[]
+  article_knowledge_items article_knowledge_items[]
+  article_tags            article_tags[]
+  authors                 authors                   @relation(fields: [authorId], references: [id])
+  brands                  brands                    @relation(fields: [brandId], references: [id])
+  categories              categories                @relation(fields: [categoryId], references: [id])
+  users                   users                     @relation(fields: [createdById], references: [id])
+  generation_jobs         generation_jobs?          @relation(fields: [generationJobId], references: [id])
+  media_assets            media_assets?             @relation(fields: [thumbnailId], references: [id])
+  slug_history            slug_history[]
+
+  @@index([authorId])
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([createdById])
+  @@index([generationJobId])
+  @@index([previousSlug])
+  @@index([publishedAt])
+  @@index([slug])
+  @@index([status])
+}
+
+model audit_logs {
+  id           String   @id
+  action       String
+  userId       String?
+  userEmail    String?
+  resourceType String?
+  resourceId   String?
+  details      Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
+  @@index([resourceType, resourceId])
+  @@index([userId])
+}
+
+model authors {
+  id              String            @id
+  name            String
+  slug            String            @unique
+  role            String
+  qualifications  Json
+  bio             String
+  imageUrl        String?
+  socialLinks     Json?
+  categories      Json?  // Array of strings: Author's specialized categories
+  tags            Json?  // Array of strings: Author's specialized tags
+  systemPrompt    String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime @updatedAt
+  articles        articles[]
+  generation_jobs generation_jobs[]
+  knowledge_items knowledge_items[]
+}
+
+model brands {
+  id              String            @id
+  name            String
+  slug            String            @unique
+  description     String?
+  tone            String?
+  logoUrl         String?
+  isDefault       Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime @updatedAt
+  articles        articles[]
+  knowledge_items knowledge_items[]
+
+  @@index([slug])
+}
+
+model categories {
+  id              String            @id
+  name            String
+  slug            String            @unique
+  description     String?
+  color           String?
+  articlesCount   Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime @updatedAt
+  articles        articles[]
+  generation_jobs generation_jobs[]
+
+  @@index([slug])
+}
+
+model conversions {
+  id                         String                       @id
+  name                       String
+  type                       ConversionType
+  status                     ConversionStatus             @default(ACTIVE)
+  url                        String
+  thumbnailUrl               String?
+  context                    String
+  periodStart                DateTime?
+  periodEnd                  DateTime?
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime @updatedAt
+  article_conversions        article_conversions[]
+  generation_job_conversions generation_job_conversions[]
+
+  @@index([status])
+}
+
+model generation_job_conversions {
+  generationJobId String
+  conversionId    String
+  createdAt       DateTime        @default(now())
+  conversions     conversions     @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+  generation_jobs generation_jobs @relation(fields: [generationJobId], references: [id], onDelete: Cascade)
+
+  @@id([generationJobId, conversionId])
+  @@index([conversionId])
+  @@index([generationJobId])
+}
+
+model generation_job_knowledge_items {
+  generationJobId String
+  knowledgeItemId String
+  createdAt       DateTime        @default(now())
+  generation_jobs generation_jobs @relation(fields: [generationJobId], references: [id], onDelete: Cascade)
+  knowledge_items knowledge_items @relation(fields: [knowledgeItemId], references: [id], onDelete: Cascade)
+
+  @@id([generationJobId, knowledgeItemId])
+  @@index([generationJobId])
+  @@index([knowledgeItemId])
+}
+
+model generation_jobs {
+  id                             String                           @id
+  keyword                        String
+  searchVolume                   Int?
+  status                         GenerationJobStatus              @default(PENDING)
+  progress                       Int                              @default(0)
+  currentStage                   Int                              @default(0)
+  stageOutputs                   Json?
+  statusMessage                  String?
+  tokensUsed                     Int?
+  errorMessage                   String?
+  categoryId                     String
+  authorId                       String
+  publishStrategy                PublishStrategy                  @default(DRAFT)
+  scheduledAt                    DateTime?
+  totalArticles                  Int                              @default(1)
+  userId                         String
+  createdAt                      DateTime                         @default(now())
+  updatedAt                      DateTime @updatedAt
+  completedAt                    DateTime?
+  articles                       articles[]
+  generation_job_conversions     generation_job_conversions[]
+  generation_job_knowledge_items generation_job_knowledge_items[]
+  generation_stages              generation_stages[]
+  authors                        authors                          @relation(fields: [authorId], references: [id])
+  categories                     categories                       @relation(fields: [categoryId], references: [id])
+  users                          users                            @relation(fields: [userId], references: [id])
+
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([userId])
+}
+
+model generation_stages {
+  id           String      @id @default(uuid())
+  jobId        String
+  stage        Int
+  stageName    String
+  status       StageStatus @default(PENDING)
+  input        Json?
+  output       Json?
+  promptUsed   String?     @db.Text
+  tokensUsed   Int?
+  errorMessage String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  job          generation_jobs @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([stage])
+}
+
+model knowledge_items {
+  id                             String                           @id
+  title                          String
+  type                           String
+  brandId                        String?
+  course                         String?
+  authorId                       String?
+  content                        String
+  sourceUrl                      String?
+  sourceScrapedAt                DateTime?
+  usageCount                     Int                              @default(0)
+  createdAt                      DateTime                         @default(now())
+  updatedAt                      DateTime @updatedAt
+  article_knowledge_items        article_knowledge_items[]
+  generation_job_knowledge_items generation_job_knowledge_items[]
+  authors                        authors?                         @relation(fields: [authorId], references: [id])
+  brands                         brands?                          @relation(fields: [brandId], references: [id])
+
+  @@index([authorId])
+  @@index([brandId])
+  @@index([course])
+  @@index([type])
+}
+
+model media_asset_tags {
+  mediaAssetId String
+  tagId        String
+  createdAt    DateTime     @default(now())
+  media_assets media_assets @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  tags         tags         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([mediaAssetId, tagId])
+  @@index([mediaAssetId])
+  @@index([tagId])
+}
+
+model media_assets {
+  id               String             @id
+  url              String
+  fileName         String
+  altText          String?
+  source           MediaSource        @default(UPLOAD)
+  showInLibrary    Boolean            @default(true)
+  isDeleted        Boolean            @default(false)
+  width            Int?
+  height           Int?
+  fileSize         Int?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime @updatedAt
+  article_images   article_images[]
+  articles         articles[]
+  media_asset_tags media_asset_tags[]
+
+  @@index([showInLibrary, isDeleted])
+  @@index([source])
+}
+
+model notifications {
+  id        String           @id
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([createdAt])
+  @@index([userId, read])
+}
+
+model slug_history {
+  id        String   @id
+  articleId String
+  oldSlug   String   @unique
+  newSlug   String
+  createdAt DateTime @default(now())
+  articles  articles @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+}
+
+model system_settings {
+  id                   String   @id @default("default")
+  gaApiKey             String?
+  gaPropertyId         String?
+  searchConsoleApiKey  String?
+  searchConsoleSiteUrl String?
+  searchVolumeApiKey   String?
+  dataforSeoApiKey     String?
+  openRouterApiKey     String?
+  openaiApiKey         String?
+  aiModel              String?  @default("openai/gpt-4-turbo")
+  imageModel           String?  @default("pro")
+  articleModel         String?  @default("pro")
+  analysisModel        String?  @default("banana")
+  keywordPrompt        String?  @db.Text
+  keywordSuggestPrompt String?  @db.Text
+  structurePrompt      String?  @db.Text
+  draftPrompt          String?  @db.Text
+  proofreadingPrompt   String?  @db.Text
+  seoPrompt            String?  @db.Text
+  imagePrompt          String?  @db.Text
+  minSearchVolume      Int      @default(300)
+  maxSearchVolume      Int      @default(2000)
+  volumeZones          Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model tags {
+  id               String             @id
+  name             String
+  slug             String             @unique
+  articlesCount    Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime @updatedAt
+  article_tags     article_tags[]
+  media_asset_tags media_asset_tags[]
+
+  @@index([slug])
+}
+
+model users {
+  id              String            @id
+  email           String            @unique
+  password        String
+  role            UserRole          @default(WRITER)
+  name            String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime @updatedAt
+  articles        articles[]
+  generation_jobs generation_jobs[]
+
+  @@index([email])
+}
+
+enum ArticleImageType {
+  INSERTED_1
+  INSERTED_2
+}
+
+enum ArticleStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  DELETED
+}
+
+enum ConversionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ConversionType {
+  BANNER
+  TEXT
+  INLINE
+}
+
+enum GenerationJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum StageStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum MediaSource {
+  UPLOAD
+  AI_GENERATED
+}
+
+enum NotificationType {
+  GENERATION_COMPLETE
+  GENERATION_FAILED
+  ARTICLE_SCHEDULED
+  ARTICLE_PUBLISHED
+  SYSTEM
+}
+
+enum PublishStrategy {
+  DRAFT
+  PUBLISH_NOW
+  SCHEDULED
+}
+
+enum UserRole {
+  OWNER
+  WRITER
+}

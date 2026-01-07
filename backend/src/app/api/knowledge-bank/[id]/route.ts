@@ -1,0 +1,166 @@
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import prisma from "@/lib/prisma";
+import { withAuth } from "@/lib/auth";
+import {
+  successResponse,
+  ApiErrors,
+  errorResponse,
+} from "@/lib/api-response";
+import { validateBody, commonSchemas } from "@/lib/validation";
+import { isAppError, handlePrismaError, NotFoundError } from "@/lib/errors";
+
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+// 情報バンク詳細取得
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    return await withAuth(request, async () => {
+      const { id } = await params;
+
+      const item = await prisma.knowledge_items.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          course: true,
+          content: true,
+          sourceUrl: true,
+          sourceScrapedAt: true,
+          usageCount: true,
+          createdAt: true,
+          updatedAt: true,
+          brands: {
+            select: { id: true, name: true, slug: true },
+          },
+          authors: {
+            select: { id: true, name: true, role: true },
+          },
+          article_knowledge_items: {
+            select: {
+              articles: {
+                select: { id: true, title: true, slug: true, status: true },
+              },
+            },
+            take: 10,
+          },
+        },
+      });
+
+      if (!item) {
+        return ApiErrors.notFound("情報バンク項目");
+      }
+
+      return successResponse({
+        ...item,
+        articles: item.article_knowledge_items.map((a) => a.articles),
+      });
+    });
+  } catch (error) {
+    if (isAppError(error)) {
+      return errorResponse(error.code, error.message, error.statusCode);
+    }
+    console.error("Get knowledge item error:", error);
+    return ApiErrors.internalError();
+  }
+}
+
+// 情報バンク更新スキーマ
+const updateKnowledgeItemSchema = z.object({
+  title: z.string().max(200).optional(),
+  type: z.string().max(50).optional(),
+  kind: z.string().max(50).optional(), // typeのエイリアス（フロントエンド互換）
+  brandId: commonSchemas.id.optional().nullable(),
+  course: z.string().max(100).optional().nullable(),
+  authorId: commonSchemas.id.optional().nullable(),
+  content: z.string().min(1).optional(),
+  sourceUrl: commonSchemas.url.optional().nullable(),
+  url: commonSchemas.url.optional().nullable(), // sourceUrlのエイリアス（フロントエンド互換）
+});
+
+// 情報バンク更新
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    return await withAuth(request, async () => {
+      const { id } = await params;
+      const data = await validateBody(request, updateKnowledgeItemSchema);
+
+      // 存在確認
+      const existing = await prisma.knowledge_items.findUnique({
+        where: { id },
+      });
+
+      if (!existing) {
+        throw new NotFoundError("情報バンク項目");
+      }
+
+      // フィールド名のエイリアス解決
+      const resolvedType = data.type || data.kind;
+      const resolvedSourceUrl = data.sourceUrl !== undefined ? data.sourceUrl : data.url;
+
+      const item = await prisma.knowledge_items.update({
+        where: { id },
+        data: {
+          title: data.title,
+          type: resolvedType,
+          brandId: data.brandId,
+          course: data.course,
+          authorId: data.authorId,
+          content: data.content,
+          sourceUrl: resolvedSourceUrl,
+        },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          course: true,
+          content: true,
+          sourceUrl: true,
+          updatedAt: true,
+        },
+      });
+
+      return successResponse(item);
+    });
+  } catch (error) {
+    if (isAppError(error)) {
+      return errorResponse(error.code, error.message, error.statusCode);
+    }
+    const appError = handlePrismaError(error);
+    return errorResponse(appError.code, appError.message, appError.statusCode);
+  }
+}
+
+// 情報バンク削除
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    return await withAuth(request, async () => {
+      const { id } = await params;
+
+      // 存在確認
+      const existing = await prisma.knowledge_items.findUnique({
+        where: { id },
+      });
+
+      if (!existing) {
+        return ApiErrors.notFound("情報バンク項目");
+      }
+
+      // 紐づいている記事からは自動で削除される（Cascade）
+      await prisma.knowledge_items.delete({
+        where: { id },
+      });
+
+      return successResponse({ message: "情報バンク項目を削除しました" });
+    });
+  } catch (error) {
+    if (isAppError(error)) {
+      return errorResponse(error.code, error.message, error.statusCode);
+    }
+    const appError = handlePrismaError(error);
+    return errorResponse(appError.code, appError.message, appError.statusCode);
+  }
+}
