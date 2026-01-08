@@ -102,9 +102,28 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
 
   // Handle bulk generation complete - just navigate to posts tab
   // The articles are created via API in StrategyView, so we just need to switch tabs
-  const handleBulkGenerate = (_articles: GeneratedArticleData[]) => {
+  const handleBulkGenerate = useCallback((_articles: GeneratedArticleData[]) => {
     setActiveTab('posts');
-  };
+  }, []);
+
+  // Memoized tab change handlers to prevent unnecessary re-renders
+  const handleTabHome = useCallback(() => setActiveTab('home'), []);
+  const handleTabPosts = useCallback(() => setActiveTab('posts'), []);
+  const handleTabStrategy = useCallback(() => setActiveTab('strategy'), []);
+  const handleTabKnowledge = useCallback(() => setActiveTab('knowledge'), []);
+  const handleTabConversions = useCallback(() => setActiveTab('conversions'), []);
+  const handleTabMedia = useCallback(() => setActiveTab('media'), []);
+  const handleTabCategories = useCallback(() => setActiveTab('categories'), []);
+  const handleTabTags = useCallback(() => setActiveTab('tags'), []);
+  const handleTabAuthors = useCallback(() => setActiveTab('authors'), []);
+  const handleTabSettings = useCallback(() => setActiveTab('settings'), []);
+  const handleOpenModelDialog = useCallback(() => setIsModelDialogOpen(true), []);
+  const handleCloseModelDialog = useCallback(() => setIsModelDialogOpen(false), []);
+  const handleOpenInviteDialog = useCallback(() => setIsInviteDialogOpen(true), []);
+  const handleCloseInviteDialog = useCallback(() => setIsInviteDialogOpen(false), []);
+  const handleCloseCategoryDialog = useCallback(() => setIsCategoryCreateDialogOpen(false), []);
+  const handleClosePreview = useCallback(() => setPreviewArticleId(null), []);
+  const handlePreviewArticle = useCallback((article: { id: string }) => setPreviewArticleId(article.id), []);
 
   // Dialog States
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
@@ -130,7 +149,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
         <ArticlePreviewModal
           articleId={previewArticleId}
           isOpen={!!previewArticleId}
-          onClose={() => setPreviewArticleId(null)}
+          onClose={handleClosePreview}
         />
       )}
 
@@ -141,7 +160,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
 
           <div
             className="px-4 mb-6 mt-2 cursor-pointer group"
-            onClick={() => setActiveTab('home')}
+            onClick={handleTabHome}
           >
             <h1 className="font-bold text-xl tracking-tight text-neutral-900 group-hover:text-neutral-600 transition-colors">Radiance</h1>
             <p className="text-[10px] font-medium text-neutral-400 tracking-wide mt-0.5 uppercase">Media Management</p>
@@ -153,7 +172,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 icon={<Home size={18} strokeWidth={2} />}
                 label="ホーム"
                 isActive={activeTab === 'home'}
-                onClick={() => setActiveTab('home')}
+                onClick={handleTabHome}
               />
             </div>
 
@@ -162,7 +181,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
               <div className="px-4 mb-1.5 flex items-center justify-between group">
                 <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Content</div>
                 <button
-                  onClick={() => setIsModelDialogOpen(true)}
+                  onClick={handleOpenModelDialog}
                   className="p-1 hover:bg-white rounded-full transition-colors outline-none shadow-sm opacity-0 group-hover:opacity-100"
                 >
                   <Plus size={12} className="text-neutral-400 hover:text-neutral-900 transition-colors" />
@@ -173,14 +192,14 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 icon={<SquarePen size={18} strokeWidth={2} />}
                 label="AI記事企画"
                 isActive={activeTab === 'strategy'}
-                onClick={() => setActiveTab('strategy')}
+                onClick={handleTabStrategy}
               />
 
               <NavItem
                 icon={<FileText size={18} strokeWidth={2} />}
                 label="記事一覧"
                 isActive={activeTab === 'posts'}
-                onClick={() => setActiveTab('posts')}
+                onClick={handleTabPosts}
               />
             </div>
 
@@ -191,19 +210,19 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 icon={<Database size={18} strokeWidth={2} />}
                 label="情報バンク"
                 isActive={activeTab === 'knowledge'}
-                onClick={() => setActiveTab('knowledge')}
+                onClick={handleTabKnowledge}
               />
               <NavItem
                 icon={<MousePointerClick size={18} strokeWidth={2} />}
                 label="コンバージョン"
                 isActive={activeTab === 'conversions'}
-                onClick={() => setActiveTab('conversions')}
+                onClick={handleTabConversions}
               />
               <NavItem
                 icon={<ImageIcon size={18} strokeWidth={2} />}
                 label="メディア"
                 isActive={activeTab === 'media'}
-                onClick={() => setActiveTab('media')}
+                onClick={handleTabMedia}
               />
             </div>
 
@@ -214,19 +233,19 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 icon={<FolderOpen size={18} strokeWidth={2} />}
                 label="カテゴリー"
                 isActive={activeTab === 'categories'}
-                onClick={() => setActiveTab('categories')}
+                onClick={handleTabCategories}
               />
               <NavItem
                 icon={<Tags size={18} strokeWidth={2} />}
                 label="タグ"
                 isActive={activeTab === 'tags'}
-                onClick={() => setActiveTab('tags')}
+                onClick={handleTabTags}
               />
               <NavItem
                 icon={<UserCheck size={18} strokeWidth={2} />}
                 label="監修者"
                 isActive={activeTab === 'authors'}
-                onClick={() => setActiveTab('authors')}
+                onClick={handleTabAuthors}
               />
 
             </div>
@@ -239,7 +258,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 icon={<Settings size={18} strokeWidth={2} />}
                 label="システム設定"
                 isActive={activeTab === 'settings'}
-                onClick={() => setActiveTab('settings')}
+                onClick={handleTabSettings}
               />
             </div>
 
@@ -269,7 +288,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>マイアカウント</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setIsInviteDialogOpen(true)}>
+                <DropdownMenuItem onClick={handleOpenInviteDialog}>
                   <div className="flex items-center gap-2">
                     <User size={14} /> メンバーを招待
                   </div>
@@ -308,8 +327,8 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 isMobile ? "p-0" : "p-8"
               )}>
                 <AnalyticsView
-                  onCreateArticle={(title) => onNavigateToEditor(undefined, title)}
-                  onNavigateToPosts={() => setActiveTab('posts')}
+                  onCreateArticle={onNavigateToEditor}
+                  onNavigateToPosts={handleTabPosts}
                   isMobile={isMobile}
                 />
               </div>
@@ -319,8 +338,8 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
                 <PostsView
                   onNavigateToEditor={onNavigateToEditor}
                   userRole={userRole}
-                  onPreview={(article) => setPreviewArticleId(article.id)}
-                  onSwitchToStrategy={() => setActiveTab('strategy')}
+                  onPreview={handlePreviewArticle}
+                  onSwitchToStrategy={handleTabStrategy}
                 />
               </div>
             )}
@@ -357,8 +376,8 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
             {activeTab === 'analytics' && (
               <div className="p-8 h-full overflow-y-auto">
                 <AnalyticsView
-                  onCreateArticle={(title) => onNavigateToEditor(undefined, title)}
-                  onNavigateToPosts={() => setActiveTab('posts')}
+                  onCreateArticle={onNavigateToEditor}
+                  onNavigateToPosts={handleTabPosts}
                 />
               </div>
             )}
@@ -396,8 +415,8 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModelDialogOpen(false)}>キャンセル</Button>
-            <Button type="submit" onClick={() => setIsModelDialogOpen(false)}>モデルを作成</Button>
+            <Button variant="outline" onClick={handleCloseModelDialog}>キャンセル</Button>
+            <Button type="submit" onClick={handleCloseModelDialog}>モデルを作成</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog >
@@ -423,8 +442,8 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCategoryCreateDialogOpen(false)}>キャンセル</Button>
-            <Button type="submit" onClick={() => setIsCategoryCreateDialogOpen(false)}>追加</Button>
+            <Button variant="outline" onClick={handleCloseCategoryDialog}>キャンセル</Button>
+            <Button type="submit" onClick={handleCloseCategoryDialog}>追加</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog >
@@ -457,11 +476,8 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>キャンセル</Button>
-            <Button type="submit" onClick={() => {
-              // Show toast here if possible
-              setIsInviteDialogOpen(false);
-            }}>招待メールを送信</Button>
+            <Button variant="outline" onClick={handleCloseInviteDialog}>キャンセル</Button>
+            <Button type="submit" onClick={handleCloseInviteDialog}>招待メールを送信</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog >
@@ -470,7 +486,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
   );
 }
 
-function NavItem({ icon, label, isActive, onClick, count }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, count?: number }) {
+const NavItem = React.memo(function NavItem({ icon, label, isActive, onClick, count }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, count?: number }) {
   return (
     <button
       onClick={onClick}
@@ -500,4 +516,4 @@ function NavItem({ icon, label, isActive, onClick, count }: { icon: React.ReactN
       )}
     </button>
   );
-}
+});
