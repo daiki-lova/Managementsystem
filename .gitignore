@@ -39,3 +39,4 @@ npm-debug.log*
 
 # Test scripts
 backend/test-ke-api*.js
+tsconfig.tsbuildinfo
