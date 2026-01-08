@@ -16,6 +16,10 @@ export interface PublicArticle {
     metaTitle: string | null;
     metaDescription: string | null;
     ogpImageUrl: string | null;
+    // LLMo最適化フィールド
+    llmoShortSummary: string | null;
+    llmoKeyTakeaways: string[] | null;
+    schemaJsonLd: object | null;
     categories: {
         id: string;
         name: string;

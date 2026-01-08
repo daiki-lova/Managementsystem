@@ -11,6 +11,7 @@ import {
   getRelatedArticles,
   getPopularArticles,
   getCategories,
+  PublicArticle,
 } from '@/lib/public-data';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -18,6 +19,64 @@ import sanitizeHtmlLib from 'sanitize-html';
 
 // ISR: 60秒ごとに再検証
 export const revalidate = 60;
+
+// サイトのベースURL
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://radiance-yoga.jp';
+const SITE_NAME = 'RADIANCE';
+
+// JSON-LD構造化データを生成
+function generateJsonLd(article: PublicArticle): object {
+  // DBに保存されたschemaJsonLdがあればそれを使用
+  if (article.schemaJsonLd) {
+    return article.schemaJsonLd;
+  }
+
+  // フォールバック: 基本的なArticleスキーマを生成
+  const articleUrl = `${SITE_URL}/${article.categories.slug}/${article.slug}`;
+  const publishedDate = article.publishedAt
+    ? new Date(article.publishedAt).toISOString()
+    : undefined;
+
+  const jsonLd: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.metaTitle || article.title,
+    description: article.metaDescription || article.title,
+    url: articleUrl,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': articleUrl,
+    },
+    author: {
+      '@type': 'Person',
+      name: article.authors.name,
+      jobTitle: article.authors.role,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
+  };
+
+  if (publishedDate) {
+    jsonLd.datePublished = publishedDate;
+  }
+
+  if (article.media_assets?.url) {
+    jsonLd.image = {
+      '@type': 'ImageObject',
+      url: article.media_assets.url,
+    };
+  }
+
+  // LLMo最適化データがあれば追加
+  if (article.llmoShortSummary) {
+    jsonLd.abstract = article.llmoShortSummary;
+  }
+
+  return jsonLd;
+}
 
 // メタデータ生成
 export async function generateMetadata({
@@ -511,8 +570,16 @@ export default async function ArticlePage({
     primaryHtmlBlock?.content?.match(/<figure[^>]*>[\s\S]*?<img[^>]*>[\s\S]*?<\/figure>[\s\S]{0,500}<article/i) ||
     (primaryHtmlBlock?.content?.indexOf('<figure') ?? -1) < 500;
 
+  // JSON-LD構造化データを生成
+  const jsonLd = generateJsonLd(article);
+
   return (
     <PublicPageLayout categories={categories}>
+      {/* JSON-LD構造化データ（SEO・LLM最適化） */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       {/* ヘッダースペース */}
       <div className="h-[108px] md:h-[160px]" />

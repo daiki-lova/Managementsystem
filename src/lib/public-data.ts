@@ -28,6 +28,10 @@ const articleSelect = {
   metaTitle: true,
   metaDescription: true,
   ogpImageUrl: true,
+  // LLMo最適化フィールド
+  llmoShortSummary: true,
+  llmoKeyTakeaways: true,
+  schemaJsonLd: true,
   categories: {
     select: {
       id: true,
@@ -74,6 +78,9 @@ function mapArticle(article: {
   metaTitle: string | null;
   metaDescription: string | null;
   ogpImageUrl: string | null;
+  llmoShortSummary: string | null;
+  llmoKeyTakeaways: unknown;
+  schemaJsonLd: unknown;
   categories: { id: string; name: string; slug: string };
   authors: { id: string; name: string; role: string; bio: string; imageUrl: string | null; qualifications: unknown };
   media_assets: { url: string; altText: string | null } | null;
@@ -88,6 +95,9 @@ function mapArticle(article: {
     metaTitle: article.metaTitle,
     metaDescription: article.metaDescription,
     ogpImageUrl: article.ogpImageUrl,
+    llmoShortSummary: article.llmoShortSummary,
+    llmoKeyTakeaways: Array.isArray(article.llmoKeyTakeaways) ? article.llmoKeyTakeaways : null,
+    schemaJsonLd: article.schemaJsonLd && typeof article.schemaJsonLd === 'object' ? article.schemaJsonLd : null,
     categories: article.categories,
     authors: article.authors,
     media_assets: article.media_assets,
