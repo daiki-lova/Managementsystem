@@ -36,6 +36,16 @@ import {
     DialogTitle,
     DialogFooter,
 } from "../ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "../ui/alert-dialog";
 
 import { BulkActionBar } from './BulkActionBar';
 import {
@@ -369,6 +379,16 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
     const [editPublishHour, setEditPublishHour] = useState<string>('12');
     const [editPublishMinute, setEditPublishMinute] = useState<string>('00');
 
+    // Delete Confirmation Dialog State
+    const [deletingArticle, setDeletingArticle] = useState<ExtendedArticle | null>(null);
+
+    const handleDeleteConfirm = () => {
+        if (deletingArticle) {
+            onDelete(deletingArticle.id);
+            setDeletingArticle(null);
+        }
+    };
+
     const moveColumn = useCallback((dragIndex: number, hoverIndex: number) => {
         setColumns((prevColumns) => {
             const newColumns = [...prevColumns];
@@ -603,13 +623,13 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                                         </button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="start" className="w-48">
-                                                        <DropdownMenuItem onClick={() => onPreview(article)}>
+                                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onPreview(article); }}>
                                                             <Eye size={14} className="mr-2" /> プレビュー
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => onEdit(article.id)}>
+                                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(article.id); }}>
                                                             <PenTool size={14} className="mr-2" /> 編集
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => onDuplicate(article)}>
+                                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDuplicate(article); }}>
                                                             <Copy size={14} className="mr-2" /> 複製
                                                         </DropdownMenuItem>
 
@@ -617,10 +637,11 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
 
                                                         {(article.status === 'draft' || article.status === 'review' || article.status === 'DRAFT' || article.status === 'REVIEW') && (
                                                             <>
-                                                                <DropdownMenuItem onClick={() => handlePublishArticle(article)} className="text-blue-600 focus:text-blue-600">
+                                                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePublishArticle(article); }} className="text-blue-600 focus:text-blue-600">
                                                                     <Send size={14} className="mr-2" /> 公開する
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => {
+                                                                <DropdownMenuItem onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     setSchedulingArticle(article);
                                                                     setScheduleDate(new Date());
                                                                 }}>
@@ -630,13 +651,13 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                                         )}
 
                                                         {(article.status === 'published' || article.status === 'PUBLISHED') && (
-                                                            <DropdownMenuItem onClick={() => handleUnpublish(article)} className="text-orange-600 focus:text-orange-600">
+                                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUnpublish(article); }} className="text-orange-600 focus:text-orange-600">
                                                                 <Ban size={14} className="mr-2" /> 非公開にする
                                                             </DropdownMenuItem>
                                                         )}
 
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => onDelete(article.id)}>
+                                                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={(e) => { e.stopPropagation(); setDeletingArticle(article); }}>
                                                             <Trash2 size={14} className="mr-2" /> 削除
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
@@ -865,6 +886,24 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!deletingArticle} onOpenChange={(open) => !open && setDeletingArticle(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>記事を削除しますか？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            「{deletingArticle?.title}」をゴミ箱に移動します。この操作は後から復元できます。
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
+                            削除する
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </DndProvider>
     );
 }
@@ -919,9 +958,7 @@ export function PostsView({
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm('この記事を削除してもよろしいですか？')) {
-            deleteArticle.mutate(id);
-        }
+        deleteArticle.mutate(id);
     };
 
     const handleUpdateStatus = (id: string, status: string, version: number) => {
