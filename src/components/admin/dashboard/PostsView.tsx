@@ -88,7 +88,7 @@ interface DraggableRowProps {
     className?: string;
 }
 
-function DraggableRow({ index, article, moveRow, onDragEnd, isReorderMode, children, className }: DraggableRowProps) {
+const DraggableRow = React.memo(function DraggableRow({ index, article, moveRow, onDragEnd, isReorderMode, children, className }: DraggableRowProps) {
     const ref = useRef<HTMLTableRowElement>(null);
 
     const [{ isDragging }, drag, preview] = useDrag({
@@ -143,7 +143,7 @@ function DraggableRow({ index, article, moveRow, onDragEnd, isReorderMode, child
             {children}
         </tr>
     );
-}
+});
 
 interface DraggableHeaderProps {
     column: ColumnConfig;
@@ -162,7 +162,7 @@ interface DraggableHeaderProps {
     uniqueValues?: Record<string, { value: string; count: number }[]>;
 }
 
-function DraggableHeader({
+const DraggableHeader = React.memo(function DraggableHeader({
     column,
     index,
     moveColumn,
@@ -297,7 +297,7 @@ function DraggableHeader({
             />
         </th>
     );
-}
+});
 
 interface ArticlesTableProps {
     data: ExtendedArticle[];
@@ -329,7 +329,7 @@ interface PublishedAtEditorProps {
     onUpdate: (date: string | null) => void;
 }
 
-function PublishedAtEditor({ article, onUpdate }: PublishedAtEditorProps) {
+const PublishedAtEditor = React.memo(function PublishedAtEditor({ article, onUpdate }: PublishedAtEditorProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [date, setDate] = useState<Date | undefined>(() => {
         if (article.publishedAt) {
@@ -421,9 +421,9 @@ function PublishedAtEditor({ article, onUpdate }: PublishedAtEditorProps) {
             </PopoverContent>
         </Popover>
     );
-}
+});
 
-function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onUpdatePublishedAt, onDuplicate, isTrashView, onBulkDelete, onBulkDeletePermanent, onBulkRestore, onBulkSetDraft, onReorder, isReorderMode }: ArticlesTableProps) {
+const ArticlesTable = React.memo(function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedule, onDelete, onRestore, onDeletePermanent, onUpdateStatus, onUpdatePublishedAt, onDuplicate, isTrashView, onBulkDelete, onBulkDeletePermanent, onBulkRestore, onBulkSetDraft, onReorder, isReorderMode }: ArticlesTableProps) {
     // Bulk action confirmation dialog state
     const [bulkConfirmDialog, setBulkConfirmDialog] = useState<{
         open: boolean;
@@ -970,7 +970,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
                                             {column.id === 'thumbnail' && (
                                                 <div className="w-10 h-10 rounded bg-neutral-100 overflow-hidden border border-neutral-100">
                                                     {article.thumbnail ? (
-                                                        <img src={article.thumbnail} alt="" className="w-full h-full object-cover" />
+                                                        <img src={article.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center text-neutral-300">
                                                             <ImageIcon size={14} />
@@ -1095,7 +1095,7 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
             />
         </DndProvider>
     );
-}
+});
 
 export function PostsView({
     data: _data,

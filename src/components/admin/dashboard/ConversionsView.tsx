@@ -293,7 +293,7 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                             <div className="col-span-4 flex gap-5 items-center overflow-hidden">
                                 <div className="w-20 h-12 shrink-0 bg-neutral-100 rounded-lg overflow-hidden border border-neutral-200/50 relative">
                                     {cv.thumbnail ? (
-                                        <img src={cv.thumbnail} alt={cv.name} className="w-full h-full object-cover" />
+                                        <img src={cv.thumbnail} alt={cv.name} className="w-full h-full object-cover" loading="lazy" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-neutral-300">
                                             <ImageIcon size={18} />
