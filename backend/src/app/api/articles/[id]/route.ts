@@ -415,11 +415,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           },
         });
 
-        // カテゴリの記事数を減らす
-        await prisma.categories.update({
-          where: { id: existing.categoryId },
-          data: { articlesCount: { decrement: 1 } },
-        });
+        // カテゴリの記事数を減らす（カテゴリが設定されている場合のみ）
+        if (existing.categoryId) {
+          await prisma.categories.update({
+            where: { id: existing.categoryId },
+            data: { articlesCount: { decrement: 1 } },
+          });
+        }
 
         // 監査ログ
         await auditLog.articleTrash(request, user.id, id, existing.title);
