@@ -380,15 +380,9 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                                                         <Globe size={14} />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
-                                                        <a
-                                                            href={item.content}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="text-sm text-blue-600 hover:underline hover:text-blue-700 truncate block font-bold"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
+                                                        <span className="text-sm text-neutral-700 truncate block font-medium">
                                                             {item.content}
-                                                        </a>
+                                                        </span>
                                                         <p className="text-[10px] text-neutral-400 mt-0.5">外部リンク</p>
                                                     </div>
                                                 </div>
