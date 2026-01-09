@@ -135,6 +135,7 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
     const shortPrompt = prompt.length > 400 ? prompt.substring(0, 400) : prompt;
 
     console.log(`[V6] Generating image with model: ${IMAGE_MODEL}`);
+    console.log(`[V6] Prompt length: ${shortPrompt.length} chars`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000);
@@ -144,6 +145,8 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
       messages: [{ role: "user", content: shortPrompt }],
       modalities: ["image", "text"],
     };
+
+    console.log(`[V6] Request body size: ${JSON.stringify(requestBody).length} chars`);
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -837,38 +840,104 @@ interface ArticleImageContext {
   categoryName: string;
 }
 
-// ヨガポーズのバリエーション（カバー画像用）
-const YOGA_POSES_COVER = [
-  "performing Warrior II pose (Virabhadrasana II) with arms extended wide, strong stance, looking over front hand",
-  "in a graceful Tree pose (Vrksasana), one leg raised, hands in prayer position above head, balanced and serene",
-  "doing Downward-facing Dog pose (Adho Mukha Svanasana), forming an inverted V shape, grounded and stable",
-  "in Triangle pose (Trikonasana), one arm reaching up, body forming a beautiful geometric shape",
-  "practicing Warrior I pose (Virabhadrasana I), arms raised overhead, powerful lunging stance",
-  "in a seated Lotus pose (Padmasana), hands on knees, peaceful meditation posture",
-  "doing Cobra pose (Bhujangasana), chest lifted, gentle backbend, looking forward with calm expression",
-  "in Cat-Cow pose on all fours, spine arched gracefully, connecting breath with movement",
-];
+/**
+ * ヨガポーズのバリエーション（45種類）
+ * カバー画像・本文画像両方で使用
+ */
+const YOGA_POSES = [
+  // 立位ポーズ (12種類)
+  { name: 'Mountain Pose (Tadasana)', description: 'standing tall with feet together, arms at sides' },
+  { name: 'Tree Pose (Vrksasana)', description: 'standing on one leg with other foot on inner thigh, hands in prayer or raised' },
+  { name: 'Warrior I (Virabhadrasana I)', description: 'lunging forward with arms raised overhead' },
+  { name: 'Warrior II (Virabhadrasana II)', description: 'lunging with arms extended horizontally to sides' },
+  { name: 'Warrior III (Virabhadrasana III)', description: 'balancing on one leg with body and back leg parallel to floor' },
+  { name: 'Extended Side Angle (Utthita Parsvakonasana)', description: 'lunging with one arm reaching over ear' },
+  { name: 'Triangle Pose (Trikonasana)', description: 'standing with legs wide, reaching down to ankle and up to sky' },
+  { name: 'Half Moon (Ardha Chandrasana)', description: 'balancing on one leg with other leg and arm extended horizontally' },
+  { name: 'Chair Pose (Utkatasana)', description: 'sitting back with knees bent, arms raised overhead' },
+  { name: 'Eagle Pose (Garudasana)', description: 'standing on one leg with arms and legs wrapped' },
+  { name: 'Standing Forward Fold (Uttanasana)', description: 'bending forward from hips with hands reaching to floor' },
+  { name: 'Extended Hand to Toe (Utthita Hasta Padangusthasana)', description: 'standing on one leg holding other foot extended' },
 
-// ヨガポーズのバリエーション（本文画像用）
-const YOGA_POSES_INBODY = [
-  "in Child's pose (Balasana), resting peacefully, arms extended forward, deeply relaxed",
-  "doing Bridge pose (Setu Bandhasana), hips lifted, creating a beautiful arch with the body",
-  "in Seated Forward Bend (Paschimottanasana), folding gently over legs, stretching the back",
-  "practicing Mountain pose (Tadasana), standing tall with perfect alignment, grounded and present",
-  "in Half Moon pose (Ardha Chandrasana), balanced on one leg, other leg extended, arm reaching up",
-  "doing Pigeon pose (Eka Pada Rajakapotasana), deep hip opener, peaceful expression",
+  // 座位ポーズ (9種類)
+  { name: 'Easy Pose (Sukhasana)', description: 'sitting cross-legged with straight spine' },
+  { name: 'Lotus Pose (Padmasana)', description: 'sitting with feet on opposite thighs' },
+  { name: 'Staff Pose (Dandasana)', description: 'sitting with legs extended straight, hands beside hips' },
+  { name: 'Seated Forward Fold (Paschimottanasana)', description: 'sitting with legs extended, folding forward over legs' },
+  { name: 'Head to Knee (Janu Sirsasana)', description: 'sitting with one leg extended, folding toward that leg' },
+  { name: 'Bound Angle (Baddha Konasana)', description: 'sitting with soles of feet together, knees open' },
+  { name: 'Cow Face Pose (Gomukhasana)', description: 'sitting with legs crossed, arms behind back' },
+  { name: 'Seated Twist (Ardha Matsyendrasana)', description: 'sitting with one leg crossed, twisting toward bent knee' },
+  { name: 'Boat Pose (Navasana)', description: 'sitting with legs and torso lifted, balancing on sit bones' },
+
+  // 後屈ポーズ (7種類)
+  { name: 'Cobra Pose (Bhujangasana)', description: 'lying prone with upper body lifted, arms supporting' },
+  { name: 'Upward Dog (Urdhva Mukha Svanasana)', description: 'arms straight, body lifted off floor, tops of feet down' },
+  { name: 'Bridge Pose (Setu Bandhasana)', description: 'lying on back with hips lifted, feet flat on floor' },
+  { name: 'Wheel Pose (Urdhva Dhanurasana)', description: 'full backbend with hands and feet on floor, body arched' },
+  { name: 'Camel Pose (Ustrasana)', description: 'kneeling with hips forward, reaching back to heels' },
+  { name: 'Bow Pose (Dhanurasana)', description: 'lying prone, holding ankles with back arched' },
+  { name: 'Fish Pose (Matsyasana)', description: 'lying on back with chest lifted, head tilted back' },
+
+  // 前屈・ストレッチ (6種類)
+  { name: 'Downward Dog (Adho Mukha Svanasana)', description: 'inverted V-shape with hands and feet on floor' },
+  { name: "Child's Pose (Balasana)", description: 'kneeling with forehead on floor, arms extended or beside body' },
+  { name: 'Cat-Cow (Marjaryasana-Bitilasana)', description: 'on hands and knees, alternating arched and rounded spine' },
+  { name: 'Pigeon Pose (Eka Pada Rajakapotasana)', description: 'one leg bent in front, other leg extended behind' },
+  { name: 'Lizard Pose (Utthan Pristhasana)', description: 'low lunge with both hands inside front foot' },
+  { name: 'Wide-Legged Forward Fold (Prasarita Padottanasana)', description: 'standing with legs wide, folding forward' },
+
+  // バランス・逆転 (6種類)
+  { name: 'Crow Pose (Bakasana)', description: 'balancing on hands with knees on upper arms' },
+  { name: 'Side Crow (Parsva Bakasana)', description: 'balancing on hands with both legs to one side' },
+  { name: 'Headstand (Sirsasana)', description: 'inverted on head with legs straight up' },
+  { name: 'Shoulder Stand (Sarvangasana)', description: 'inverted on shoulders with legs straight up' },
+  { name: 'Plow Pose (Halasana)', description: 'lying on back with legs over head, toes touching floor' },
+  { name: 'Forearm Stand (Pincha Mayurasana)', description: 'balancing on forearms with legs vertical' },
+
+  // リラックス (5種類)
+  { name: 'Corpse Pose (Savasana)', description: 'lying flat on back, completely relaxed' },
+  { name: 'Legs Up the Wall (Viparita Karani)', description: 'lying on back with legs extended up against wall' },
+  { name: 'Reclined Twist (Supta Matsyendrasana)', description: 'lying on back with knees dropped to one side' },
+  { name: 'Happy Baby (Ananda Balasana)', description: 'lying on back holding feet with knees bent toward armpits' },
+  { name: 'Supine Bound Angle (Supta Baddha Konasana)', description: 'lying on back with soles of feet together, knees open' },
 ];
 
 /**
- * タイトルから決定論的にポーズを選択（同じタイトルなら同じポーズ）
+ * 背景/シーンのバリエーション（10種類）
  */
-function selectYogaPose(title: string, poses: string[]): string {
-  let hash = 0;
-  for (let i = 0; i < title.length; i++) {
-    hash = ((hash << 5) - hash) + title.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return poses[Math.abs(hash) % poses.length];
+const SCENE_BACKGROUNDS = [
+  'modern minimalist yoga studio with natural light streaming through large windows',
+  'serene outdoor garden setting with soft morning light and blooming flowers',
+  'beach at sunrise with calm ocean waves and golden sand',
+  'mountain meadow with wildflowers and distant peaks',
+  'zen garden with bamboo, stones, and a peaceful water feature',
+  'rooftop terrace overlooking city skyline at golden hour',
+  'forest clearing with dappled sunlight filtering through trees',
+  'clean white studio with large windows and wooden floors',
+  'peaceful lakeside at dawn with mist rising from the water',
+  'tropical paradise with palm trees and warm ocean breeze',
+];
+
+/**
+ * ランダムにヨガポーズを選択
+ */
+function getRandomYogaPose(): typeof YOGA_POSES[number] {
+  return YOGA_POSES[Math.floor(Math.random() * YOGA_POSES.length)];
+}
+
+/**
+ * ランダムに背景を選択
+ */
+function getRandomBackground(): string {
+  return SCENE_BACKGROUNDS[Math.floor(Math.random() * SCENE_BACKGROUNDS.length)];
+}
+
+/**
+ * ポーズをプロンプト用の文字列に変換
+ */
+function formatPoseForPrompt(pose: typeof YOGA_POSES[number]): string {
+  return `practicing ${pose.name}, ${pose.description}`;
 }
 
 /**
@@ -897,21 +966,21 @@ function buildContextualImagePrompt(
     personHint = "modern young woman wearing yoga wear";
   }
 
-  // タイトルに基づいてヨガポーズを選択
-  const coverPose = selectYogaPose(context.title, YOGA_POSES_COVER);
-  const inbodyPose1 = selectYogaPose(context.title + "1", YOGA_POSES_INBODY);
-  const inbodyPose2 = selectYogaPose(context.title + "2", YOGA_POSES_COVER);
+  // ランダムにヨガポーズと背景を選択（45ポーズ × 10背景 = 450パターン）
+  const pose = getRandomYogaPose();
+  const posePrompt = formatPoseForPrompt(pose);
+  const background = getRandomBackground();
 
-  // スロットごとに異なるシーンを生成（ヨガポーズ中心）
+  // スロットごとに異なるシーンを生成（ヨガポーズ中心、背景はランダム）
   const scenePrompts: Record<"cover" | "inbody_1" | "inbody_2", string> = {
     cover: `${baseStyle}
-A ${personHint} ${coverPose} on a yoga mat in a bright, airy yoga studio. Soft natural light. Focus on the yoga pose and form. The woman looks calm, focused, and confident. Clean, minimal background with subtle plant decoration.`,
+A ${personHint} ${posePrompt} on a yoga mat in a ${background}. Soft natural light. Focus on the yoga pose and form. The woman looks calm, focused, and confident.`,
 
     inbody_1: `${baseStyle}
-A ${personHint} ${inbodyPose1} on a yoga mat. Peaceful atmosphere with soft lighting. Focus on the yoga practice and inner peace. Serene expression showing mindfulness and concentration.`,
+A ${personHint} ${posePrompt} on a yoga mat in a ${background}. Peaceful atmosphere with soft lighting. Focus on the yoga practice and inner peace. Serene expression showing mindfulness and concentration.`,
 
     inbody_2: `${baseStyle}
-A ${personHint} ${inbodyPose2} on a yoga mat. Warm, encouraging atmosphere. Showing progress and dedication to yoga practice. Confident posture and peaceful expression. Modern yoga studio setting.`,
+A ${personHint} ${posePrompt} on a yoga mat in a ${background}. Warm, encouraging atmosphere. Showing progress and dedication to yoga practice. Confident posture and peaceful expression.`,
   };
 
   return scenePrompts[slot];
@@ -935,8 +1004,10 @@ function buildCoverImagePrompt(context: ArticleImageContext): string {
     personHint = "woman in stylish yoga wear";
   }
 
-  // ヨガポーズ選択
-  const pose = selectYogaPose(context.title, YOGA_POSES_COVER);
+  // ヨガポーズをランダム選択（45種類から）
+  const selectedPose = getRandomYogaPose();
+  const pose = formatPoseForPrompt(selectedPose);
+  console.log(`[Cover Image] Pose selected: ${selectedPose.name}`);
 
   // 3つの構図パターン
   type CompositionType = "CLOSE" | "MEDIUM" | "WIDE";
@@ -1017,21 +1088,31 @@ function buildRealisticImagePrompt(
     personHint = "modern young Japanese woman wearing professional yoga wear";
   }
 
-  // タイトルに基づいてヨガポーズを選択
-  const coverPose = selectYogaPose(context.title, YOGA_POSES_COVER);
-  const inbodyPose1 = selectYogaPose(context.title + "1", YOGA_POSES_INBODY);
-  const inbodyPose2 = selectYogaPose(context.title + "2", YOGA_POSES_COVER);
+  // ヨガポーズをランダム選択（45種類から、各スロットで異なるポーズ）
+  const pose1 = getRandomYogaPose();
+  const pose2 = getRandomYogaPose();
+  const pose3 = getRandomYogaPose();
+  const coverPose = formatPoseForPrompt(pose1);
+  const inbodyPose1 = formatPoseForPrompt(pose2);
+  const inbodyPose2 = formatPoseForPrompt(pose3);
+
+  // 背景をランダム選択（10種類から）
+  const background1 = getRandomBackground();
+  const background2 = getRandomBackground();
+  const background3 = getRandomBackground();
+
+  console.log(`[Realistic Image] Poses: ${pose1.name}, ${pose2.name}, ${pose3.name}`);
 
   // スロットごとに異なるシーンを生成（リアル写真風・ヨガポーズ中心）
   const scenePrompts: Record<"cover" | "inbody_1" | "inbody_2", string> = {
     cover: `${baseStyle}
-A ${personHint} ${coverPose} on a premium yoga mat in a bright, modern yoga studio. Beautiful natural light streaming through large windows. Focus on perfect yoga form and alignment. Professional yoga photography capturing the essence of practice. Clean, minimalist studio with wooden floors and plants.`,
+A ${personHint} ${coverPose} on a premium yoga mat in a ${background1}. Beautiful natural light streaming through large windows. Focus on perfect yoga form and alignment. Professional yoga photography capturing the essence of practice. Clean, minimalist studio with wooden floors and plants.`,
 
     inbody_1: `${baseStyle}
-A ${personHint} ${inbodyPose1} on a yoga mat. Soft, diffused lighting creating a peaceful atmosphere. Focus on the yoga practice and mindful movement. Serene expression showing deep concentration. Professional fitness photography style.`,
+A ${personHint} ${inbodyPose1} on a yoga mat in a ${background2}. Soft, diffused lighting creating a peaceful atmosphere. Focus on the yoga practice and mindful movement. Serene expression showing deep concentration. Professional fitness photography style.`,
 
     inbody_2: `${baseStyle}
-A ${personHint} ${inbodyPose2} on a yoga mat. Golden hour lighting creating warmth. Capturing strength, flexibility, and inner peace through the pose. Confident and grounded posture. High-end yoga studio or wellness center setting.`,
+A ${personHint} ${inbodyPose2} on a yoga mat in a ${background3}. Golden hour lighting creating warmth. Capturing strength, flexibility, and inner peace through the pose. Confident and grounded posture. High-end yoga studio or wellness center setting.`,
   };
 
   return scenePrompts[slot];
@@ -1064,21 +1145,31 @@ function buildScenicImagePrompt(
     personHint = "beautiful young woman wearing stylish yoga wear";
   }
 
-  // タイトルに基づいてヨガポーズを選択
-  const coverPose = selectYogaPose(context.title, YOGA_POSES_COVER);
-  const inbodyPose1 = selectYogaPose(context.title + "1", YOGA_POSES_INBODY);
-  const inbodyPose2 = selectYogaPose(context.title + "2", YOGA_POSES_COVER);
+  // ヨガポーズをランダム選択（45種類から、各スロットで異なるポーズ）
+  const pose1 = getRandomYogaPose();
+  const pose2 = getRandomYogaPose();
+  const pose3 = getRandomYogaPose();
+  const coverPose = formatPoseForPrompt(pose1);
+  const inbodyPose1 = formatPoseForPrompt(pose2);
+  const inbodyPose2 = formatPoseForPrompt(pose3);
+
+  // 背景をランダム選択（10種類から）
+  const background1 = getRandomBackground();
+  const background2 = getRandomBackground();
+  const background3 = getRandomBackground();
+
+  console.log(`[Scenic Image] Poses: ${pose1.name}, ${pose2.name}, ${pose3.name}`);
 
   // スロットごとに異なる風景シーンを生成
   const scenePrompts: Record<"cover" | "inbody_1" | "inbody_2", string> = {
     cover: `${baseStyle}
-A ${personHint} ${coverPose} on a wooden deck overlooking misty mountains at sunrise. Golden hour lighting with warm sun rays. Silhouette with beautiful backlighting. Peaceful, meditative atmosphere with breathtaking natural scenery. Shot from behind or side angle.`,
+A ${personHint} ${coverPose} in a ${background1}. Golden hour lighting with warm sun rays. Silhouette with beautiful backlighting. Peaceful, meditative atmosphere with breathtaking natural scenery. Shot from behind or side angle.`,
 
     inbody_1: `${baseStyle}
-A ${personHint} ${inbodyPose1} in an outdoor setting with lush green nature. Soft morning light filtering through trees. Yoga mat on grass or natural surface. Serene forest or garden backdrop. Harmonious blend of yoga practice and nature.`,
+A ${personHint} ${inbodyPose1} in a ${background2}. Soft morning light filtering through trees. Yoga mat on grass or natural surface. Harmonious blend of yoga practice and nature.`,
 
     inbody_2: `${baseStyle}
-A ${personHint} ${inbodyPose2} at sunset on a rooftop or terrace with city skyline in the background. Warm golden and pink tones in the sky. Urban wellness lifestyle. Balance between modern life and mindful practice.`,
+A ${personHint} ${inbodyPose2} in a ${background3}. Warm golden and pink tones in the sky. Urban wellness lifestyle. Balance between modern life and mindful practice.`,
   };
 
   return scenePrompts[slot];
@@ -1375,8 +1466,9 @@ export const generateArticlePipelineV6 = inngest.createFunction(
         pipelineData.settings!.openRouterApiKey!,
         pipelineData.settings!
       );
-      if (!analysis) {
-        throw new Error("Theme analysis failed");
+      if (!analysis || !analysis.mainThemes || !analysis.keywordCandidates) {
+        console.error("[V6] Invalid theme analysis response:", JSON.stringify(analysis));
+        throw new Error("Theme analysis failed: missing required fields");
       }
       console.log(`[V6] Themes: ${analysis.mainThemes.join(", ")}`);
       return analysis;
