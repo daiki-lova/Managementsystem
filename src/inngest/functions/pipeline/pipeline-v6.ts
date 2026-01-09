@@ -1237,7 +1237,7 @@ function buildCoverImagePrompt(context: ArticleImageContext): string {
   const compositions: Record<CompositionType, { baseStyle: string; sceneryOptions: string[] }> = {
     // CLOSE: 人物にフォーカス（30-50%）、背景ぼかし
     CLOSE: {
-      baseStyle: `Professional yoga photography with shallow depth of field. Focus on the yoga practitioner with a beautifully blurred background. The person takes up 30-50% of the frame. Soft, dreamy bokeh effect. Realistic photo style, NOT illustration, NOT cartoon. High resolution, magazine quality. No text overlays. No watermarks.`,
+      baseStyle: `PHOTOREALISTIC professional yoga photography. Shot with a DSLR camera, real photograph, NOT illustration, NOT drawing, NOT anime, NOT cartoon, NOT watercolor, NOT sketch, NOT digital art. Shallow depth of field with beautiful bokeh. The person takes up 30-50% of the frame. Natural lighting, magazine quality. No text overlays. No watermarks.`,
       sceneryOptions: [
         `A ${personHint} ${pose} in the foreground with soft golden morning light. Blurred mountains and mist in the background. Intimate portrait-style composition with natural warm lighting.`,
         `A ${personHint} ${pose} captured in close-up with ocean waves softly blurred behind. Sunset glow illuminating her face and form. Shallow depth of field creating dreamy atmosphere.`,
@@ -1248,7 +1248,7 @@ function buildCoverImagePrompt(context: ArticleImageContext): string {
     },
     // MEDIUM: 人物と環境のバランス（15-30%）
     MEDIUM: {
-      baseStyle: `Balanced yoga lifestyle photography showing both practitioner and environment. The person takes up 15-30% of the frame, harmoniously placed within the scenic setting. Professional composition with clear subject and context. Realistic photo style, NOT illustration, NOT cartoon. High resolution. No text overlays. No watermarks.`,
+      baseStyle: `PHOTOREALISTIC yoga lifestyle photography. Shot with a DSLR camera, real photograph, NOT illustration, NOT drawing, NOT anime, NOT cartoon, NOT watercolor, NOT sketch, NOT digital art. The person takes up 15-30% of the frame within scenic setting. Professional composition, high resolution. No text overlays. No watermarks.`,
       sceneryOptions: [
         `A ${personHint} ${pose} on a wooden deck with misty mountains visible behind. Medium shot showing both her graceful pose and the majestic mountain landscape. Golden sunrise creating warm atmosphere.`,
         `A ${personHint} ${pose} on coastal rocks with the ocean stretching to the horizon. Balanced composition with dramatic sky and waves complementing her flowing pose. Sunset colors reflecting off the water.`,
@@ -1259,7 +1259,7 @@ function buildCoverImagePrompt(context: ArticleImageContext): string {
     },
     // WIDE: 風景メイン、人物は点景（5-15%）
     WIDE: {
-      baseStyle: `Stunning wide-angle landscape photography featuring yoga. Shot from a distance showing the full scenic environment. The focus is on the breathtaking natural backdrop, with the yoga practitioner appearing small (5-15% of frame) as part of the grand scenery. Cinematic composition, high resolution. Realistic photo style, NOT illustration, NOT cartoon. No text overlays. No watermarks.`,
+      baseStyle: `PHOTOREALISTIC wide-angle landscape photography featuring yoga. Shot with a DSLR camera, real photograph, NOT illustration, NOT drawing, NOT anime, NOT cartoon, NOT watercolor, NOT sketch, NOT digital art. The yoga practitioner appears small (5-15% of frame) within breathtaking natural backdrop. Cinematic composition, high resolution. No text overlays. No watermarks.`,
       sceneryOptions: [
         `A ${personHint} ${pose} as a small silhouette on a wooden deck overlooking vast misty mountains at golden sunrise. Dramatic orange and pink sky dominates the frame. Breathtaking panoramic mountain landscape as the main subject.`,
         `A ${personHint} ${pose} as a tiny figure on a cliff edge facing an endless ocean at sunset. Warm golden light, dramatic cloudscape. Wide landscape shot with vast ocean horizon commanding attention.`,
@@ -1282,7 +1282,10 @@ function buildCoverImagePrompt(context: ArticleImageContext): string {
 
   console.log(`[Cover Image] Composition: ${selectedComposition}, Scenery: ${randomSceneryIndex + 1}/5`);
 
-  return `${composition.baseStyle}\n${selectedScenery}`;
+  const finalPrompt = `${composition.baseStyle}\n${selectedScenery}`;
+  console.log(`[Cover Image] Prompt (first 300 chars): ${finalPrompt.substring(0, 300)}...`);
+
+  return finalPrompt;
 }
 
 /**
