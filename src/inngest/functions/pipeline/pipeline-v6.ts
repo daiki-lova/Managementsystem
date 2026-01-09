@@ -312,16 +312,105 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
 }
 
 // ========================================
-// Step 1: 複数の受講生の声を取得
+// Step 1: 複数の受講生の声を取得（適合度+使用頻度バランス）
 // ========================================
+
+interface AuthorContext {
+  specialties?: string[];
+  categories?: string[];
+  tags?: string[];
+  targetAudience?: string[];
+  philosophy?: string;
+}
+
+// 適合度スコアを計算（監修者の専門分野と受講生の声の内容のマッチング）
+function calculateRelevanceScore(
+  voiceContent: string,
+  authorContext: AuthorContext
+): number {
+  let score = 0;
+  const contentLower = voiceContent.toLowerCase();
+
+  // 専門分野とのマッチング（各マッチ +3点）
+  const specialties = authorContext.specialties || [];
+  for (const specialty of specialties) {
+    if (contentLower.includes(specialty.toLowerCase())) {
+      score += 3;
+    }
+  }
+
+  // カテゴリとのマッチング（各マッチ +2点）
+  const categories = authorContext.categories || [];
+  for (const category of categories) {
+    if (contentLower.includes(category.toLowerCase())) {
+      score += 2;
+    }
+  }
+
+  // タグとのマッチング（各マッチ +1点）
+  const tags = authorContext.tags || [];
+  for (const tag of tags) {
+    if (contentLower.includes(tag.toLowerCase())) {
+      score += 1;
+    }
+  }
+
+  // 対象者とのマッチング（各マッチ +2点）
+  const targetAudience = authorContext.targetAudience || [];
+  for (const target of targetAudience) {
+    if (contentLower.includes(target.toLowerCase())) {
+      score += 2;
+    }
+  }
+
+  // 共通キーワードのマッチング
+  const yogaKeywords = ["初心者", "体験", "資格", "オンライン", "変化", "成長", "継続"];
+  for (const keyword of yogaKeywords) {
+    if (contentLower.includes(keyword)) {
+      score += 0.5;
+    }
+  }
+
+  return score;
+}
+
+// 使用頻度スコアを計算（使用回数が少ないほど高スコア）
+function calculateFreshnessScore(usageCount: number, maxUsage: number): number {
+  if (maxUsage === 0) return 10;
+  // 使用回数0 → 10点、最大使用回数 → 0点
+  return Math.max(0, 10 - (usageCount / maxUsage) * 10);
+}
 
 async function collectMultipleTestimonials(
   mainKnowledgeId?: string,
-  categoryId?: string
+  _categoryId?: string,  // 将来の機能拡張用
+  authorId?: string
 ): Promise<StudentVoice[]> {
   const voices: StudentVoice[] = [];
 
-  // メインの声を取得
+  // 監修者情報を取得（適合度計算用）
+  let authorContext: AuthorContext = {};
+  if (authorId) {
+    const author = await prisma.authors.findUnique({
+      where: { id: authorId }
+    });
+    if (author) {
+      // Json?型フィールドを配列に変換
+      const parseJsonArray = (val: unknown): string[] => {
+        if (Array.isArray(val)) return val as string[];
+        return [];
+      };
+      authorContext = {
+        specialties: parseJsonArray(author.specialties),
+        categories: parseJsonArray(author.categories),
+        tags: parseJsonArray(author.tags),
+        targetAudience: author.targetAudience ? [author.targetAudience] : [],
+        philosophy: author.philosophy || "",
+      };
+    }
+  }
+
+  // メインの声を取得（指定されている場合）
   if (mainKnowledgeId) {
     const mainVoice = await prisma.knowledge_items.findUnique({
       where: { id: mainKnowledgeId }
@@ -331,46 +420,60 @@ async function collectMultipleTestimonials(
     }
   }
 
-  // メインがない場合、ランダムに1件選択
-  if (voices.length === 0) {
-    const usedItems = await prisma.article_knowledge_items.findMany({
-      select: { knowledgeItemId: true }
-    });
-    const usedIds = usedItems.map(i => i.knowledgeItemId);
-
-    const availableVoices = await prisma.knowledge_items.findMany({
-      where: {
-        type: "STUDENT_VOICE",
-        id: usedIds.length > 0 ? { notIn: usedIds } : undefined
-      }
-    });
-
-    if (availableVoices.length > 0) {
-      const randomIndex = Math.floor(Math.random() * availableVoices.length);
-      const voice = availableVoices[randomIndex];
-      voices.push({ id: voice.id, title: voice.title, content: voice.content });
+  // 全ての受講生の声を取得
+  const allVoices = await prisma.knowledge_items.findMany({
+    where: {
+      type: "STUDENT_VOICE",
+      id: voices.length > 0 ? { notIn: voices.map(v => v.id) } : undefined
     }
-  }
+  });
 
-  if (voices.length === 0) {
+  if (allVoices.length === 0 && voices.length === 0) {
     return [];
   }
 
-  // 追加の声を2件取得（同じカテゴリまたは全体から）
-  const additionalVoices = await prisma.knowledge_items.findMany({
-    where: {
-      type: "STUDENT_VOICE",
-      id: { notIn: voices.map(v => v.id) }
-    },
-    take: 2,
-    orderBy: { createdAt: "desc" }
+  // 最大使用回数を取得
+  const maxUsage = Math.max(...allVoices.map(v => v.usageCount || 0), 1);
+
+  // 各声にスコアを計算
+  const scoredVoices = allVoices.map(voice => {
+    const relevanceScore = calculateRelevanceScore(voice.content, authorContext);
+    const freshnessScore = calculateFreshnessScore(voice.usageCount || 0, maxUsage);
+
+    // 総合スコア: 適合度60% + 使用頻度40%
+    const totalScore = relevanceScore * 0.6 + freshnessScore * 0.4;
+
+    return {
+      id: voice.id,
+      title: voice.title,
+      content: voice.content,
+      usageCount: voice.usageCount || 0,
+      relevanceScore,
+      freshnessScore,
+      totalScore
+    };
   });
 
-  for (const voice of additionalVoices) {
-    voices.push({ id: voice.id, title: voice.title, content: voice.content });
+  // スコア順にソート
+  scoredVoices.sort((a, b) => b.totalScore - a.totalScore);
+
+  // メインがない場合、最高スコアの声を選択
+  if (voices.length === 0 && scoredVoices.length > 0) {
+    const best = scoredVoices[0];
+    voices.push({ id: best.id, title: best.title, content: best.content });
+    console.log(`[V6] Main voice selected: "${best.title}" (relevance: ${best.relevanceScore.toFixed(1)}, freshness: ${best.freshnessScore.toFixed(1)}, usage: ${best.usageCount})`);
+    scoredVoices.shift();
   }
 
-  console.log(`[V6] Collected ${voices.length} testimonials`);
+  // 追加の声を2件取得（スコア上位から）
+  const additionalCount = Math.min(2, scoredVoices.length);
+  for (let i = 0; i < additionalCount; i++) {
+    const voice = scoredVoices[i];
+    voices.push({ id: voice.id, title: voice.title, content: voice.content });
+    console.log(`[V6] Additional voice ${i + 1}: "${voice.title}" (relevance: ${voice.relevanceScore.toFixed(1)}, freshness: ${voice.freshnessScore.toFixed(1)}, usage: ${voice.usageCount})`);
+  }
+
+  console.log(`[V6] Collected ${voices.length} testimonials with balanced selection`);
   return voices;
 }
 
@@ -1549,7 +1652,11 @@ export const generateArticlePipelineV6 = inngest.createFunction(
     });
 
     const testimonials = await step.run("v6-collect-testimonials", async () => {
-      const voices = await collectMultipleTestimonials(pipelineData.knowledgeItem?.id, pipelineData.categoryId);
+      const voices = await collectMultipleTestimonials(
+        pipelineData.knowledgeItem?.id,
+        pipelineData.categoryId,
+        pipelineData.authorId  // 監修者との適合度計算のため
+      );
       if (voices.length === 0) {
         throw new Error("No available student voice found");
       }
