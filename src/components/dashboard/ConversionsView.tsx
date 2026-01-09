@@ -110,7 +110,7 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
             name: formData.name || '新規キャンペーン',
             type: formData.type || 'campaign',
             url: formData.url || '',
-            thumbnailUrl: formData.thumbnail,
+            thumbnailUrl: formData.thumbnail === undefined ? undefined : (formData.thumbnail || null),
             status: formData.status || 'scheduled',
             period: formData.period || '',
             context: formData.context,
@@ -338,8 +338,8 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                                 {formData.thumbnail ? (
                                     <div className="relative w-40 h-24 rounded-lg overflow-hidden border border-neutral-200 group">
                                         <img src={formData.thumbnail} alt="Preview" className="w-full h-full object-cover" />
-                                        <button 
-                                            onClick={() => setFormData({...formData, thumbnail: undefined})}
+                                        <button
+                                            onClick={() => setFormData({...formData, thumbnail: null})}
                                             className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all"
                                         >
                                             <X size={12} />

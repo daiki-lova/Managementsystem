@@ -504,7 +504,7 @@ export const conversionsApi = {
     name?: string;
     type?: string;
     url?: string;
-    thumbnailUrl?: string;
+    thumbnailUrl?: string | null;
     description?: string;
     status?: string;
     startDate?: string;
