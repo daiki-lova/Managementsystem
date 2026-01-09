@@ -788,10 +788,10 @@ function Container16() {
   );
 }
 
-function Heading() {
+function Heading({ text }: { text?: string }) {
   return (
     <div className="absolute font-['Noto_Sans_JP:Medium',sans-serif] font-medium leading-[44.8px] left-[48px] right-[48px] text-[32px] text-white top-[32px] tracking-[0.8px]" data-name="Heading 2">
-      <p className="leading-[44.8px]">ヨガ＆ピラティスで理想のライフスタイルを手に入れる</p>
+      <p className="leading-[44.8px]">{text || "ヨガ＆ピラティスで理想のライフスタイルを手に入れる"}</p>
     </div>
   );
 }
@@ -822,13 +822,16 @@ function Container17() {
   );
 }
 
-function Background1() {
+function Background1({ categoryName }: { categoryName?: string }) {
+  const displayCategory = categoryName || "YOGA & PILATES";
+  const displayTitle = categoryName ? `${categoryName}で理想のライフスタイルを手に入れる` : undefined;
+
   return (
     <div className="absolute bg-gradient-to-t from-[rgba(0,0,0,0.9)] h-[268.75px] left-0 right-0 to-[rgba(0,0,0,0.55)] top-[100px]" data-name="Background">
       <div className="absolute flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] left-[48px] not-italic text-[#f8f8f8] text-[11.8px] top-[8px] tracking-[1.8px] translate-y-[-50%] uppercase overflow-hidden text-ellipsis">
-        <p className="leading-[16px] whitespace-nowrap">{`YOGA & PILATES / WELLNESS`}</p>
+        <p className="leading-[16px] whitespace-nowrap">{`${displayCategory} / WELLNESS`}</p>
       </div>
-      <Heading />
+      <Heading text={displayTitle} />
       <Container17 />
       <div className="absolute flex flex-col font-['Noto_Sans_JP:Medium',sans-serif] font-medium h-[14px] justify-center leading-[0] left-[48px] text-[12px] text-white top-[221.75px] tracking-[-0.1px] translate-y-[-50%]">
         <p className="leading-[14px]">2025年11月11日</p>
@@ -837,37 +840,40 @@ function Background1() {
   );
 }
 
-function Container18() {
+function Container18({ categoryName }: { categoryName?: string }) {
   return (
     <div className="absolute h-[368.75px] left-0 right-0 top-[681.25px]" data-name="Container">
       <div className="absolute bg-gradient-to-t from-[rgba(0,0,0,0.55)] h-[100px] left-0 right-0 to-[rgba(0,0,0,0)] top-0" data-name="Gradient" />
-      <Background1 />
+      <Background1 categoryName={categoryName} />
     </div>
   );
 }
 
-function Container19() {
+function Container19({ categoryName }: { categoryName?: string }) {
   return (
     <div className="h-[1050px] pointer-events-auto sticky top-0" data-name="Container">
       <Container16 />
-      <Container18 />
+      <Container18 categoryName={categoryName} />
     </div>
   );
 }
 
 // Container19の大きい記事をButton形式に変換（スマホのグリッド用）
-function ButtonMain() {
+function ButtonMain({ categoryName }: { categoryName?: string }) {
+  const displayCategory = categoryName || "YOGA & PILATES";
+  const displayTitle = categoryName ? `${categoryName}で理想のライフスタイルを手に入れる` : "ヨガ＆ピラティスで理想のライフスタイルを手に入れる";
+
   return (
     <div className="relative group cursor-pointer max-md:col-span-2" data-name="Button">
       <div className="relative aspect-[704/1056] overflow-hidden max-md:aspect-[2/1.2]">
-        <ImageWithFallback alt="Woman pilates" className="absolute left-0 max-w-none size-full top-0 object-cover group-hover:scale-105 transition-transform duration-300" src={getImage(8)} />
+        <ImageWithFallback alt={displayCategory} className="absolute left-0 max-w-none size-full top-0 object-cover group-hover:scale-105 transition-transform duration-300" src={getImage(8)} />
         <div className="absolute bg-gradient-to-t from-[#000000] inset-0 to-65% to-[rgba(0,0,0,0)]" />
         <div className="absolute inset-0 flex flex-col justify-end p-12 max-md:p-6">
           <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[#f8f8f8] text-[11.8px] tracking-[1.8px] uppercase mb-6 max-md:mb-3">
-            <p className="leading-[16px]">{`YOGA & PILATES / WELLNESS`}</p>
+            <p className="leading-[16px]">{`${displayCategory} / WELLNESS`}</p>
           </div>
           <div className="font-['Noto_Sans_JP:Medium',sans-serif] font-medium leading-[44.8px] text-[32px] text-white tracking-[0.8px] mb-4 max-md:text-[24px] max-md:leading-[32px]">
-            <p className="leading-[44.8px] max-md:leading-[32px]">ヨガ＆ピラティスで理想のライフスタイルを手に入れる</p>
+            <p className="leading-[44.8px] max-md:leading-[32px]">{displayTitle}</p>
           </div>
           <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[12px] text-white tracking-[1.964px] uppercase mb-2">
             <p className="leading-[16.36px]">
@@ -3794,7 +3800,7 @@ function TwoColumnScrollSection({
             {articles && articles.length > 0 ? (
               <ZigzagCard article={articles[0]} variant="hero" />
             ) : (
-              <Container19 />
+              <Container19 categoryName={title} />
             )}
           </div>
         </div>
