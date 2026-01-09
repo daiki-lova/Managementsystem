@@ -72,6 +72,28 @@ interface BlockData {
 - `docs/schema-design.md` - Prisma schema design
 - `docs/frontend-structure.md` - Frontend architecture details
 
+## 重要: 環境変数
+
+**このプロジェクトの正しいSupabase設定:**
+```
+SUPABASE_URL="https://towhsfpfillkftcgqflp.supabase.co"
+ref: towhsfpfillkftcgqflp
+```
+
+**開発サーバー起動方法:**
+並行プロジェクトの環境変数と競合を避けるため、必ず以下のスクリプトを使用:
+```bash
+./start-dev.sh        # デフォルト: ポート3001
+./start-dev.sh 3002   # 別のポートを指定
+```
+
+このスクリプトは他プロジェクトのSUPABASE_*環境変数をクリアし、
+正しいURLとキーを設定してからサーバーを起動する。
+
+**注意:** dotenvはデフォルトで既存の環境変数を上書きしない。
+シェルに別プロジェクトのSUPABASE_SERVICE_ROLE_KEYが設定されていると
+署名検証エラー(signature verification failed)が発生する。
+
 ## Implementation Notes
 - Import `motion` from `'motion/react'` (not `framer-motion`)
 - Import `toast` from `'sonner'` (not `sonner@version`)

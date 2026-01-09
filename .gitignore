@@ -39,6 +39,5 @@ npm-debug.log*
 
 # Test scripts
 backend/test-ke-api*.js
-
-# TypeScript build info
-tsconfig.tsbuildinfo
+.vercel
+.env*.local

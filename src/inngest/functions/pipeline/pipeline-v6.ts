@@ -84,6 +84,15 @@ interface ArticleStructure {
   metaDescription: string;
   html: string;
   tagSlugs: string[];
+  // LLMO (Large Language Model Optimization) fields
+  llmoShortSummary: string;      // AI検索で引用されやすい2-3文の要約
+  llmoKeyTakeaways: string[];    // 5つの重要ポイント（箇条書き）
+  faqItems: FaqItem[];           // FAQ項目（構造化データ生成用）
+}
+
+interface FaqItem {
+  question: string;
+  answer: string;
 }
 
 // プロンプト設定
@@ -110,6 +119,97 @@ const V6_STAGE_PROGRESS: Record<number, number> = {
 // ========================================
 // ユーティリティ関数
 // ========================================
+
+/**
+ * Schema.org Article + FAQ 構造化データを生成
+ * Google リッチスニペット、AI検索最適化用
+ */
+function generateSchemaJsonLd(
+  article: ArticleStructure,
+  supervisor: SupervisorContext,
+  brandName: string,
+  brandUrl: string,
+  coverImageUrl?: string
+): Record<string, unknown> {
+  const now = new Date().toISOString();
+
+  // メインのArticleスキーマ
+  const articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": article.title,
+    "description": article.metaDescription,
+    "image": coverImageUrl || undefined,
+    "author": {
+      "@type": "Person",
+      "name": supervisor.name,
+      "jobTitle": supervisor.role,
+      "description": supervisor.bio,
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": brandName,
+      "url": brandUrl,
+    },
+    "datePublished": now,
+    "dateModified": now,
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `${brandUrl}/articles/${article.slug}`,
+    },
+    // LLMO最適化: AI検索向けの要約
+    "abstract": article.llmoShortSummary,
+  };
+
+  // FAQスキーマ（Google FAQ リッチスニペット用）
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": article.faqItems.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer,
+      },
+    })),
+  };
+
+  // HowToスキーマ（ハウツー系記事向け）- タイトルに「方法」「やり方」が含まれる場合
+  const isHowTo = /方法|やり方|始め方|コツ|ポイント/.test(article.title);
+
+  // 複数のスキーマを@graphで結合
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      articleSchema,
+      faqSchema,
+      // BreadcrumbListスキーマ
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "ホーム",
+            "item": brandUrl,
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "記事一覧",
+            "item": `${brandUrl}/articles`,
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": article.title,
+          },
+        ],
+      },
+    ],
+  };
+}
 
 async function fitTo16by9(imageBuffer: Buffer): Promise<Buffer> {
   const image = sharp(imageBuffer);
@@ -771,7 +871,22 @@ ${availableTags.map(t => `${t.name} (${t.slug})`).join(', ')}
   "metaTitle": "メタタイトル | ${brandName}",
   "metaDescription": "120〜140文字のディスクリプション",
   "html": "完全なHTML記事本文（<article>タグで囲む）",
-  "tagSlugs": ["slug1", "slug2", "slug3"]
+  "tagSlugs": ["slug1", "slug2", "slug3"],
+  "llmoShortSummary": "【LLMO最適化】2-3文で記事の核心を要約。AI検索（ChatGPT、Perplexity、Google AI Overview）で引用されやすい、情報密度の高い要約文。",
+  "llmoKeyTakeaways": [
+    "【具体的な価値1】読者が得られる具体的なメリットや学び",
+    "【具体的な価値2】実践可能なアクションや気づき",
+    "【具体的な価値3】数字や事例を含む説得力のあるポイント",
+    "【具体的な価値4】他の記事にはない独自の視点",
+    "【具体的な価値5】読者の悩みに対する明確な解決策"
+  ],
+  "faqItems": [
+    { "question": "よくある質問1", "answer": "具体的で簡潔な回答（100-200文字）" },
+    { "question": "よくある質問2", "answer": "具体的で簡潔な回答（100-200文字）" },
+    { "question": "よくある質問3", "answer": "具体的で簡潔な回答（100-200文字）" },
+    { "question": "よくある質問4", "answer": "具体的で簡潔な回答（100-200文字）" },
+    { "question": "よくある質問5", "answer": "具体的で簡潔な回答（100-200文字）" }
+  ]
 }
 
 【HTMLの注意点】
@@ -780,7 +895,12 @@ ${availableTags.map(t => `${t.name} (${t.slug})`).join(', ')}
 - 監修者コメントは上記の形式で
 - インラインスタイルは使用禁止
 - 8,000〜10,000文字を目標に
-- 🚨【必須】発言・セリフは左ボーダー付きスタイルで視覚的に区別（上記【受講生・体験者の発言スタイル】参照）`;
+- 🚨【必須】発言・セリフは左ボーダー付きスタイルで視覚的に区別（上記【受講生・体験者の発言スタイル】参照）
+
+【LLMO最適化の重要ポイント】
+- llmoShortSummary: AI検索エンジンが引用しやすい、自己完結型の要約文。「〜とは」「〜の方法」など検索意図に直接答える形式
+- llmoKeyTakeaways: 箇条書きで5つ。具体的な数字、期間、効果を含める。抽象的な表現を避ける
+- faqItems: Google FAQ リッチスニペット用。HTMLのFAQセクションと同じ内容を構造化データとして出力`;
 }
 
 async function generateArticleV6(
@@ -1613,7 +1733,20 @@ export const generateArticlePipelineV6 = inngest.createFunction(
       const coverImage = images.find(img => img.slot === "cover");
       const inbodyImages = images.filter(img => img.slot !== "cover");
 
-      // 記事を保存
+      // Schema.org構造化データを生成（SEO/LLMO最適化）
+      const brandUrl = pipelineData.brand?.url || `https://${pipelineData.brand?.name?.toLowerCase().replace(/\s+/g, '')}.com`;
+      const schemaJsonLd = generateSchemaJsonLd(
+        processedArticle,
+        supervisor,
+        pipelineData.brand!.name,
+        brandUrl,
+        coverImage?.url
+      );
+
+      console.log(`[V6] Generated Schema.org JSON-LD with ${processedArticle.faqItems?.length || 0} FAQ items`);
+      console.log(`[V6] LLMO Summary: ${processedArticle.llmoShortSummary?.substring(0, 50)}...`);
+
+      // 記事を保存（LLMO最適化フィールド含む）
       const newArticle = await prisma.articles.create({
         data: {
           id: randomUUID(),
@@ -1635,6 +1768,10 @@ export const generateArticlePipelineV6 = inngest.createFunction(
           createdById: pipelineData.userId,
           thumbnailId: coverImage?.assetId,
           version: 1,
+          // LLMO (Large Language Model Optimization) fields
+          llmoShortSummary: processedArticle.llmoShortSummary || null,
+          llmoKeyTakeaways: processedArticle.llmoKeyTakeaways || [],
+          schemaJsonLd: schemaJsonLd as Prisma.InputJsonValue,
         }
       });
 

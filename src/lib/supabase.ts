@@ -6,6 +6,9 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "anon-placeholder";
 const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY || "service-role-placeholder";
 
+// Debug: Log Supabase URL at startup
+console.log(`[Supabase] Initialized with URL: ${supabaseUrl}`);
+
 export const isSupabaseConfigured =
   Boolean(process.env.SUPABASE_URL) &&
   Boolean(process.env.SUPABASE_ANON_KEY) &&
