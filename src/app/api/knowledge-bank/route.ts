@@ -113,9 +113,18 @@ export async function POST(request: NextRequest) {
       // brandIdが存在するか確認（存在しない場合はnull）
       let resolvedBrandId: string | null = null;
       if (data.brandId) {
-        const brand = await prisma.brands.findUnique({ where: { id: data.brandId } });
-        if (brand) {
-          resolvedBrandId = data.brandId;
+        if (!data.brandId.match(/^[0-9a-f-]{36}$/i)) {
+          // UUIDでない場合、スラグとして検索
+          const brand = await prisma.brands.findFirst({
+            where: { slug: data.brandId.toLowerCase() },
+            select: { id: true },
+          });
+          resolvedBrandId = brand?.id || null;
+        } else {
+          const brand = await prisma.brands.findUnique({ where: { id: data.brandId } });
+          if (brand) {
+            resolvedBrandId = data.brandId;
+          }
         }
       }
 

@@ -118,7 +118,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
         open: false,
         title: '',
         description: '',
-        onConfirm: () => {},
+        onConfirm: () => { },
     });
 
     // Registration Flow States
@@ -198,6 +198,7 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                         content: inputContent.trim(),
                         kind: selectedType,
                         brandId: selectedBrand === 'ALL' ? undefined : selectedBrand.toLowerCase(),
+                        course: selectedCourse === 'UNSELECTED' ? null : selectedCourse,
                         authorId: selectedAuthor === 'UNSELECTED' ? undefined : selectedAuthor,
                         url: inputType === 'url' ? inputContent.trim() : undefined,
                     } as any
@@ -381,37 +382,37 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                         />
                     </div>
 
-                <Select value={brandFilter} onValueChange={setBrandFilter}>
-                    <SelectTrigger className="w-[140px] h-9 text-xs">
-                        <SelectValue placeholder="ブランド" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL_BRANDS">全てのブランド</SelectItem>
-                        <SelectItem value="OREO">OREO</SelectItem>
-                        <SelectItem value="SEQUENCE">SEQUENCE</SelectItem>
-                        <SelectItem value="NONE">未設定</SelectItem>
-                    </SelectContent>
-                </Select>
+                    <Select value={brandFilter} onValueChange={setBrandFilter}>
+                        <SelectTrigger className="w-[140px] h-9 text-xs">
+                            <SelectValue placeholder="ブランド" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL_BRANDS">全てのブランド</SelectItem>
+                            <SelectItem value="OREO">OREO</SelectItem>
+                            <SelectItem value="SEQUENCE">SEQUENCE</SelectItem>
+                            <SelectItem value="NONE">未設定</SelectItem>
+                        </SelectContent>
+                    </Select>
 
-                <Select value={courseFilter} onValueChange={setCourseFilter}>
-                    <SelectTrigger className="w-[140px] h-9 text-xs">
-                        <SelectValue placeholder="コース" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL_COURSES">全てのコース</SelectItem>
-                        {COURSES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                    <Select value={courseFilter} onValueChange={setCourseFilter}>
+                        <SelectTrigger className="w-[140px] h-9 text-xs">
+                            <SelectValue placeholder="コース" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL_COURSES">全てのコース</SelectItem>
+                            {COURSES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
 
-                <Select value={authorFilter} onValueChange={setAuthorFilter}>
-                    <SelectTrigger className="w-[140px] h-9 text-xs">
-                        <SelectValue placeholder="監修者" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL_AUTHORS">全ての監修者</SelectItem>
-                        {authors.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                    <Select value={authorFilter} onValueChange={setAuthorFilter}>
+                        <SelectTrigger className="w-[140px] h-9 text-xs">
+                            <SelectValue placeholder="監修者" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL_AUTHORS">全ての監修者</SelectItem>
+                            {authors.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div className="flex items-center gap-2">
                     {selectedIds.size > 0 && (
@@ -446,127 +447,127 @@ export function KnowledgeBankView({ items: _items, onItemsChange: _onItemsChange
                     </div>
                 ) : (
                     <Table>
-                            <TableHeader>
-                                <TableRow className="bg-neutral-50/50 hover:bg-neutral-50/50">
-                                    <TableHead className="w-[40px] text-center">
+                        <TableHeader>
+                            <TableRow className="bg-neutral-50/50 hover:bg-neutral-50/50">
+                                <TableHead className="w-[40px] text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={paginatedItems.length > 0 && selectedIds.size === paginatedItems.length}
+                                        onChange={(e) => toggleSelectAll(e.target.checked)}
+                                        className="rounded border-neutral-300 scale-90 cursor-pointer"
+                                    />
+                                </TableHead>
+                                <TableHead className="w-[40%] pl-6">内容</TableHead>
+                                <TableHead className="w-[100px]">ブランド</TableHead>
+                                <TableHead className="w-[120px]">種類</TableHead>
+                                <TableHead className="w-[120px]">コース</TableHead>
+                                <TableHead className="w-[150px]">監修者</TableHead>
+                                <TableHead className="w-[100px]">登録日</TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedItems.map((item) => (
+                                <TableRow
+                                    key={item.id}
+                                    className={cn(
+                                        "group hover:bg-neutral-50 transition-colors cursor-pointer",
+                                        selectedIds.has(item.id) && "bg-blue-50/50"
+                                    )}
+                                    onClick={() => openDetail(item)}
+                                >
+                                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                         <input
                                             type="checkbox"
-                                            checked={paginatedItems.length > 0 && selectedIds.size === paginatedItems.length}
-                                            onChange={(e) => toggleSelectAll(e.target.checked)}
+                                            checked={selectedIds.has(item.id)}
+                                            onChange={() => toggleSelection(item.id)}
                                             className="rounded border-neutral-300 scale-90 cursor-pointer"
                                         />
-                                    </TableHead>
-                                    <TableHead className="w-[40%] pl-6">内容</TableHead>
-                                    <TableHead className="w-[100px]">ブランド</TableHead>
-                                    <TableHead className="w-[120px]">種類</TableHead>
-                                    <TableHead className="w-[120px]">コース</TableHead>
-                                    <TableHead className="w-[150px]">監修者</TableHead>
-                                    <TableHead className="w-[100px]">登録日</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {paginatedItems.map((item) => (
-                                    <TableRow
-                                        key={item.id}
-                                        className={cn(
-                                            "group hover:bg-neutral-50 transition-colors cursor-pointer",
-                                            selectedIds.has(item.id) && "bg-blue-50/50"
+                                    </TableCell>
+                                    <TableCell className="pl-6 font-medium">
+                                        {(item.sourceType === 'url' || (!item.sourceType && item.content.startsWith('http'))) ? (
+                                            <div className="flex items-center gap-3 max-w-[500px]">
+                                                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 text-blue-600 border border-blue-100">
+                                                    <Globe size={14} />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <span className="text-sm text-neutral-700 truncate block font-medium">
+                                                        {item.content}
+                                                    </span>
+                                                    <p className="text-[10px] text-neutral-400 mt-0.5">外部リンク</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-start gap-3 max-w-[500px]">
+                                                <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0 text-neutral-500 border border-neutral-200 mt-0.5">
+                                                    <FileText size={14} />
+                                                </div>
+                                                <div className="min-w-0 flex-1 pt-1">
+                                                    <div className="line-clamp-2 text-neutral-700 text-sm font-medium leading-relaxed" title={item.content}>
+                                                        {item.content}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         )}
-                                        onClick={() => openDetail(item)}
-                                    >
-                                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.has(item.id)}
-                                                onChange={() => toggleSelection(item.id)}
-                                                className="rounded border-neutral-300 scale-90 cursor-pointer"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="pl-6 font-medium">
-                                            {(item.sourceType === 'url' || (!item.sourceType && item.content.startsWith('http'))) ? (
-                                                <div className="flex items-center gap-3 max-w-[500px]">
-                                                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 text-blue-600 border border-blue-100">
-                                                        <Globe size={14} />
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <span className="text-sm text-neutral-700 truncate block font-medium">
-                                                            {item.content}
-                                                        </span>
-                                                        <p className="text-[10px] text-neutral-400 mt-0.5">外部リンク</p>
-                                                    </div>
-                                                </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {item.brand ? (
+                                            <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 rounded font-normal border-0 whitespace-nowrap", getBrandColor(item.brand))}>
+                                                {item.brandName || item.brand}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-xs text-neutral-400">-</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <span className="text-xs text-neutral-600">
+                                            {(item.kind === 'STUDENT_VOICE' || item.kind === '受講生の声') && '受講生の声'}
+                                            {(item.kind === 'AUTHOR_ARTICLE' || item.kind === '監修者記事') && '監修者記事'}
+                                            {(item.kind === 'EXTERNAL' || item.kind === '外部文献') && '外部文献'}
+                                            {!item.kind && '-'}
+                                            {item.kind && !['STUDENT_VOICE', '受講生の声', 'AUTHOR_ARTICLE', '監修者記事', 'EXTERNAL', '外部文献'].includes(item.kind) && item.kind}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell>
+                                        {item.course ? (
+                                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 rounded font-normal bg-neutral-100 text-neutral-600 hover:bg-neutral-200 whitespace-nowrap">
+                                                {item.course}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-xs text-neutral-400">-</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+                                            {item.authorName ? (
+                                                <>
+                                                    <User size={12} className="text-neutral-400" />
+                                                    <span className="truncate max-w-[120px]">{item.authorName}</span>
+                                                </>
                                             ) : (
-                                                <div className="flex items-start gap-3 max-w-[500px]">
-                                                    <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0 text-neutral-500 border border-neutral-200 mt-0.5">
-                                                        <FileText size={14} />
-                                                    </div>
-                                                    <div className="min-w-0 flex-1 pt-1">
-                                                        <div className="line-clamp-2 text-neutral-700 text-sm font-medium leading-relaxed" title={item.content}>
-                                                            {item.content}
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <span className="text-neutral-400">-</span>
                                             )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {item.brand ? (
-                                                <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 rounded font-normal border-0 whitespace-nowrap", getBrandColor(item.brand))}>
-                                                    {item.brandName || item.brand}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-xs text-neutral-400">-</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="text-xs text-neutral-600">
-                                                {(item.kind === 'STUDENT_VOICE' || item.kind === '受講生の声') && '受講生の声'}
-                                                {(item.kind === 'AUTHOR_ARTICLE' || item.kind === '監修者記事') && '監修者記事'}
-                                                {(item.kind === 'EXTERNAL' || item.kind === '外部文献') && '外部文献'}
-                                                {!item.kind && '-'}
-                                                {item.kind && !['STUDENT_VOICE', '受講生の声', 'AUTHOR_ARTICLE', '監修者記事', 'EXTERNAL', '外部文献'].includes(item.kind) && item.kind}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            {item.course ? (
-                                                <Badge variant="secondary" className="text-[10px] h-5 px-1.5 rounded font-normal bg-neutral-100 text-neutral-600 hover:bg-neutral-200 whitespace-nowrap">
-                                                    {item.course}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-xs text-neutral-400">-</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-1.5 text-xs text-neutral-600">
-                                                {item.authorName ? (
-                                                    <>
-                                                        <User size={12} className="text-neutral-400" />
-                                                        <span className="truncate max-w-[120px]">{item.authorName}</span>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-neutral-400">-</span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="text-xs text-neutral-500 tabular-nums">
-                                                {format(new Date(item.createdAt), 'yyyy/MM/dd', { locale: ja })}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900" onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openEdit(item);
-                                                }}>
-                                                    <Edit2 size={14} />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <span className="text-xs text-neutral-500 tabular-nums">
+                                            {format(new Date(item.createdAt), 'yyyy/MM/dd', { locale: ja })}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900" onClick={(e) => {
+                                                e.stopPropagation();
+                                                openEdit(item);
+                                            }}>
+                                                <Edit2 size={14} />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 )}
             </div>
 
