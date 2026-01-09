@@ -82,8 +82,8 @@ const createConversionSchema = z.object({
   name: z.string().min(1).max(100),
   type: z.string().min(1).max(50), // フロントエンド互換（文字列）
   status: z.string().max(20).optional(), // フロントエンド互換（文字列）
-  url: commonSchemas.url,
-  thumbnailUrl: commonSchemas.url.optional(),
+  url: z.string(),
+  thumbnailUrl: z.union([z.string(), z.null()]).optional(),
   context: z.string().optional(), // AI生成用コンテキスト（オプショナル化）
   description: z.string().optional(), // contextのエイリアス（フロントエンド互換）
   period: z.string().optional(), // フロントエンド互換（未使用だが受け入れる）

@@ -66,8 +66,8 @@ const updateConversionSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   type: z.string().max(50).optional(), // フロントエンド互換（文字列）
   status: z.string().max(20).optional(), // フロントエンド互換（文字列）
-  url: commonSchemas.url.optional(),
-  thumbnailUrl: commonSchemas.url.optional().nullable(),
+  url: z.string().optional(),
+  thumbnailUrl: z.union([z.string(), z.null()]).optional(),
   context: z.string().optional(),
   description: z.string().optional(), // contextのエイリアス（フロントエンド互換）
   periodStart: z.string().optional().nullable(),
@@ -82,6 +82,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return await withOwnerAuth(request, async (user) => {
       const { id } = await params;
       const data = await validateBody(request, updateConversionSchema);
+      console.log("PATCH Conversion Data:", JSON.stringify(data, null, 2));
+      console.log("Thumbnail URL:", data.thumbnailUrl);
 
       // 存在確認
       const existing = await prisma.conversions.findUnique({
@@ -129,13 +131,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           periodStart: resolvedPeriodStart
             ? new Date(resolvedPeriodStart)
             : resolvedPeriodStart === null
-            ? null
-            : undefined,
+              ? null
+              : undefined,
           periodEnd: resolvedPeriodEnd
             ? new Date(resolvedPeriodEnd)
             : resolvedPeriodEnd === null
-            ? null
-            : undefined,
+              ? null
+              : undefined,
         },
         select: {
           id: true,

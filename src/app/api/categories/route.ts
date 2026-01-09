@@ -48,6 +48,16 @@ export async function GET(request: NextRequest) {
         publishedCounts.map(p => [p.categoryId, p._count.id])
       );
 
+      // 有効な記事数（ゴミ箱以外）を別途取得
+      const activeCounts = await prisma.articles.groupBy({
+        by: ['categoryId'],
+        where: { status: { not: 'DELETED' } },
+        _count: { id: true },
+      });
+      const activeCountMap = new Map(
+        activeCounts.map(p => [p.categoryId, p._count.id])
+      );
+
       // レスポンスを整形
       const formattedCategories = categories.map(cat => ({
         id: cat.id,
@@ -57,7 +67,7 @@ export async function GET(request: NextRequest) {
         color: cat.color,
         createdAt: cat.createdAt,
         updatedAt: cat.updatedAt,
-        articlesCount: cat._count.articles, // 実際の記事数
+        articlesCount: activeCountMap.get(cat.id) || 0, // ゴミ箱を除いた記事数
         publishedCount: publishedCountMap.get(cat.id) || 0, // 公開済み記事数
       }));
 

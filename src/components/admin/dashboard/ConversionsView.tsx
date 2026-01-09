@@ -83,10 +83,10 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
         open: false,
         title: '',
         description: '',
-        onConfirm: () => {},
+        onConfirm: () => { },
     });
 
-    const filteredConversions = conversions.filter(cv => 
+    const filteredConversions = conversions.filter(cv =>
         cv.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -216,14 +216,14 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                 <div className="flex items-center gap-3">
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-neutral-900 transition-colors" size={18} />
-                        <Input 
+                        <Input
                             className="w-[300px] pl-11 h-12 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-0 rounded-full text-sm font-medium transition-all"
                             placeholder="キャンペーンを検索..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <Button 
+                    <Button
                         onClick={handleCreate}
                         className="h-12 !px-8 rounded-full bg-neutral-900 text-white font-bold hover:bg-neutral-800 shadow-sm"
                     >
@@ -333,8 +333,8 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                                 <span className="text-sm font-mono font-medium text-neutral-600">{cv.clicks.toLocaleString()}</span>
                             </div>
 
-                             {/* Stats: CV */}
-                             <div className="col-span-1 text-right">
+                            {/* Stats: CV */}
+                            <div className="col-span-1 text-right">
                                 <span className="text-sm font-mono font-medium text-neutral-600">{cv.cv}</span>
                             </div>
 
@@ -378,19 +378,19 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label htmlFor="name" className="text-xs font-bold text-neutral-500">キャンペーン名</Label>
-                            <Input 
-                                id="name" 
-                                value={formData.name || ''} 
-                                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                placeholder="キャンペーン名を入力" 
+                            <Input
+                                id="name"
+                                value={formData.name || ''}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="キャンペーン名を入力"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="type" className="text-xs font-bold text-neutral-500">種類</Label>
-                                <Select 
-                                    value={formData.type} 
-                                    onValueChange={(v: any) => setFormData({...formData, type: v})}
+                                <Select
+                                    value={formData.type}
+                                    onValueChange={(v: any) => setFormData({ ...formData, type: v })}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="種類を選択" />
@@ -406,7 +406,7 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                                 <Label htmlFor="status" className="text-xs font-bold text-neutral-500">ステータス</Label>
                                 <Select
                                     value={formData.status}
-                                    onValueChange={(v: any) => setFormData({...formData, status: v})}
+                                    onValueChange={(v: any) => setFormData({ ...formData, status: v })}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="ステータスを選択" />
@@ -420,11 +420,11 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="url" className="text-xs font-bold text-neutral-500">遷移先URL</Label>
-                            <Input 
-                                id="url" 
-                                value={formData.url || ''} 
-                                onChange={(e) => setFormData({...formData, url: e.target.value})}
-                                placeholder="https://..." 
+                            <Input
+                                id="url"
+                                value={formData.url || ''}
+                                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                                placeholder="https://..."
                             />
                         </div>
                         <div className="grid gap-2">
@@ -439,7 +439,11 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                                     <div className="relative w-40 h-24 rounded-lg overflow-hidden border border-neutral-200 group">
                                         <img src={formData.thumbnail} alt="Preview" className="w-full h-full object-cover" />
                                         <button
-                                            onClick={() => setFormData({...formData, thumbnail: undefined})}
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFormData({ ...formData, thumbnail: null });
+                                            }}
                                             className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all"
                                         >
                                             <X size={12} />
@@ -475,8 +479,8 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                                 />
                                 <div className="flex-1 pt-1">
                                     <p className="text-[11px] text-neutral-400 leading-tight">
-                                        キャンペーンやバナーの画像を設定します。<br/>
-                                        推奨サイズ: 1200x630px<br/>
+                                        キャンペーンやバナーの画像を設定します。<br />
+                                        推奨サイズ: 1200x630px<br />
                                         形式: JPG, PNG, WebP
                                     </p>
                                 </div>
@@ -484,20 +488,20 @@ export function ConversionsView({ conversions: _conversions, onConversionsChange
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="period" className="text-xs font-bold text-neutral-500">期間 (任意)</Label>
-                            <Input 
-                                id="period" 
-                                value={formData.period || ''} 
-                                onChange={(e) => setFormData({...formData, period: e.target.value})}
-                                placeholder="例: 2024/12/01 - 2025/01/31" 
+                            <Input
+                                id="period"
+                                value={formData.period || ''}
+                                onChange={(e) => setFormData({ ...formData, period: e.target.value })}
+                                placeholder="例: 2024/12/01 - 2025/01/31"
                             />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="context" className="text-xs font-bold text-neutral-500">コンテキスト (AI生成用)</Label>
-                            <Textarea 
-                                id="context" 
-                                value={formData.context || ''} 
-                                onChange={(e) => setFormData({...formData, context: e.target.value})}
-                                placeholder="このコンバージョンを記事内で紹介する際の文脈や訴求ポイントを入力してください..." 
+                            <Textarea
+                                id="context"
+                                value={formData.context || ''}
+                                onChange={(e) => setFormData({ ...formData, context: e.target.value })}
+                                placeholder="このコンバージョンを記事内で紹介する際の文脈や訴求ポイントを入力してください..."
                                 className="h-20 resize-none text-xs"
                             />
                             <p className="text-[10px] text-neutral-400">

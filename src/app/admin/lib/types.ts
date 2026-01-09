@@ -88,7 +88,7 @@ export interface ConversionItem {
   name: string;
   type: 'campaign' | 'evergreen' | 'app';
   url: string;
-  thumbnail?: string;
+  thumbnail?: string | null;
   status: 'ACTIVE' | 'INACTIVE';
   ctr: string;
   clicks: number;

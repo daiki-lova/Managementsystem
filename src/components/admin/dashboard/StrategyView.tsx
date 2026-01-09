@@ -93,11 +93,11 @@ export function StrategyView({
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
     const [selectedAuthorId, setSelectedAuthorId] = useState<string>('');
     const [selectedConversionId, setSelectedConversionId] = useState<string>('');
-    const [articleCount, setArticleCount] = useState(3);
+    const [articleCount, setArticleCount] = useState(1);
     const [scheduleMode, setScheduleMode] = useState<'draft' | 'now' | 'schedule'>('draft');
     const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [postTime, setPostTime] = useState<string>('09:00');
-    const [imageStyle, setImageStyle] = useState<ImageStyleType>('REALISTIC');
+    // const [imageStyle, setImageStyle] = useState<ImageStyleType>('REALISTIC'); // Removed
 
     // Generation state
     const [genStatus, setGenStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
@@ -166,7 +166,7 @@ export function StrategyView({
                 pipelineVersion: pipelineMode, // 'v3' or 'v5'
                 publishStrategy: publishStrategy as 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED',
                 scheduledAt: scheduleMode === 'schedule' ? `${startDate}T${postTime}:00Z` : undefined,
-                imageStyle, // 画像スタイル（WATERCOLOR or REALISTIC）
+                imageStyle: 'REALISTIC', // Default to REALISTIC, logic in prompt
             });
 
             const jobIds = result.data?.jobs.map((j: any) => j.id) || [];
@@ -387,108 +387,7 @@ export function StrategyView({
                             </div>
                         </div>
 
-                        {/* Image Style Selection */}
-                        <div className="mb-8">
-                            <Label className="text-sm font-bold text-neutral-700 mb-3 flex items-center gap-2">
-                                <Image size={14} className="text-neutral-500" />
-                                画像スタイル
-                            </Label>
-                            <p className="text-xs text-neutral-500 mb-3">
-                                ※カバー画像は常にリアル写真風で生成されます
-                            </p>
-                            <div className="grid grid-cols-3 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setImageStyle('REALISTIC')}
-                                    className={cn(
-                                        "p-3 rounded-xl border-2 text-left transition-all",
-                                        imageStyle === 'REALISTIC'
-                                            ? "border-violet-500 bg-violet-50"
-                                            : "border-neutral-200 hover:border-neutral-300"
-                                    )}
-                                >
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
-                                            imageStyle === 'REALISTIC' ? "bg-violet-100" : "bg-neutral-100"
-                                        )}>
-                                            📷
-                                        </div>
-                                        <div className="text-center">
-                                            <p className={cn(
-                                                "font-medium text-sm",
-                                                imageStyle === 'REALISTIC' ? "text-violet-900" : "text-neutral-900"
-                                            )}>
-                                                リアル写真
-                                            </p>
-                                            <p className="text-xs text-neutral-500">
-                                                スタジオ撮影風
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setImageStyle('SCENIC')}
-                                    className={cn(
-                                        "p-3 rounded-xl border-2 text-left transition-all",
-                                        imageStyle === 'SCENIC'
-                                            ? "border-amber-500 bg-amber-50"
-                                            : "border-neutral-200 hover:border-neutral-300"
-                                    )}
-                                >
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
-                                            imageStyle === 'SCENIC' ? "bg-amber-100" : "bg-neutral-100"
-                                        )}>
-                                            🌅
-                                        </div>
-                                        <div className="text-center">
-                                            <p className={cn(
-                                                "font-medium text-sm",
-                                                imageStyle === 'SCENIC' ? "text-amber-900" : "text-neutral-900"
-                                            )}>
-                                                風景系
-                                            </p>
-                                            <p className="text-xs text-neutral-500">
-                                                朝日/夕日など
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setImageStyle('HANDDRAWN')}
-                                    className={cn(
-                                        "p-3 rounded-xl border-2 text-left transition-all",
-                                        imageStyle === 'HANDDRAWN'
-                                            ? "border-blue-500 bg-blue-50"
-                                            : "border-neutral-200 hover:border-neutral-300"
-                                    )}
-                                >
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
-                                            imageStyle === 'HANDDRAWN' ? "bg-blue-100" : "bg-neutral-100"
-                                        )}>
-                                            🎨
-                                        </div>
-                                        <div className="text-center">
-                                            <p className={cn(
-                                                "font-medium text-sm",
-                                                imageStyle === 'HANDDRAWN' ? "text-blue-900" : "text-neutral-900"
-                                            )}>
-                                                手書き風
-                                            </p>
-                                            <p className="text-xs text-neutral-500">
-                                                水彩イラスト
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
+
 
                         {/* Selection Summary */}
                         {hasRequiredSelections && (
@@ -511,12 +410,7 @@ export function StrategyView({
                                     <div>
                                         <span className="text-emerald-500">CV:</span> {selectedConversion?.name}
                                     </div>
-                                    <div>
-                                        <span className="text-emerald-500">画像:</span> {
-                                            imageStyle === 'REALISTIC' ? 'リアル写真' :
-                                            imageStyle === 'SCENIC' ? '風景系' : '手書き風'
-                                        }
-                                    </div>
+
                                 </div>
                             </motion.div>
                         )}
