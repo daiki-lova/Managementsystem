@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Calendar } from '../ui/calendar';
+import { DateTimePicker } from '../ui/date-time-picker';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -376,8 +377,6 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
     // Publish Date Edit Dialog State
     const [editingPublishDateArticle, setEditingPublishDateArticle] = useState<ExtendedArticle | null>(null);
     const [editPublishDate, setEditPublishDate] = useState<Date | undefined>(new Date());
-    const [editPublishHour, setEditPublishHour] = useState<string>('12');
-    const [editPublishMinute, setEditPublishMinute] = useState<string>('00');
 
     // Delete Confirmation Dialog State
     const [deletingArticle, setDeletingArticle] = useState<ExtendedArticle | null>(null);
@@ -496,22 +495,18 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
     const handlePublishDateClick = (article: ExtendedArticle) => {
         setEditingPublishDateArticle(article);
         if (article.publishedAt) {
-            const date = new Date(article.publishedAt);
-            setEditPublishDate(date);
-            setEditPublishHour(String(date.getHours()).padStart(2, '0'));
-            setEditPublishMinute(String(date.getMinutes()).padStart(2, '0'));
+            setEditPublishDate(new Date(article.publishedAt));
         } else {
-            setEditPublishDate(new Date());
-            setEditPublishHour('12');
-            setEditPublishMinute('00');
+            // デフォルトは今日の12:00
+            const defaultDate = new Date();
+            defaultDate.setHours(12, 0, 0, 0);
+            setEditPublishDate(defaultDate);
         }
     };
 
     const handlePublishDateConfirm = () => {
         if (!editingPublishDateArticle || !editPublishDate) return;
-        const date = new Date(editPublishDate);
-        date.setHours(parseInt(editPublishHour, 10), parseInt(editPublishMinute, 10), 0, 0);
-        onUpdatePublishedAt(editingPublishDateArticle.id, date.toISOString(), editingPublishDateArticle.version || 1);
+        onUpdatePublishedAt(editingPublishDateArticle.id, editPublishDate.toISOString(), editingPublishDateArticle.version || 1);
         setEditingPublishDateArticle(null);
     };
 
@@ -817,17 +812,14 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
 
             {/* Schedule Dialog */}
             <Dialog open={!!schedulingArticle} onOpenChange={(open) => !open && setSchedulingArticle(null)}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[380px]">
                     <DialogHeader>
                         <DialogTitle>公開日時を設定</DialogTitle>
                     </DialogHeader>
                     <div className="py-4 flex justify-center">
-                        <Calendar
-                            mode="single"
-                            selected={scheduleDate}
-                            onSelect={setScheduleDate}
-                            className="rounded-md border"
-                            locale={ja}
+                        <DateTimePicker
+                            value={scheduleDate}
+                            onChange={setScheduleDate}
                         />
                     </div>
                     <DialogFooter>
@@ -839,46 +831,15 @@ function ArticlesTable({ data, onEdit, userRole, onPreview, onPublish, onSchedul
 
             {/* Publish Date Edit Dialog */}
             <Dialog open={!!editingPublishDateArticle} onOpenChange={(open) => !open && setEditingPublishDateArticle(null)}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[380px]">
                     <DialogHeader>
                         <DialogTitle>公開日時を変更</DialogTitle>
                     </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        <div className="flex justify-center">
-                            <Calendar
-                                mode="single"
-                                selected={editPublishDate}
-                                onSelect={setEditPublishDate}
-                                className="rounded-md border"
-                                locale={ja}
-                            />
-                        </div>
-                        <div className="flex items-center justify-center gap-2">
-                            <span className="text-sm text-neutral-500">時刻:</span>
-                            <select
-                                value={editPublishHour}
-                                onChange={(e) => setEditPublishHour(e.target.value)}
-                                className="border rounded px-2 py-1 text-sm"
-                            >
-                                {Array.from({ length: 24 }, (_, i) => (
-                                    <option key={i} value={String(i).padStart(2, '0')}>
-                                        {String(i).padStart(2, '0')}
-                                    </option>
-                                ))}
-                            </select>
-                            <span className="text-neutral-400">:</span>
-                            <select
-                                value={editPublishMinute}
-                                onChange={(e) => setEditPublishMinute(e.target.value)}
-                                className="border rounded px-2 py-1 text-sm"
-                            >
-                                {Array.from({ length: 60 }, (_, i) => (
-                                    <option key={i} value={String(i).padStart(2, '0')}>
-                                        {String(i).padStart(2, '0')}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                    <div className="py-4 flex justify-center">
+                        <DateTimePicker
+                            value={editPublishDate}
+                            onChange={setEditPublishDate}
+                        />
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditingPublishDateArticle(null)}>キャンセル</Button>
