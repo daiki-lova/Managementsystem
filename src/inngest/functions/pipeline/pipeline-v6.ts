@@ -1521,7 +1521,15 @@ function insertImagesIntoHtml(html: string, images: GeneratedImage[]): string {
 
     const imgTag = `<img src="${image.url}" alt="${image.alt}" width="${image.width}" height="${image.height}" loading="${isCover ? 'eager' : 'lazy'}" />`;
 
-    result = result.replace(placeholder, imgTag);
+    // カバー画像はそのまま、本文画像は<figure>タグで囲む（SEO最適化）
+    const finalTag = isCover
+      ? imgTag
+      : `<figure style="margin:32px 0;text-align:center;">
+  ${imgTag}
+  <figcaption style="margin-top:8px;font-size:0.9em;color:#666;">${image.alt}</figcaption>
+</figure>`;
+
+    result = result.replace(placeholder, finalTag);
   }
 
   return result;

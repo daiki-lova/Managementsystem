@@ -1690,6 +1690,18 @@ export function fixTableHtml(html: string): string {
 export function improveFaqStyle(html: string): string {
   let result = html;
 
+  // FAQセクションのh2見出しにid="faq"を追加（SEO/アンカーリンク用）
+  result = result.replace(
+    /<h2([^>]*)>(よくある質問|FAQ|Q&A)[^<]*<\/h2>/gi,
+    (match, attrs, title) => {
+      // すでにidがある場合はスキップ
+      if (/id\s*=/i.test(attrs)) {
+        return match;
+      }
+      return `<h2${attrs} id="faq">${title}</h2>`;
+    }
+  );
+
   // パターン1: details/summary形式 → div形式に変換
   result = result.replace(
     /<details[^>]*>\s*<summary[^>]*>([^<]*)<\/summary>\s*<p[^>]*>([\s\S]*?)<\/p>\s*<\/details>/gi,
