@@ -169,6 +169,26 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 直近の完了済みジョブのimageStyleを取得してラウンドロビン
+      const lastJob = await prisma.generation_jobs.findFirst({
+        where: { status: 'COMPLETED' },
+        orderBy: { completedAt: 'desc' },
+        select: { imageStyle: true }
+      });
+
+      const styleRotation: Record<ImageStyle, ImageStyle> = {
+        [ImageStyle.REALISTIC]: ImageStyle.SCENIC,
+        [ImageStyle.SCENIC]: ImageStyle.HANDDRAWN,
+        [ImageStyle.HANDDRAWN]: ImageStyle.REALISTIC,
+        [ImageStyle.WATERCOLOR]: ImageStyle.REALISTIC, // レガシー対応
+      };
+
+      const nextImageStyle = lastJob?.imageStyle
+        ? styleRotation[lastJob.imageStyle]
+        : ImageStyle.REALISTIC;
+
+      console.log(`[Generation Jobs] imageStyle選択: 直近=${lastJob?.imageStyle || 'なし'} → 次回=${nextImageStyle}`);
+
       const jobs = [];
 
       // パイプラインバージョンの決定
@@ -186,7 +206,7 @@ export async function POST(request: NextRequest) {
             brandId: validated.brandId,
             userId: user.id,
             publishStrategy: validated.publishStrategy as PublishStrategy,
-            imageStyle: validated.imageStyle as ImageStyle,
+            imageStyle: nextImageStyle,
             scheduledAt: validated.scheduledAt
               ? new Date(validated.scheduledAt)
               : null,

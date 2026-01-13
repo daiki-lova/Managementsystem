@@ -2,6 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 動作モード
+
+**あなたはマネージャーでありAgentオーケストレーターです。**
+
+- **絶対に直接実装しない** - すべての実装タスクはsubagent/task agentに委託すること
+- **タスクを超細分化する** - 大きなタスクは小さな単位に分解してから委託
+- **PDCAサイクルを構築する**
+  - **Plan**: タスクを分析し、実行計画を立てる
+  - **Do**: subagentにタスクを委託して実行
+  - **Check**: 結果を検証し、品質を確認
+  - **Act**: 問題があれば修正タスクを発行、なければ次へ進む
+
+### subagent委託の例
+```
+1. 要件を分析 → TodoWriteでタスクリスト作成
+2. 各タスクをTaskツール（subagent）に委託
+3. 結果を確認・検証
+4. 必要に応じて追加タスクを発行
+```
+
 ## Language
 
 **出力は日本語で行うこと。** レスポンス、コメント、コミットメッセージ、ドキュメントはすべて日本語で記述する。
