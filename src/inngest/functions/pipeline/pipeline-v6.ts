@@ -994,7 +994,8 @@ ${availableTags.map(t => `${t.name} (${t.slug})`).join(', ')}
 
 【HTMLの注意点】
 - 見出しはH2、H3を適切に使用
-- 画像プレースホルダー: <!-- IMAGE_PLACEHOLDER: cover -->, <!-- IMAGE_PLACEHOLDER: inbody_1 -->, <!-- IMAGE_PLACEHOLDER: inbody_2 -->
+- 画像プレースホルダー（本文用2箇所のみ）: <!-- IMAGE_PLACEHOLDER: inbody_1 -->, <!-- IMAGE_PLACEHOLDER: inbody_2 -->
+  ※カバー画像は別途自動設定されるため、本文には含めないこと
 - 監修者コメントは上記の形式で
 - インラインスタイルは使用禁止
 - 8,000〜10,000文字を目標に
@@ -1189,21 +1190,27 @@ function buildContextualImagePrompt(
     personHint = "modern young woman wearing yoga wear";
   }
 
-  // ランダムにヨガポーズと背景を選択（45ポーズ × 10背景 = 450パターン）
-  const pose = getRandomYogaPose();
-  const posePrompt = formatPoseForPrompt(pose);
+  // ランダムにヨガポーズと背景を選択（45ポーズから各スロットで異なるポーズ）
+  const pose1 = getRandomYogaPose();
+  const pose2 = getRandomYogaPose();
+  const pose3 = getRandomYogaPose();
+  const coverPose = formatPoseForPrompt(pose1);
+  const inbodyPose1 = formatPoseForPrompt(pose2);
+  const inbodyPose2 = formatPoseForPrompt(pose3);
   const background = getRandomBackground();
 
-  // スロットごとに異なるシーンを生成（ヨガポーズ中心、背景はランダム）
+  console.log(`[Contextual Image] Poses: ${pose1.name}, ${pose2.name}, ${pose3.name}`);
+
+  // スロットごとに異なるシーン・異なるポーズを生成
   const scenePrompts: Record<"cover" | "inbody_1" | "inbody_2", string> = {
     cover: `${baseStyle}
-A ${personHint} ${posePrompt} on a yoga mat in a ${background}. Soft natural light. Focus on the yoga pose and form. The woman looks calm, focused, and confident.`,
+A ${personHint} ${coverPose} on a yoga mat in a ${background}. Soft natural light. Focus on the yoga pose and form. The woman looks calm, focused, and confident.`,
 
     inbody_1: `${baseStyle}
-A ${personHint} ${posePrompt} on a yoga mat in a ${background}. Peaceful atmosphere with soft lighting. Focus on the yoga practice and inner peace. Serene expression showing mindfulness and concentration.`,
+A ${personHint} ${inbodyPose1} on a yoga mat in a ${background}. Peaceful atmosphere with soft lighting. Focus on the yoga practice and inner peace. Serene expression showing mindfulness and concentration.`,
 
     inbody_2: `${baseStyle}
-A ${personHint} ${posePrompt} on a yoga mat in a ${background}. Warm, encouraging atmosphere. Showing progress and dedication to yoga practice. Confident posture and peaceful expression.`,
+A ${personHint} ${inbodyPose2} on a yoga mat in a ${background}. Warm, encouraging atmosphere. Showing progress and dedication to yoga practice. Confident posture and peaceful expression.`,
   };
 
   return scenePrompts[slot];
@@ -1516,15 +1523,19 @@ function insertImagesIntoHtml(html: string, images: GeneratedImage[]): string {
   let result = html;
 
   for (const image of images) {
+    // カバー画像は本文には挿入しない（サムネイル専用）
+    if (image.slot === "cover") {
+      // 念のためプレースホルダーがあれば削除
+      const coverPlaceholder = `<!-- IMAGE_PLACEHOLDER: cover -->`;
+      result = result.replace(coverPlaceholder, "");
+      continue;
+    }
+
     const placeholder = `<!-- IMAGE_PLACEHOLDER: ${image.slot} -->`;
-    const isCover = image.slot === "cover";
 
-    const imgTag = `<img src="${image.url}" alt="${image.alt}" width="${image.width}" height="${image.height}" loading="${isCover ? 'eager' : 'lazy'}" />`;
-
-    // カバー画像はそのまま、本文画像は<figure>タグで囲む（SEO最適化）
-    const finalTag = isCover
-      ? imgTag
-      : `<figure style="margin:32px 0;text-align:center;">
+    // 本文画像は<figure>タグで囲む（SEO最適化）
+    const imgTag = `<img src="${image.url}" alt="${image.alt}" width="${image.width}" height="${image.height}" loading="lazy" />`;
+    const finalTag = `<figure style="margin:32px 0;text-align:center;">
   ${imgTag}
   <figcaption style="margin-top:8px;font-size:0.9em;color:#666;">${image.alt}</figcaption>
 </figure>`;
