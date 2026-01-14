@@ -434,7 +434,7 @@ function Button6() {
           <div className="absolute inset-[21px_688px_21px_687.98px]" data-name="Link">
             <div className="absolute h-[70px] left-1/2 overflow-clip top-0 translate-x-[-50%] w-[300px]" data-name="Picture → Vogue Japan">
               <div className="absolute h-[70px] left-0 overflow-clip top-0 w-[300px] flex items-center justify-center" data-name="logo.svg fill">
-                <img src={logoImage} alt="Radiance Logo" className="h-full w-full object-contain" />
+                <img src={logoImage} alt="ALIGN Logo" className="h-full w-full object-contain" />
               </div>
             </div>
           </div>
@@ -611,7 +611,7 @@ function SquareCard({ article, index, category }: { article?: PublicArticle; ind
   const imageUrl = article?.media_assets?.url || getImage(index || 0);
   const categoryName = article?.categories.name.toUpperCase() || category?.toUpperCase() || "CATEGORY";
   const title = article?.title || (article ? "タイトルなし" : `心と体を整える──${categoryName}で理想のライフスタイルを手に入れる`);
-  const author = article?.authors.name || "RADIANCE TEAM";
+  const author = article?.authors.name || "ALIGN TEAM";
   const dateStr = article?.publishedAt
     ? new Date(article.publishedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
     : "2025年11月18日";
@@ -4568,7 +4568,7 @@ export function Footer({ categories = [] }: { categories?: Category[] }) {
       <div className="max-w-[1200px] mx-auto px-6 py-16 max-md:py-10">
         {/* ロゴとキャッチコピー */}
         <div className="flex flex-col items-center mb-12 max-md:mb-8">
-          <img src={footerLogoImage} alt="Radiance Logo" className="h-[60px] w-auto mb-4 invert" />
+          <img src={footerLogoImage} alt="ALIGN Logo" className="h-[60px] w-auto mb-4 invert" />
           <p className="text-[#bbb] text-[11px] max-md:text-[9px] tracking-[2.5px] max-md:tracking-[1.5px] uppercase font-['Noto_Sans_CJK_JP:Regular',sans-serif]">
             心と体を輝かせるライフスタイルマガジン
           </p>
@@ -4629,7 +4629,7 @@ export function Footer({ categories = [] }: { categories?: Category[] }) {
         {/* コピーライト */}
         <div className="text-center max-md:text-left">
           <p className="text-[#999] text-[11px] max-md:text-[10px] tracking-[2px] max-md:tracking-[1px] uppercase font-['Noto_Sans_JP:Light',sans-serif]">
-            © 2025 Radiance. All rights reserved.
+            © 2025 ALIGN. All rights reserved.
           </p>
         </div>
       </div>

@@ -290,7 +290,7 @@ export default function ArticlePage({ onNavigate }: ArticlePageProps) {
                         Profile
                       </h4>
                       <p className="font-['Noto_Sans_JP:Light',sans-serif] font-light leading-[20px] text-[13px] text-[#1f1f1f] tracking-[0.2px]">
-                        都内でヨガ・ピラティススタジオ「RADIANCE STUDIO」を主宰。全米ヨガアライアンス認定RYT500を取得後、延べ5,000名以上の生徒を指導。初心者から上級者まで、一人ひとりの体質や目標に合わせたパーソナルアプローチで、心身の健康をサポート。マインドフルネスと機能解剖学を融合させた独自のメソッドで、多くの女性から支持を得ている。
+                        都内でヨガ・ピラティススタジオ「ALIGN STUDIO」を主宰。全米ヨガアライアンス認定RYT500を取得後、延べ5,000名以上の生徒を指導。初心者から上級者まで、一人ひとりの体質や目標に合わせたパーソナルアプローチで、心身の健康をサポート。マインドフルネスと機能解剖学を融合させた独自のメソッドで、多くの女性から支持を得ている。
                       </p>
                     </div>
 
@@ -499,7 +499,7 @@ export default function ArticlePage({ onNavigate }: ArticlePageProps) {
                 Profile
               </h4>
               <p className="font-['Noto_Sans_JP:Light',sans-serif] leading-[1.6] text-[12px] text-[#1f1f1f]">
-                都内でヨガ・ピラティススタジオ「RADIANCE STUDIO」を主宰。全米ヨガアライアンス認定RYT500を取得後、延べ5,000名以上の生徒を指導。初心者から上級者まで、一人ひとりの体質や目標に合わせたパーソナルアプローチで、心身の健康をサポート。
+                都内でヨガ・ピラティススタジオ「ALIGN STUDIO」を主宰。全米ヨガアライアンス認定RYT500を取得後、延べ5,000名以上の生徒を指導。初心者から上級者まで、一人ひとりの体質や目標に合わせたパーソナルアプローチで、心身の健康をサポート。
               </p>
             </div>
 

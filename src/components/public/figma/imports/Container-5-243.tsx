@@ -107,7 +107,7 @@ function Item3() {
           <div className="absolute inset-[21px_568px_21px_567.98px]" data-name="Link">
             <div className="absolute h-[70px] left-1/2 overflow-clip top-0 translate-x-[-50%] w-[300px]" data-name="Picture → Vogue Japan">
               <div className="absolute h-[70px] left-0 overflow-clip top-0 w-[300px] flex items-center justify-center" data-name="logo.svg fill">
-                <img src={logoImage} alt="Radiance Logo" className="h-full w-full object-contain" />
+                <img src={logoImage} alt="ALIGN Logo" className="h-full w-full object-contain" />
               </div>
             </div>
           </div>

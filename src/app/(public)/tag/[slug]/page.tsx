@@ -27,15 +27,15 @@ export async function generateMetadata({
 
   if (!tag) {
     return {
-      title: 'タグが見つかりません | RADIANCE',
+      title: 'タグが見つかりません | ALIGN',
     };
   }
 
   return {
-    title: `#${tag.name} の記事一覧 | RADIANCE`,
+    title: `#${tag.name} の記事一覧 | ALIGN`,
     description: `${tag.name}に関する記事一覧。ヨガ・ピラティス・ウェルネスの情報をお届けします。`,
     openGraph: {
-      title: `#${tag.name} の記事一覧 | RADIANCE`,
+      title: `#${tag.name} の記事一覧 | ALIGN`,
       description: `${tag.name}に関する記事一覧`,
       type: 'website',
     },

@@ -6,8 +6,8 @@ import { ToasterWrapper } from "./lib/toaster-wrapper";
 import "./admin.css";
 
 export const metadata: Metadata = {
-  title: "管理画面 - RADIANCE CMS",
-  description: "RADIANCE メディア管理システム",
+  title: "管理画面 - ALIGN CMS",
+  description: "ALIGN メディア管理システム",
 };
 
 export default function AdminLayout({

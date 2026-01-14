@@ -66,7 +66,7 @@ function ArticleCard({ index, category, onClick }: { index: number; category: st
         </div>
         <div className="mt-4">
           <div className="flex flex-col font-['Noto_Sans_CJK_JP:Bold',sans-serif] h-[12px] justify-center leading-[0] not-italic text-[12px] text-black tracking-[1.964px] uppercase">
-            <p className="leading-[16.36px] tracking-[0.05em]">By RADIANCE TEAM</p>
+            <p className="leading-[16.36px] tracking-[0.05em]">By ALIGN TEAM</p>
           </div>
         </div>
         <div className="mt-2">
@@ -263,7 +263,7 @@ export default function CategoryPage({ category, onNavigate }: CategoryPageProps
                     心と体を整える──{article.category}で理想のライフスタイルを手に入れる
                   </h2>
                   <p className="font-['Noto_Sans_CJK_JP:Bold',sans-serif] text-[9px] tracking-[1.2px] uppercase mt-2">
-                    By RADIANCE TEAM
+                    By ALIGN TEAM
                   </p>
                   <p className="font-['Noto_Sans_JP:Medium',sans-serif] text-[10px] text-[#666] mt-1">
                     2025年11月18日

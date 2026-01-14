@@ -162,7 +162,7 @@ export function Dashboard({ onNavigateToEditor, isMobile = false, onLogout, init
             className="px-4 mb-6 mt-2 cursor-pointer group"
             onClick={handleTabHome}
           >
-            <h1 className="font-bold text-xl tracking-tight text-neutral-900 group-hover:text-neutral-600 transition-colors">Radiance</h1>
+            <h1 className="font-bold text-xl tracking-tight text-neutral-900 group-hover:text-neutral-600 transition-colors">ALIGN</h1>
             <p className="text-[10px] font-medium text-neutral-400 tracking-wide mt-0.5 uppercase">Media Management</p>
           </div>
 

@@ -45,7 +45,7 @@ export function Header({ categories = [], onToggleMenu }: HeaderProps) {
             >
               <img
                 src="/images/logo-header.png"
-                alt="Radiance Logo"
+                alt="ALIGN Logo"
                 className="h-[50px] w-auto mb-1"
               />
               <p className="text-black text-[9px] tracking-[1px] whitespace-nowrap font-[var(--font-noto-sans-jp)]">
@@ -94,7 +94,7 @@ export function Header({ categories = [], onToggleMenu }: HeaderProps) {
           <Link href="/" className="cursor-pointer">
             <img
               src="/images/logo-header.png"
-              alt="Radiance Logo"
+              alt="ALIGN Logo"
               className="h-8 w-auto"
             />
           </Link>

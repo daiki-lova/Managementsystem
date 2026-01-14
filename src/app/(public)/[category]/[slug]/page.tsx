@@ -21,8 +21,8 @@ import sanitizeHtmlLib from 'sanitize-html';
 export const revalidate = 60;
 
 // サイトのベースURL
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://radiance-yoga.jp';
-const SITE_NAME = 'RADIANCE';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://align-media.jp';
+const SITE_NAME = 'ALIGN';
 
 // JSON-LD構造化データを生成
 function generateJsonLd(article: PublicArticle): object {
@@ -89,12 +89,12 @@ export async function generateMetadata({
 
   if (!article) {
     return {
-      title: '記事が見つかりません | RADIANCE',
+      title: '記事が見つかりません | ALIGN',
     };
   }
 
   return {
-    title: article.metaTitle || `${article.title} | RADIANCE`,
+    title: article.metaTitle || `${article.title} | ALIGN`,
     description: article.metaDescription || article.title,
     openGraph: {
       title: article.metaTitle || article.title,

@@ -277,7 +277,7 @@ export function LoginView() {
                             margin: 0,
                         }}
                     >
-                        Yoga Media CMS
+                        ALIGN CMS
                     </p>
                 </div>
             </div>

@@ -20,7 +20,7 @@ import { Inngest } from "inngest";
  */
 export const inngest = new Inngest({
   id: "yoga-media-cms",
-  name: "Yoga Media CMS",
+  name: "ALIGN CMS",
 });
 
 // イベント型定義
