@@ -13,7 +13,7 @@ export function Footer({ categories = [] }: FooterProps) {
         {/* Logo Section */}
         <div className="text-center max-md:text-left mb-14 max-md:mb-8">
           <img
-            src="/images/logo-footer.png"
+            src="/images/logo-footer.webp"
             alt="ALIGN Logo"
             className="h-[50px] w-auto mx-auto max-md:mx-0 mb-3 max-md:mb-2 object-contain max-md:h-8"
           />

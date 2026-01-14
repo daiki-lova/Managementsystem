@@ -44,7 +44,7 @@ function SidebarMenu({
 
                     <Link href="/" onClick={onClose} className="block mb-8">
                         <img
-                            src="/images/logo-header.png"
+                            src="/images/logo-header.webp"
                             alt="ALIGN Logo"
                             className="h-10 w-auto"
                         />

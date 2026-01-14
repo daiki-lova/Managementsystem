@@ -44,7 +44,7 @@ export function Header({ categories = [], onToggleMenu }: HeaderProps) {
               className="flex flex-col items-center justify-center cursor-pointer"
             >
               <img
-                src="/images/logo-header.png"
+                src="/images/logo-header.webp"
                 alt="ALIGN Logo"
                 className="h-[50px] w-auto mb-1"
               />
@@ -93,7 +93,7 @@ export function Header({ categories = [], onToggleMenu }: HeaderProps) {
 
           <Link href="/" className="cursor-pointer">
             <img
-              src="/images/logo-header.png"
+              src="/images/logo-header.webp"
               alt="ALIGN Logo"
               className="h-8 w-auto"
             />

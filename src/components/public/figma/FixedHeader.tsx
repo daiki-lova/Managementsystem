@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import svgPaths from "./imports/svg-ybzm8jfd1u";
 import { Category } from "@/lib/use-public-data";
-const logoImage = "/images/logo-header.png";
+const logoImage = "/images/logo-header.webp";
 
 interface FixedHeaderProps {
   scale: number;
