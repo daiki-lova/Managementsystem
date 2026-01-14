@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RADIANCE - ヨガ・ウェルネスメディア",
+  title: "ALIGN - ライフスタイルメディア",
   description: "心と体を整えるヨガ・ウェルネス情報メディア",
 };
 

@@ -14,7 +14,7 @@ export function Footer({ categories = [] }: FooterProps) {
         <div className="text-center max-md:text-left mb-14 max-md:mb-8">
           <img
             src="/images/logo-footer.png"
-            alt="RADIANCE Logo"
+            alt="ALIGN Logo"
             className="h-[50px] w-auto mx-auto max-md:mx-0 mb-3 max-md:mb-2 object-contain max-md:h-8"
           />
           <p className="text-[#bbb] text-[11px] max-md:text-[9px] tracking-[2.5px] max-md:tracking-[1.5px] uppercase font-[var(--font-noto-sans)]">
@@ -87,7 +87,7 @@ export function Footer({ categories = [] }: FooterProps) {
         {/* Copyright */}
         <div className="text-center max-md:text-left">
           <p className="text-[#999] text-[11px] max-md:text-[10px] tracking-[2px] max-md:tracking-[1px] uppercase font-[var(--font-noto-sans-jp)] font-light">
-            &copy; 2025 Radiance. All rights reserved.
+            &copy; 2025 ALIGN. All rights reserved.
           </p>
         </div>
       </div>

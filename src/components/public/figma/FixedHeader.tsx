@@ -58,7 +58,7 @@ export default function FixedHeader({ scale, onNavigate, categories = [], onTogg
                       }}
                     >
                       <div className="absolute h-[70px] left-0 overflow-clip top-0 w-[300px] flex flex-col items-center justify-center" data-name="logo.svg fill">
-                        <img src={logoImage} alt="Radiance Logo" className="h-[50px] w-auto mb-1" />
+                        <img src={logoImage} alt="ALIGN Logo" className="h-[50px] w-auto mb-1" />
                         <p className="text-black text-[9px] tracking-[1px] whitespace-nowrap">心と体を輝かせるライフスタイルマガジン</p>
                       </div>
                     </div>
@@ -122,7 +122,7 @@ export default function FixedHeader({ scale, onNavigate, categories = [], onTogg
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            <img src={logoImage} alt="Radiance Logo" className="h-8 w-auto" />
+            <img src={logoImage} alt="ALIGN Logo" className="h-8 w-auto" />
           </div>
 
           <div className="w-6" />

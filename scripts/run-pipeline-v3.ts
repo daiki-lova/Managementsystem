@@ -16,7 +16,7 @@ async function main() {
   // YOGA カテゴリ
   const categoryId = "73ff9540-1d04-41f2-b3df-84534208adf9";
 
-  // RADIANCE ブランド
+  // ALIGN ブランド
   const brandId = "d23546a5-6bbb-40e6-80f3-18e60fbaca34";
 
   // 管理者ユーザーID

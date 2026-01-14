@@ -279,7 +279,7 @@ export function StrategyView({
         const conversionIds = Array.from(selectedConversionIds);
         // Get relevant knowledge IDs
         const knowledgeItemIds = Array.from(selectedKnowledgeIds);
-        // Default brand ID (RADIANCE)
+        // Default brand ID (ALIGN)
         const brandId = 'd23546a5-6bbb-40e6-80f3-18e60fbaca34';
 
         // Map publish strategy

@@ -260,7 +260,7 @@ async function main() {
           blocks: sampleBlocks,
           status: status,
           publishedAt: status === ArticleStatus.PUBLISHED ? new Date() : null,
-          metaTitle: `${category.name}のテスト記事${i + 1} | RADIANCE`,
+          metaTitle: `${category.name}のテスト記事${i + 1} | ALIGN`,
           metaDescription: `${category.name}に関するテスト記事です。E2Eテスト用のサンプルコンテンツ。`,
           categoryId: category.id,
           authorId: createdAuthors[i % 2].id,

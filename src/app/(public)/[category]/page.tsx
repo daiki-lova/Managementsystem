@@ -28,15 +28,15 @@ export async function generateMetadata({
 
   if (!category) {
     return {
-      title: 'カテゴリーが見つかりません | RADIANCE',
+      title: 'カテゴリーが見つかりません | ALIGN',
     };
   }
 
   return {
-    title: `${category.name} | RADIANCE`,
+    title: `${category.name} | ALIGN`,
     description: category.description || `${category.name}に関する記事一覧`,
     openGraph: {
-      title: `${category.name} | RADIANCE`,
+      title: `${category.name} | ALIGN`,
       description: category.description || `${category.name}に関する記事一覧`,
       type: 'website',
     },

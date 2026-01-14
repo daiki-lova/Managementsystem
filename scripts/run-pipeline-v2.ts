@@ -12,7 +12,7 @@ async function main() {
   const data = {
     authorId: "80896468-d673-43d3-9ff7-edf97584256c", // 武川 未央
     categoryId: "73ff9540-1d04-41f2-b3df-84534208adf9", // YOGA
-    brandId: "d23546a5-6bbb-40e6-80f3-18e60fbaca34", // RADIANCE
+    brandId: "d23546a5-6bbb-40e6-80f3-18e60fbaca34", // ALIGN
     userId: "684d65d7-baef-4538-938b-f58bc670ace2", // admin
     conversionIds: ["cv-trial"],
   };

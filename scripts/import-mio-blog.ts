@@ -75,13 +75,13 @@ async function main() {
 
   console.log(`監修者: ${author.name} (${author.id})`);
 
-  // RADIANCEブランドのIDを取得
+  // ALIGNブランドのIDを取得
   const brand = await prisma.brands.findFirst({
-    where: { name: { contains: "RADIANCE" } }
+    where: { name: { contains: "ALIGN" } }
   });
 
   if (!brand) {
-    console.error("RADIANCEブランドが見つかりません");
+    console.error("ALIGNブランドが見つかりません");
     await prisma.$disconnect();
     return;
   }

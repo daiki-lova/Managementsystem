@@ -45,7 +45,7 @@ function SidebarMenu({
                     <Link href="/" onClick={onClose} className="block mb-8">
                         <img
                             src="/images/logo-header.png"
-                            alt="Radiance Logo"
+                            alt="ALIGN Logo"
                             className="h-10 w-auto"
                         />
                     </Link>
