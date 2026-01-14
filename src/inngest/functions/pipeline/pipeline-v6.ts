@@ -633,7 +633,9 @@ function buildV6ArticlePrompt(
   conversion: { name: string; url: string },
   categoryName: string,
   brandName: string,
-  availableTags: { name: string; slug: string }[]
+  availableTags: { name: string; slug: string }[],
+  existingTitles: string[] | undefined,
+  customSystemPrompt: string | null
 ): string {
   const mainTestimonial = testimonials[0];
   const additionalTestimonials = testimonials.slice(1);
@@ -942,6 +944,16 @@ ${additionalTestimonialsText || "（追加の体験談なし）"}
 これらは「AIが書いた感」「量産記事感」を出してしまい、
 読者の目に留まらず、クリックされません。
 
+${existingTitles && existingTitles.length > 0 ? `
+══════════════════════════════════════════════════════════════════
+【タイトル重複回避】
+══════════════════════════════════════════════════════════════════
+
+以下は同カテゴリの既存タイトルです。これらと被らない、新鮮なタイトルを作成してください：
+${existingTitles.map(t => `- ${t}`).join('\n')}
+
+※ 似た構造・言い回し・数字の使い方も避けてください。
+` : ''}
 ══════════════════════════════════════════════════════════════════
 【その他禁止事項】
 ══════════════════════════════════════════════════════════════════
@@ -1004,7 +1016,17 @@ ${availableTags.map(t => `${t.name} (${t.slug})`).join(', ')}
 【LLMO最適化の重要ポイント】
 - llmoShortSummary: AI検索エンジンが引用しやすい、自己完結型の要約文。「〜とは」「〜の方法」など検索意図に直接答える形式
 - llmoKeyTakeaways: 箇条書きで5つ。具体的な数字、期間、効果を含める。抽象的な表現を避ける
-- faqItems: Google FAQ リッチスニペット用。HTMLのFAQセクションと同じ内容を構造化データとして出力`;
+- faqItems: Google FAQ リッチスニペット用。HTMLのFAQセクションと同じ内容を構造化データとして出力
+${customSystemPrompt ? `
+
+══════════════════════════════════════════════════════════════════
+【追加のカスタム指示】
+══════════════════════════════════════════════════════════════════
+
+${customSystemPrompt}
+
+上記のカスタム指示に従いつつ、デフォルトの構造と形式を維持してください。
+` : ''}`;
 }
 
 async function generateArticleV6(
@@ -1015,7 +1037,9 @@ async function generateArticleV6(
   categoryName: string,
   brandName: string,
   apiKey: string,
-  availableTags: { name: string; slug: string }[]
+  availableTags: { name: string; slug: string }[],
+  existingTitles: string[] | undefined,
+  customSystemPrompt: string | null
 ): Promise<ArticleStructure | null> {
   const prompt = buildV6ArticlePrompt(
     testimonials,
@@ -1024,7 +1048,9 @@ async function generateArticleV6(
     conversion,
     categoryName,
     brandName,
-    availableTags
+    availableTags,
+    existingTitles,
+    customSystemPrompt
   );
 
   const systemPrompt = "あなたは経験豊富なSEOライターです。指示に従って8,000〜10,000文字の記事をJSONのみで出力してください。";
@@ -1158,13 +1184,6 @@ function getRandomBackground(): string {
 }
 
 /**
- * ポーズをプロンプト用の文字列に変換
- */
-function formatPoseForPrompt(pose: typeof YOGA_POSES[number]): string {
-  return `practicing ${pose.name}, ${pose.description}`;
-}
-
-/**
  * 記事内容に合った画像プロンプトを生成（手書き風水彩画）
  */
 function buildContextualImagePrompt(
@@ -1190,27 +1209,54 @@ function buildContextualImagePrompt(
     personHint = "modern young woman wearing yoga wear";
   }
 
-  // ランダムにヨガポーズと背景を選択（45ポーズから各スロットで異なるポーズ）
-  const pose1 = getRandomYogaPose();
-  const pose2 = getRandomYogaPose();
-  const pose3 = getRandomYogaPose();
-  const coverPose = formatPoseForPrompt(pose1);
-  const inbodyPose1 = formatPoseForPrompt(pose2);
-  const inbodyPose2 = formatPoseForPrompt(pose3);
+  // 座禅ポーズを除外した立ちポーズ・動的ポーズを使用
+  // 座禅系ポーズはGeminiがデフォルトで生成しやすいため明確に異なるポーズを指定
+  const standingPoses = YOGA_POSES.filter(p =>
+    !p.name.includes("Easy") &&
+    !p.name.includes("Lotus") &&
+    !p.name.includes("Seated") &&
+    !p.name.includes("Child") &&
+    !p.name.includes("Corpse") &&
+    !p.description.includes("seated") &&
+    !p.description.includes("sitting") &&
+    !p.description.includes("cross-legged")
+  );
+
+  // 異なるカテゴリからポーズを選択（重複防止）
+  const shuffled = [...standingPoses].sort(() => Math.random() - 0.5);
+  const pose1 = shuffled[0] || getRandomYogaPose();
+  const pose2 = shuffled[1] || getRandomYogaPose();
+  const pose3 = shuffled[2] || getRandomYogaPose();
   const background = getRandomBackground();
 
-  console.log(`[Contextual Image] Poses: ${pose1.name}, ${pose2.name}, ${pose3.name}`);
+  console.log(`[Contextual Image] Poses: cover=${pose1.name}, inbody_1=${pose2.name}, inbody_2=${pose3.name}`);
 
   // スロットごとに異なるシーン・異なるポーズを生成
+  // ポーズを最優先にし、座禅ポーズを明示的に禁止
   const scenePrompts: Record<"cover" | "inbody_1" | "inbody_2", string> = {
-    cover: `${baseStyle}
-A ${personHint} ${coverPose} on a yoga mat in a ${background}. Soft natural light. Focus on the yoga pose and form. The woman looks calm, focused, and confident.`,
+    cover: `Draw a woman doing ${pose1.name}: ${pose1.description}
 
-    inbody_1: `${baseStyle}
-A ${personHint} ${inbodyPose1} on a yoga mat in a ${background}. Peaceful atmosphere with soft lighting. Focus on the yoga practice and inner peace. Serene expression showing mindfulness and concentration.`,
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
 
-    inbody_2: `${baseStyle}
-A ${personHint} ${inbodyPose2} on a yoga mat in a ${background}. Warm, encouraging atmosphere. Showing progress and dedication to yoga practice. Confident posture and peaceful expression.`,
+Style: Delicate line art with thin pen outlines and soft watercolor wash. White background. Pale muted colors. Simple minimalist style. Modern ${personHint} with gentle face, wearing yoga tank top and leggings.
+
+The woman is ${pose1.description} on a yoga mat. Show this exact body position clearly.`,
+
+    inbody_1: `Draw a woman doing ${pose2.name}: ${pose2.description}
+
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
+
+Style: Delicate line art with thin pen outlines and soft watercolor wash. White background. Pale muted colors. Simple minimalist style. Modern ${personHint} with gentle face, wearing yoga tank top and leggings.
+
+The woman is ${pose2.description} on a yoga mat. Show this exact body position clearly.`,
+
+    inbody_2: `Draw a woman doing ${pose3.name}: ${pose3.description}
+
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
+
+Style: Delicate line art with thin pen outlines and soft watercolor wash. White background. Pale muted colors. Simple minimalist style. Modern ${personHint} with gentle face, wearing yoga tank top and leggings.
+
+The woman is ${pose3.description} on a yoga mat. Show this exact body position clearly.`,
   };
 
   return scenePrompts[slot];
@@ -1234,9 +1280,16 @@ function buildCoverImagePrompt(context: ArticleImageContext): string {
     personHint = "woman in stylish yoga wear";
   }
 
-  // ヨガポーズをランダム選択（45種類から）
-  const selectedPose = getRandomYogaPose();
-  const pose = formatPoseForPrompt(selectedPose);
+  // ヨガポーズをランダム選択（座禅系以外）
+  const standingPoses = YOGA_POSES.filter(p =>
+    !p.name.includes("Easy") &&
+    !p.name.includes("Lotus") &&
+    !p.name.includes("Seated") &&
+    !p.description.includes("seated") &&
+    !p.description.includes("cross-legged")
+  );
+  const selectedPose = standingPoses[Math.floor(Math.random() * standingPoses.length)] || getRandomYogaPose();
+  const pose = `doing ${selectedPose.name}, ${selectedPose.description}`;
   console.log(`[Cover Image] Pose selected: ${selectedPose.name}`);
 
   // 3つの構図パターン
@@ -1321,31 +1374,53 @@ function buildRealisticImagePrompt(
     personHint = "modern young Japanese woman wearing professional yoga wear";
   }
 
-  // ヨガポーズをランダム選択（45種類から、各スロットで異なるポーズ）
-  const pose1 = getRandomYogaPose();
-  const pose2 = getRandomYogaPose();
-  const pose3 = getRandomYogaPose();
-  const coverPose = formatPoseForPrompt(pose1);
-  const inbodyPose1 = formatPoseForPrompt(pose2);
-  const inbodyPose2 = formatPoseForPrompt(pose3);
+  // 座禅系ポーズを除外した立ちポーズ・動的ポーズを使用
+  const standingPoses = YOGA_POSES.filter(p =>
+    !p.name.includes("Easy") &&
+    !p.name.includes("Lotus") &&
+    !p.name.includes("Seated") &&
+    !p.name.includes("Child") &&
+    !p.name.includes("Corpse") &&
+    !p.description.includes("seated") &&
+    !p.description.includes("sitting") &&
+    !p.description.includes("cross-legged")
+  );
 
-  // 背景をランダム選択（10種類から）
+  // 異なるカテゴリからポーズを選択（重複防止）
+  const shuffled = [...standingPoses].sort(() => Math.random() - 0.5);
+  const pose1 = shuffled[0] || getRandomYogaPose();
+  const pose2 = shuffled[1] || getRandomYogaPose();
+  const pose3 = shuffled[2] || getRandomYogaPose();
+
+  // 背景をランダム選択
   const background1 = getRandomBackground();
   const background2 = getRandomBackground();
   const background3 = getRandomBackground();
 
-  console.log(`[Realistic Image] Poses: ${pose1.name}, ${pose2.name}, ${pose3.name}`);
+  console.log(`[Realistic Image] Poses: cover=${pose1.name}, inbody_1=${pose2.name}, inbody_2=${pose3.name}`);
 
-  // スロットごとに異なるシーンを生成（リアル写真風・ヨガポーズ中心）
+  // スロットごとに異なるシーンを生成（ポーズを最優先に強調）
   const scenePrompts: Record<"cover" | "inbody_1" | "inbody_2", string> = {
-    cover: `${baseStyle}
-A ${personHint} ${coverPose} on a premium yoga mat in a ${background1}. Beautiful natural light streaming through large windows. Focus on perfect yoga form and alignment. Professional yoga photography capturing the essence of practice. Clean, minimalist studio with wooden floors and plants.`,
+    cover: `Photograph a woman doing ${pose1.name}: ${pose1.description}
 
-    inbody_1: `${baseStyle}
-A ${personHint} ${inbodyPose1} on a yoga mat in a ${background2}. Soft, diffused lighting creating a peaceful atmosphere. Focus on the yoga practice and mindful movement. Serene expression showing deep concentration. Professional fitness photography style.`,
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
 
-    inbody_2: `${baseStyle}
-A ${personHint} ${inbodyPose2} on a yoga mat in a ${background3}. Golden hour lighting creating warmth. Capturing strength, flexibility, and inner peace through the pose. Confident and grounded posture. High-end yoga studio or wellness center setting.`,
+${baseStyle}
+A ${personHint} clearly demonstrating ${pose1.name} on a yoga mat in ${background1}. Her body position must show: ${pose1.description}. Professional yoga photography.`,
+
+    inbody_1: `Photograph a woman doing ${pose2.name}: ${pose2.description}
+
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
+
+${baseStyle}
+A ${personHint} clearly demonstrating ${pose2.name} on a yoga mat in ${background2}. Her body position must show: ${pose2.description}. Peaceful atmosphere.`,
+
+    inbody_2: `Photograph a woman doing ${pose3.name}: ${pose3.description}
+
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
+
+${baseStyle}
+A ${personHint} clearly demonstrating ${pose3.name} on a yoga mat in ${background3}. Her body position must show: ${pose3.description}. Golden hour lighting.`,
   };
 
   return scenePrompts[slot];
@@ -1378,31 +1453,53 @@ function buildScenicImagePrompt(
     personHint = "beautiful young woman wearing stylish yoga wear";
   }
 
-  // ヨガポーズをランダム選択（45種類から、各スロットで異なるポーズ）
-  const pose1 = getRandomYogaPose();
-  const pose2 = getRandomYogaPose();
-  const pose3 = getRandomYogaPose();
-  const coverPose = formatPoseForPrompt(pose1);
-  const inbodyPose1 = formatPoseForPrompt(pose2);
-  const inbodyPose2 = formatPoseForPrompt(pose3);
+  // 座禅系ポーズを除外した立ちポーズ・動的ポーズを使用
+  const standingPoses = YOGA_POSES.filter(p =>
+    !p.name.includes("Easy") &&
+    !p.name.includes("Lotus") &&
+    !p.name.includes("Seated") &&
+    !p.name.includes("Child") &&
+    !p.name.includes("Corpse") &&
+    !p.description.includes("seated") &&
+    !p.description.includes("sitting") &&
+    !p.description.includes("cross-legged")
+  );
 
-  // 背景をランダム選択（10種類から）
+  // 異なるカテゴリからポーズを選択（重複防止）
+  const shuffled = [...standingPoses].sort(() => Math.random() - 0.5);
+  const pose1 = shuffled[0] || getRandomYogaPose();
+  const pose2 = shuffled[1] || getRandomYogaPose();
+  const pose3 = shuffled[2] || getRandomYogaPose();
+
+  // 背景をランダム選択
   const background1 = getRandomBackground();
   const background2 = getRandomBackground();
   const background3 = getRandomBackground();
 
-  console.log(`[Scenic Image] Poses: ${pose1.name}, ${pose2.name}, ${pose3.name}`);
+  console.log(`[Scenic Image] Poses: cover=${pose1.name}, inbody_1=${pose2.name}, inbody_2=${pose3.name}`);
 
-  // スロットごとに異なる風景シーンを生成
+  // スロットごとに異なる風景シーンを生成（ポーズを最優先に強調）
   const scenePrompts: Record<"cover" | "inbody_1" | "inbody_2", string> = {
-    cover: `${baseStyle}
-A ${personHint} ${coverPose} in a ${background1}. Golden hour lighting with warm sun rays. Silhouette with beautiful backlighting. Peaceful, meditative atmosphere with breathtaking natural scenery. Shot from behind or side angle.`,
+    cover: `Photograph a woman doing ${pose1.name}: ${pose1.description}
 
-    inbody_1: `${baseStyle}
-A ${personHint} ${inbodyPose1} in a ${background2}. Soft morning light filtering through trees. Yoga mat on grass or natural surface. Harmonious blend of yoga practice and nature.`,
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
 
-    inbody_2: `${baseStyle}
-A ${personHint} ${inbodyPose2} in a ${background3}. Warm golden and pink tones in the sky. Urban wellness lifestyle. Balance between modern life and mindful practice.`,
+${baseStyle}
+A ${personHint} clearly demonstrating ${pose1.name} in ${background1}. Golden hour lighting. Her body position must show: ${pose1.description}.`,
+
+    inbody_1: `Photograph a woman doing ${pose2.name}: ${pose2.description}
+
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
+
+${baseStyle}
+A ${personHint} clearly demonstrating ${pose2.name} in ${background2}. Morning light. Her body position must show: ${pose2.description}.`,
+
+    inbody_2: `Photograph a woman doing ${pose3.name}: ${pose3.description}
+
+NOT seated, NOT cross-legged, NOT meditation pose, NOT lotus position.
+
+${baseStyle}
+A ${personHint} clearly demonstrating ${pose3.name} in ${background3}. Sunset tones. Her body position must show: ${pose3.description}.`,
   };
 
   return scenePrompts[slot];
@@ -1755,8 +1852,31 @@ export const generateArticlePipelineV6 = inngest.createFunction(
       await updateProgress(5, "記事を執筆中（8,000-10,000文字目標）...");
     });
 
+    // タイトル重複防止用：同カテゴリの既存タイトルを取得
+    const existingTitles = await step.run("v6-get-existing-titles", async () => {
+      const articles = await prisma.articles.findMany({
+        where: {
+          categoryId: pipelineData.categoryId,
+          status: { in: ["PUBLISHED", "DRAFT"] }
+        },
+        select: { title: true },
+        orderBy: { createdAt: "desc" },
+        take: 20
+      });
+      const titles = articles.map(a => a.title).filter(Boolean);
+      console.log(`[V6] Found ${titles.length} existing titles in same category for deduplication`);
+      return titles;
+    });
+
     const article = await step.run("v6-generate-article", async () => {
       const conversion = pipelineData.conversions[0] || { name: "無料体験", url: "#" };
+
+      // カスタムプロンプト利用状況をログ出力
+      const customPrompt = pipelineData.settings!.systemPrompt || null;
+      console.log("[V6] Custom system prompt:", customPrompt ? "Yes" : "No (using default)");
+      if (customPrompt) {
+        console.log("[V6] Custom prompt preview:", customPrompt.slice(0, 100) + "...");
+      }
 
       const result = await generateArticleV6(
         testimonials,
@@ -1766,7 +1886,9 @@ export const generateArticlePipelineV6 = inngest.createFunction(
         pipelineData.category!.name,
         pipelineData.brand!.name,
         pipelineData.settings!.openRouterApiKey!,
-        pipelineData.tags
+        pipelineData.tags,
+        existingTitles,
+        customPrompt
       );
 
       if (!result) {
@@ -1922,19 +2044,24 @@ export const generateArticlePipelineV6 = inngest.createFunction(
         });
       }
 
-      // メインの受講生の声を紐付け
-      const mainVoice = testimonials[0];
-      await prisma.article_knowledge_items.create({
-        data: {
-          articleId: newArticle.id,
-          knowledgeItemId: mainVoice.id,
-        }
-      });
+      // 使用した全ての受講生の声を紐付け（メイン＋追加の声）
+      const allVoiceIds = testimonials.map(t => t.id).filter(Boolean);
+      if (allVoiceIds.length > 0) {
+        await prisma.article_knowledge_items.createMany({
+          data: allVoiceIds.map(id => ({
+            articleId: newArticle.id,
+            knowledgeItemId: id,
+          })),
+          skipDuplicates: true,
+        });
 
-      await prisma.knowledge_items.update({
-        where: { id: mainVoice.id },
-        data: { usageCount: { increment: 1 } }
-      });
+        await prisma.knowledge_items.updateMany({
+          where: { id: { in: allVoiceIds } },
+          data: { usageCount: { increment: 1 } }
+        });
+
+        console.log(`[V6] Linked ${allVoiceIds.length} knowledge items to article`);
+      }
 
       // タグを紐付け
       if (processedArticle.tagSlugs && processedArticle.tagSlugs.length > 0) {

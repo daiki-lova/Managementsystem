@@ -36,6 +36,67 @@ interface AIKeywordResponse {
   keywords: AIKeywordCandidate[];
 }
 
+// カテゴリ別キーワード修飾語パターン
+// ヨガ・ウェルネスメディア向けに最適化
+const CATEGORY_KEYWORD_MODIFIERS: Record<string, string[]> = {
+  // カテゴリスラッグや名前の一部でマッチ
+  "初心者": ["始め方", "入門", "おすすめ", "コツ", "選び方"],
+  "資格": ["費用", "期間", "難易度", "種類", "取得方法"],
+  "オンライン": ["メリット", "比較", "効果", "口コミ", "選び方"],
+  "スクール": ["費用", "比較", "口コミ", "選び方", "おすすめ"],
+  "体験": ["レポート", "感想", "効果", "変化", "おすすめ"],
+  "効果": ["いつから", "期間", "実感", "続けた結果", "変化"],
+  "インストラクター": ["なり方", "収入", "求人", "仕事", "働き方"],
+  "ヨガ": ["初心者", "種類", "効果", "ポーズ", "自宅"],
+  "ピラティス": ["ヨガ 違い", "効果", "マシン", "マット", "初心者"],
+  "ダイエット": ["効果", "おすすめ", "成功", "食事", "運動"],
+  "DEFAULT": ["おすすめ", "比較", "選び方", "効果", "口コミ"],
+};
+
+// キーワードをカテゴリ修飾語で拡張
+function expandKeywordsWithModifiers(
+  keywords: AIKeywordCandidate[],
+  categoryName: string
+): AIKeywordCandidate[] {
+  // カテゴリ名にマッチする修飾語を取得
+  let modifiers: string[] = [];
+  for (const [key, mods] of Object.entries(CATEGORY_KEYWORD_MODIFIERS)) {
+    if (key !== "DEFAULT" && categoryName.includes(key)) {
+      modifiers = [...modifiers, ...mods];
+    }
+  }
+  // マッチしない場合はデフォルト
+  if (modifiers.length === 0) {
+    modifiers = CATEGORY_KEYWORD_MODIFIERS["DEFAULT"];
+  }
+  // 重複除去
+  modifiers = [...new Set(modifiers)];
+
+  const expanded: AIKeywordCandidate[] = [...keywords];
+  const existingKeywords = new Set(keywords.map(k => k.keyword.toLowerCase()));
+
+  // 上位5キーワードのみ展開（トークン節約）
+  for (const kw of keywords.slice(0, 5)) {
+    const baseKeyword = kw.keyword.split(" ")[0]; // 基本語を抽出
+
+    // 修飾語3つまで
+    for (const mod of modifiers.slice(0, 3)) {
+      const newKeyword = `${baseKeyword} ${mod}`;
+
+      // 重複チェック
+      if (!existingKeywords.has(newKeyword.toLowerCase())) {
+        expanded.push({
+          keyword: newKeyword,
+          reasoning: `${kw.reasoning}（${mod}バリエーション展開）`,
+        });
+        existingKeywords.add(newKeyword.toLowerCase());
+      }
+    }
+  }
+
+  return expanded;
+}
+
 // カニバリマッチの型
 interface CannibalMatch {
   articleId: string;
@@ -105,8 +166,9 @@ function buildUserPrompt(params: {
   knowledgeItems: Array<{ type: string; title: string; content: string }>;
   seedKeywords: string[];
   candidateCount: number;
+  usedKeywords?: string[];
 }): string {
-  const { category, conversion, author, knowledgeItems, seedKeywords, candidateCount } = params;
+  const { category, conversion, author, knowledgeItems, seedKeywords, candidateCount, usedKeywords } = params;
 
   // 情報バンクから関連コンテンツを抽出
   const knowledgeSummary = knowledgeItems
@@ -146,6 +208,10 @@ ${knowledgeSummary || "（なし）"}
 
 ${seedKeywords.length > 0 ? `【参考キーワード（ヒント）】\n${seedKeywords.join(", ")}` : ""}
 
+${usedKeywords && usedKeywords.length > 0 ? `【過去90日に使用済みのキーワード（避けてください）】
+以下のキーワードは最近の記事で使用されました。同一または類似のキーワードは提案しないでください：
+${usedKeywords.slice(0, 30).join(", ")}
+` : ""}
 **重要**:
 - キーワードは必ず2〜3語のみ（「ヨガ 初心者」「朝ヨガ 効果」のような形式）
 - 4語以上は絶対に生成しない
@@ -314,7 +380,7 @@ export async function POST(request: NextRequest) {
       const validated = await validateBody(request, suggestSchema);
 
       // コンテキスト情報を並行取得
-      const [category, conversion, author, settings, existingArticlesRaw] = await Promise.all([
+      const [category, conversion, author, settings, existingArticlesRaw, usedKeywordsRaw] = await Promise.all([
         prisma.categories.findUnique({
           where: { id: validated.categoryId },
         }),
@@ -346,10 +412,26 @@ export async function POST(request: NextRequest) {
           orderBy: { publishedAt: "desc" },
           take: 100, // 最新100件まで
         }),
+        // 過去90日に使用されたキーワードを取得（重複防止用）
+        prisma.generation_jobs.findMany({
+          where: {
+            status: "COMPLETED",
+            createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }
+          },
+          select: { keyword: true },
+          orderBy: { createdAt: "desc" },
+          take: 50
+        }),
       ]);
 
       // 既存記事の型変換
       const existingArticles: ExistingArticle[] = existingArticlesRaw;
+
+      // 使用済みキーワードのリスト
+      const usedKeywords = usedKeywordsRaw
+        .map(j => j.keyword)
+        .filter((k): k is string => k !== null && k !== undefined);
+      console.log(`Found ${usedKeywords.length} used keywords in last 90 days for exclusion`);
 
       // 存在確認
       if (!category) {
@@ -404,6 +486,7 @@ export async function POST(request: NextRequest) {
         })),
         seedKeywords: validated.seedKeywords ?? [],
         candidateCount: validated.candidateCount ?? 25,
+        usedKeywords,
       });
 
       const aiResult = await callOpenRouter<AIKeywordResponse>(
@@ -426,8 +509,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const aiKeywords = aiResult.data.keywords || [];
-      console.log(`AI generated ${aiKeywords.length} keyword candidates`);
+      const aiKeywordsRaw = aiResult.data.keywords || [];
+      console.log(`AI generated ${aiKeywordsRaw.length} keyword candidates`);
+
+      // カテゴリ修飾語でキーワードを展開
+      const aiKeywords = expandKeywordsWithModifiers(aiKeywordsRaw, category.name);
+      console.log(`Expanded to ${aiKeywords.length} keywords with category modifiers`);
 
       // Keywords Everywhere APIでボリューム取得
       let enrichedKeywords: EnrichedKeyword[] = aiKeywords.map((kw) => {
