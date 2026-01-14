@@ -2,8 +2,8 @@
 
 import svgPaths from "./svg-ybzm8jfd1u";
 import { ImageWithFallback } from "../ImageWithFallback";
-const logoImage = "/assets/figma/917eb3a33258754379746bcc4d875061f4d7fbfe.png";
-const footerLogoImage = "/assets/figma/17e8fd9b7ed5958fec1ad2e3f9bee7879aaa05d4.png";
+const logoImage = "/images/logo-header.webp";
+const footerLogoImage = "/images/logo-footer.webp";
 import { PicturefabFiveNew, Link3New, Container3New, Picture5New, Link4New, Container4New } from "./RecentPostsComponents";
 import React, { useRef, useEffect, useState, Fragment } from "react";
 import NextLink from "next/link";
