@@ -165,7 +165,7 @@ export const generateImages = inngest.createFunction(
               data: {
                 id: randomUUID(),
                 url: imageUrl,
-                fileName: `${placeholder.position}-${articleId}.png`,
+                fileName: `${placeholder.position}-${articleId}.webp`,
                 altText: placeholder.altHint,
                 source: MediaSource.AI_GENERATED,
                 showInLibrary: true,
@@ -280,7 +280,7 @@ export const generateImages = inngest.createFunction(
               data: {
                 id: randomUUID(),
                 url: imageUrl,
-                fileName: `${job.slot}-${articleId}.png`,
+                fileName: `${job.slot}-${articleId}.webp`,
                 altText: job.alt,
                 source: MediaSource.AI_GENERATED,
                 showInLibrary: true,
@@ -351,7 +351,7 @@ export const generateImages = inngest.createFunction(
           data: {
             id: randomUUID(),
             url: thumbnailUrl,
-            fileName: `thumbnail-${articleId}.png`,
+            fileName: `thumbnail-${articleId}.webp`,
             source: MediaSource.AI_GENERATED,
             showInLibrary: true,
           },
@@ -408,7 +408,7 @@ async function fitTo16by9(imageBuffer: Buffer): Promise<Buffer> {
       fit: 'contain',
       background: { r: 255, g: 255, b: 255, alpha: 1 }
     })
-    .png()
+    .webp({ quality: 80 })
     .toBuffer();
 
   return fittedBuffer;
@@ -487,12 +487,12 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
             // 16:9枠内にフィット（白背景で余白追加）
             const fittedBuffer = await fitTo16by9(imageBuffer);
 
-            const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
+            const filePath = `generated/${Date.now()}-${randomUUID()}.webp`;
             const { url } = await uploadImage(
               "MEDIA",
               filePath,
               fittedBuffer,
-              "image/png"
+              "image/webp"
             );
 
             console.log(`[Gemini] Image saved (object format, 16:9): ${url}`);
@@ -501,7 +501,7 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
         }
       }
 
-      // 形式1b: 文字列形式 "data:image/png;base64,..."
+      // 形式1b: 文字列形式 "data:image/webp;base64,..."
       if (typeof imageData === "string" && imageData.startsWith("data:image")) {
         const base64Match = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
         if (base64Match) {
@@ -512,12 +512,12 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
           const fittedBuffer = await fitTo16by9(imageBuffer);
 
           // Supabaseにアップロード
-          const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
+          const filePath = `generated/${Date.now()}-${randomUUID()}.webp`;
           const { url } = await uploadImage(
             "MEDIA",
             filePath,
             fittedBuffer,
-            "image/png"
+            "image/webp"
           );
 
           console.log(`[Gemini] Image saved (string format, 16:9): ${url}`);
@@ -536,12 +536,12 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
         // 16:9枠内にフィット（白背景で余白追加）
         const fittedBuffer = await fitTo16by9(imageBuffer);
 
-        const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
+        const filePath = `generated/${Date.now()}-${randomUUID()}.webp`;
         const { url } = await uploadImage(
           "MEDIA",
           filePath,
           fittedBuffer,
-          "image/png"
+          "image/webp"
         );
 
         console.log(`[Gemini] Image saved (content format, 16:9): ${url}`);
@@ -563,12 +563,12 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
               // 16:9にフィット（白背景で収める）
               const fittedBuffer = await fitTo16by9(imageBuffer);
 
-              const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
+              const filePath = `generated/${Date.now()}-${randomUUID()}.webp`;
               const { url } = await uploadImage(
                 "MEDIA",
                 filePath,
                 fittedBuffer,
-                "image/png"
+                "image/webp"
               );
 
               console.log(`[Gemini] Image saved (array format, 16:9 fit): ${url}`);
