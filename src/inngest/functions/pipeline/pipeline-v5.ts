@@ -150,7 +150,7 @@ async function fitTo16by9(imageBuffer: Buffer): Promise<Buffer> {
       fit: 'contain',
       background: { r: 255, g: 255, b: 255, alpha: 1 }
     })
-    .png()
+    .webp({ quality: 80 })
     .toBuffer();
 }
 
@@ -209,8 +209,8 @@ async function generateImageWithGemini(prompt: string, apiKey: string): Promise<
         console.log(`[V5] Extracting base64 image, format: ${base64Match[1]}`);
         const imageBuffer = Buffer.from(base64Match[2], "base64");
         const fittedBuffer = await fitTo16by9(imageBuffer);
-        const filePath = `generated/${Date.now()}-${randomUUID()}.png`;
-        const { url } = await uploadImage("MEDIA", filePath, fittedBuffer, "image/png");
+        const filePath = `generated/${Date.now()}-${randomUUID()}.webp`;
+        const { url } = await uploadImage("MEDIA", filePath, fittedBuffer, "image/webp");
         console.log(`[V5] Image uploaded: ${url}`);
         return url;
       }
@@ -696,7 +696,7 @@ async function generateImagesV5(
         data: {
           id: randomUUID(),
           url,
-          fileName: `v5-${slot}-${Date.now()}.png`,
+          fileName: `v5-${slot}-${Date.now()}.webp`,
           altText: `${keyword} - ${description}`,
           source: MediaSource.AI_GENERATED,
           showInLibrary: true,
