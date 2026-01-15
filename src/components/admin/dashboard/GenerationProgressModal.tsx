@@ -15,7 +15,7 @@ interface GenerationProgressModalProps {
     articleCount: number;
     status: 'processing' | 'error' | 'completed';
     errorMessage?: string;
-    pipelineMode?: 'v5'; // V5のみサポート
+    pipelineMode?: 'v6'; // V6固定
     onCancel: () => void;
     onComplete: () => void;
     onRetry: () => void;

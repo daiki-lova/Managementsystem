@@ -808,7 +808,6 @@ export const generationJobsApi = {
     brandId: string;
     conversionIds?: string[];
     knowledgeItemIds?: string[];
-    pipelineVersion?: 'v3' | 'v5'; // V3: 受講生の声ベース, V5: V3 + Web検索 + LLMo最適化
     publishStrategy?: 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED';
     scheduledAt?: string;
     imageStyle?: 'REALISTIC' | 'SCENIC' | 'HANDDRAWN' | 'WATERCOLOR'; // 本文画像スタイル（カバーは常にリアル）

@@ -34,8 +34,8 @@ export type GeneratedArticleData = {
     author?: string;
 };
 
-// パイプラインモード（V5のみサポート）
-type PipelineMode = 'v5';
+// パイプラインモード（V6固定）
+type PipelineMode = 'v6';
 
 // 画像スタイル（本文画像用 - カバー画像は常にリアル写真風）
 type ImageStyleType = 'REALISTIC' | 'SCENIC' | 'HANDDRAWN';
@@ -86,8 +86,8 @@ export function StrategyView({
     // Mutations
     const createGenerationJob = useCreateGenerationJob();
 
-    // パイプラインモードは固定（V5のみ）
-    const pipelineMode: PipelineMode = 'v5';
+    // パイプラインモードは固定（V6）
+    const pipelineMode: PipelineMode = 'v6';
 
     // User selections
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -156,14 +156,13 @@ export function StrategyView({
                 return;
             }
 
-            // V3: 受講生の声ベース / V5: 受講生の声 + Web検索 + LLMo最適化
+            // V6パイプライン: 受講生の声 + Web検索 + SEO/LLMO最適化 + 体験談深掘り
             const result = await createGenerationJob.mutateAsync({
                 categoryId: selectedCategoryId,
                 authorId: selectedAuthorId,
                 brandId,
                 conversionIds: [selectedConversionId],
                 knowledgeItemIds: selectedKnowledge.map(s => s.id),
-                pipelineVersion: pipelineMode, // 'v3' or 'v5'
                 publishStrategy: publishStrategy as 'DRAFT' | 'PUBLISH_NOW' | 'SCHEDULED',
                 scheduledAt: scheduleMode === 'schedule' ? `${startDate}T${postTime}:00Z` : undefined,
                 imageStyle: 'REALISTIC', // Default to REALISTIC, logic in prompt
@@ -199,7 +198,7 @@ export function StrategyView({
         const avgProgress = Math.floor(totalProgress / activeJobs.length);
         setProgress(avgProgress);
 
-        // V5: 8ステップ
+        // V6: 8ステップ
         let step = 0;
         if (avgProgress < 8) step = 0;
         else if (avgProgress < 16) step = 1;

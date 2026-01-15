@@ -50,18 +50,6 @@ export type Events = {
       userId: string;
     };
   };
-  // V5パイプライン（情報バンク + Web検索 + LLMo最適化 + モノトーンスタイル）
-  "article/generate-pipeline-v5": {
-    data: {
-      jobId: string;
-      knowledgeItemId?: string; // 指定の受講生の声ID（オプション）
-      categoryId: string;
-      authorId: string;
-      brandId: string;
-      conversionIds: string[];
-      userId: string;
-    };
-  };
   // V6パイプライン（体験談深掘り + 監修者強化 + 自然なスクール紹介）
   "article/generate-pipeline-v6": {
     data: {
