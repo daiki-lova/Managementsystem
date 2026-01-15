@@ -40,6 +40,9 @@ type PipelineMode = 'v6';
 // 画像スタイル（本文画像用 - カバー画像は常にリアル写真風）
 type ImageStyleType = 'REALISTIC' | 'SCENIC' | 'HANDDRAWN';
 
+// 同時生成可能な最大記事数
+const MAX_SIMULTANEOUS_GENERATION = 3;
+
 export function StrategyView({
     onGenerate,
 }: {
@@ -122,9 +125,9 @@ export function StrategyView({
         return items.sort((a, b) => (a.usageCount || 0) - (b.usageCount || 0));
     }, [knowledgeItems, selectedCategoryId]);
 
-    // 生成可能数（未使用の情報バンクアイテム数）
+    // 生成可能数（未使用の情報バンクアイテム数、ただし最大3件まで）
     const unusedCount = knowledgeItems.filter(k => (k.usageCount || 0) === 0).length;
-    const maxGeneratable = unusedCount;
+    const maxGeneratable = Math.min(unusedCount, MAX_SIMULTANEOUS_GENERATION);
 
     // 選択が完了しているか
     const hasRequiredSelections = selectedCategoryId && selectedAuthorId && selectedConversionId;

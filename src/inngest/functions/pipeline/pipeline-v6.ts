@@ -75,6 +75,18 @@ interface SupervisorContext {
   teachingApproach?: string;
   signaturePhrases?: string[];
   avoidWords?: string[];
+  // 新規追加フィールド
+  careerStartYear?: number;      // ヨガ・フィットネス開始年
+  teachingStartYear?: number;    // 指導開始年
+  totalStudentsTaught?: number;  // これまでの指導人数
+  graduatesCount?: number;       // インストラクター養成講座卒業生数
+  weeklyLessons?: number;        // 現在の週あたりレッスン本数
+  certifications?: Array<{name: string; year?: number; location?: string}>;
+  episodes?: Array<{type: string; title: string; content: string}>;
+  specialties?: string[];        // 専門分野
+  writingStyle?: string;         // "formal", "casual", "professional"
+  targetAudience?: string;       // 主な指導対象
+  influences?: string[];         // 影響を受けた人物・思想
 }
 
 interface ArticleStructure {
@@ -498,6 +510,18 @@ async function getSupervisorContext(authorId: string): Promise<SupervisorContext
     teachingApproach: author.teachingApproach || undefined,
     signaturePhrases: (author.signaturePhrases as string[]) || [],
     avoidWords: (author.avoidWords as string[]) || [],
+    // 新規追加フィールド
+    careerStartYear: author.careerStartYear || undefined,
+    teachingStartYear: author.teachingStartYear || undefined,
+    totalStudentsTaught: author.totalStudentsTaught || undefined,
+    graduatesCount: author.graduatesCount || undefined,
+    weeklyLessons: author.weeklyLessons || undefined,
+    certifications: (author.certifications as Array<{name: string; year?: number; location?: string}>) || undefined,
+    episodes: (author.episodes as Array<{type: string; title: string; content: string}>) || undefined,
+    specialties: (author.specialties as string[]) || undefined,
+    writingStyle: author.writingStyle || undefined,
+    targetAudience: author.targetAudience || undefined,
+    influences: (author.influences as string[]) || undefined,
   };
 }
 
@@ -644,6 +668,71 @@ function buildV6ArticlePrompt(
   const supervisorPhrases = supervisor.signaturePhrases?.join("」「") || "";
   const avoidWords = supervisor.avoidWords?.join("、") || "";
 
+  // 監修者の拡張情報を動的に構築
+  const supervisorExtendedInfo: string[] = [];
+
+  // 経験年数（計算可能な場合）
+  const currentYear = new Date().getFullYear();
+  if (supervisor.careerStartYear) {
+    const yearsInYoga = currentYear - supervisor.careerStartYear;
+    supervisorExtendedInfo.push(`ヨガ歴: ${yearsInYoga}年（${supervisor.careerStartYear}年開始）`);
+  }
+  if (supervisor.teachingStartYear) {
+    const teachingYears = currentYear - supervisor.teachingStartYear;
+    supervisorExtendedInfo.push(`指導歴: ${teachingYears}年（${supervisor.teachingStartYear}年開始）`);
+  }
+
+  // 実績（数値がある場合）
+  if (supervisor.totalStudentsTaught) {
+    supervisorExtendedInfo.push(`指導人数: ${supervisor.totalStudentsTaught.toLocaleString()}人以上`);
+  }
+  if (supervisor.graduatesCount) {
+    supervisorExtendedInfo.push(`インストラクター養成実績: ${supervisor.graduatesCount}名`);
+  }
+  if (supervisor.weeklyLessons) {
+    supervisorExtendedInfo.push(`現在の週間レッスン数: ${supervisor.weeklyLessons}本`);
+  }
+
+  // 資格（ある場合）
+  if (supervisor.certifications && supervisor.certifications.length > 0) {
+    const certList = supervisor.certifications.map(c => c.name).join("、");
+    supervisorExtendedInfo.push(`保有資格: ${certList}`);
+  }
+
+  // 専門分野
+  if (supervisor.specialties && supervisor.specialties.length > 0) {
+    supervisorExtendedInfo.push(`専門分野: ${supervisor.specialties.join("、")}`);
+  }
+
+  // 主な指導対象
+  if (supervisor.targetAudience) {
+    supervisorExtendedInfo.push(`主な指導対象: ${supervisor.targetAudience}`);
+  }
+
+  // 影響を受けた人物・思想
+  if (supervisor.influences && supervisor.influences.length > 0) {
+    supervisorExtendedInfo.push(`影響を受けた人物・思想: ${supervisor.influences.join("、")}`);
+  }
+
+  // 執筆スタイル
+  const writingStyleMap: Record<string, string> = {
+    formal: "フォーマル（丁寧語中心）",
+    casual: "カジュアル（親しみやすい口調）",
+    professional: "プロフェッショナル（専門家としての語り口）"
+  };
+  if (supervisor.writingStyle && writingStyleMap[supervisor.writingStyle]) {
+    supervisorExtendedInfo.push(`執筆トーン: ${writingStyleMap[supervisor.writingStyle]}`);
+  }
+
+  const supervisorExtendedText = supervisorExtendedInfo.length > 0
+    ? supervisorExtendedInfo.join("\n")
+    : "";
+
+  // エピソードを文字列化（最大3つまで）
+  const supervisorEpisodesText = supervisor.episodes && supervisor.episodes.length > 0
+    ? supervisor.episodes.slice(0, 3).map(ep => `【${ep.type}】${ep.title}\n${ep.content}`).join("\n\n")
+    : "";
+
   // 追加の体験談テキスト
   const additionalTestimonialsText = additionalTestimonials.map((t, i) =>
     `【受講生${i + 2}の体験】\n${t.content}`
@@ -700,14 +789,23 @@ ${additionalTestimonialsText || "（追加の体験談なし）"}
 【監修者情報】
 ══════════════════════════════════════════════════════════════════
 
+■ 基本情報
 名前: ${supervisor.name}
 役職: ${supervisor.role}
 プロフィール: ${supervisor.bio}
-指導理念: ${supervisor.philosophy || ""}
-指導スタイル: ${supervisor.teachingApproach || ""}
-よく使うフレーズ: 「${supervisorPhrases}」
-避ける言葉: ${avoidWords}
 
+■ 指導方針
+指導理念: ${supervisor.philosophy || "（未設定）"}
+指導スタイル: ${supervisor.teachingApproach || "（未設定）"}
+
+■ 経歴・実績
+${supervisorExtendedText || "（詳細情報なし）"}
+
+■ 表現スタイル
+よく使うフレーズ: 「${supervisorPhrases}」
+避ける言葉: ${avoidWords || "（特になし）"}
+
+${supervisorEpisodesText ? `■ 監修者のエピソード（記事内で自然に活用してください）\n${supervisorEpisodesText}` : ""}
 ══════════════════════════════════════════════════════════════════
 【監修者コメントの書き方：超重要】
 ══════════════════════════════════════════════════════════════════
@@ -2055,10 +2153,8 @@ export const generateArticlePipelineV6 = inngest.createFunction(
           skipDuplicates: true,
         });
 
-        await prisma.knowledge_items.updateMany({
-          where: { id: { in: allVoiceIds } },
-          data: { usageCount: { increment: 1 } }
-        });
+        // usageCountはジョブ作成時点でインクリメント済み（重複選択防止のため）
+        // ここでは記事との紐付けのみ行う
 
         console.log(`[V6] Linked ${allVoiceIds.length} knowledge items to article`);
       }

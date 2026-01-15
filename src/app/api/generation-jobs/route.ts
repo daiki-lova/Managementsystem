@@ -217,6 +217,12 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // ジョブ作成時点でusageCountをインクリメント（重複選択防止）
+        await prisma.knowledge_items.update({
+          where: { id: knowledgeItemId },
+          data: { usageCount: { increment: 1 } },
+        });
+
         // V6パイプラインでイベントを発火
         await inngest.send({
           name: "article/generate-pipeline-v6",

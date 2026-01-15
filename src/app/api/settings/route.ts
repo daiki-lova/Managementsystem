@@ -15,6 +15,7 @@ import {
   DEFAULT_KEYWORD_ANALYSIS_PROMPT,
   DEFAULT_WHITE_DATA_PROMPT,
   DEFAULT_LLMO_PROMPT,
+  V6_ARTICLE_PROMPT_DESCRIPTION,
 } from "@/inngest/functions/pipeline/common/prompts";
 import { STAGE_MODEL_CONFIG } from "@/inngest/functions/pipeline/common/openrouter";
 
@@ -133,6 +134,11 @@ export async function GET(request: NextRequest) {
             // V4パイプライン専用
             whiteDataPrompt: DEFAULT_WHITE_DATA_PROMPT,
             llmoPrompt: DEFAULT_LLMO_PROMPT,
+          },
+          // V6パイプライン情報（読み取り専用）
+          v6Pipeline: {
+            description: V6_ARTICLE_PROMPT_DESCRIPTION,
+            note: "V6プロンプトはシステムに組み込まれています。設定変更は開発者への依頼が必要です。",
           },
         },
       };

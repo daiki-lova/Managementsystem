@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Globe, BarChart3, Check, Cpu, Zap,
-    Shield, Settings, Link2, AlertCircle,
-    Image as ImageIcon, FileText, Search, Key,
-    Sparkles, MessageSquare, Loader2
+    Globe, BarChart3, Check, Cpu,
+    Link2, AlertCircle, Search, Key,
+    Sparkles, Loader2
 } from 'lucide-react';
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
-import { Slider } from '../ui/slider';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../ui/select";
-import { cn } from '@/app/admin/lib/utils';
+import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
+import { Badge } from '../ui/badge';
 import { useSettings, useUpdateSettings } from '@/app/admin/lib/hooks';
 
 export function SettingsView() {
@@ -33,14 +32,6 @@ export function SettingsView() {
         imageModel: 'google/imagen-3',
         articleModel: 'anthropic/claude-sonnet-4',
         analysisModel: 'anthropic/claude-3.5-haiku',
-        titlePrompt: '',
-        keywordPrompt: '',
-        keywordSuggestPrompt: '',
-        imagePrompt: '',
-        systemPrompt: '',
-        // V4パイプライン専用
-        whiteDataPrompt: '',
-        llmoPrompt: '',
     });
 
     // API key editing state
@@ -62,14 +53,6 @@ export function SettingsView() {
                 imageModel: settings.imageModel || 'google/imagen-3',
                 articleModel: settings.articleModel || 'anthropic/claude-sonnet-4',
                 analysisModel: settings.analysisModel || 'anthropic/claude-3.5-haiku',
-                titlePrompt: settings.titlePrompt || '',
-                keywordPrompt: settings.keywordPrompt || '',
-                keywordSuggestPrompt: settings.keywordSuggestPrompt || '',
-                imagePrompt: settings.imagePrompt || '',
-                systemPrompt: settings.systemPrompt || '',
-                // V4パイプライン専用
-                whiteDataPrompt: (settings as any).whiteDataPrompt || '',
-                llmoPrompt: (settings as any).llmoPrompt || '',
             });
         }
     }, [settings]);
@@ -525,270 +508,41 @@ export function SettingsView() {
 
                     <div className="w-full h-px bg-neutral-100"></div>
 
-                    {/* Group 3: System Prompts */}
-                    <section>
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
-                                <MessageSquare size={16} strokeWidth={2.5} />
+                    {/* V6パイプライン情報（読み取り専用） */}
+                    <section className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                    <Sparkles size={16} strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-neutral-900">V6 パイプライン設定</h2>
+                                    <p className="text-[10px] text-neutral-500 mt-0.5">現在のAI記事生成パイプラインの設定内容（読み取り専用）</p>
+                                </div>
                             </div>
-                            <h2 className="text-lg font-bold text-neutral-900">システムプロンプト設定</h2>
-                            <span className="text-xs text-neutral-400">（記事生成パイプラインで使用）</span>
+                            <Badge variant="secondary" className="text-xs">
+                                システム設定
+                            </Badge>
                         </div>
 
-                        <div className="space-y-8">
-                            {/* 1. タイトル生成プロンプト */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm font-bold text-neutral-900">タイトル生成プロンプト</Label>
-                                        <p className="text-[10px] text-neutral-500 mt-0.5">Step 1: キーワードからタイトル・slug・meta情報を生成</p>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900"
-                                        onClick={() => {
-                                            const defaults = (settings as any)?.activeConfig?.defaults;
-                                            if (defaults?.titlePrompt) {
-                                                setFormData({...formData, titlePrompt: defaults.titlePrompt});
-                                            }
-                                        }}
-                                    >
-                                        デフォルトに戻す
-                                    </Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
+                        <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>読み取り専用</AlertTitle>
+                            <AlertDescription>
+                                V6プロンプトはシステムに組み込まれています。変更が必要な場合は開発者にご連絡ください。
+                            </AlertDescription>
+                        </Alert>
+
+                        <div className="space-y-4">
+                            <div>
+                                <Label className="text-sm font-bold text-neutral-700">
+                                    パイプライン概要
+                                </Label>
+                                <div className="mt-2">
                                     <Textarea
-                                        className="min-h-[160px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300 font-mono"
-                                        value={formData.titlePrompt || (settings as any)?.activeConfig?.prompts?.title || ''}
-                                        onChange={(e) => setFormData({...formData, titlePrompt: e.target.value})}
-                                        placeholder="タイトル生成プロンプトを入力..."
-                                    />
-                                </div>
-                            </div>
-
-                            {/* 2. 記事生成プロンプト */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm font-bold text-neutral-900">記事生成プロンプト</Label>
-                                        <p className="text-[10px] text-neutral-500 mt-0.5">Step 2: タイトルから本文HTML全体を生成</p>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900"
-                                        onClick={() => {
-                                            const defaults = (settings as any)?.activeConfig?.defaults;
-                                            if (defaults?.systemPrompt) {
-                                                setFormData({...formData, systemPrompt: defaults.systemPrompt});
-                                            }
-                                        }}
-                                    >
-                                        デフォルトに戻す
-                                    </Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[200px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300 font-mono"
-                                        value={formData.systemPrompt || (settings as any)?.activeConfig?.prompts?.article || ''}
-                                        onChange={(e) => setFormData({...formData, systemPrompt: e.target.value})}
-                                        placeholder="記事生成プロンプトを入力..."
-                                    />
-                                </div>
-                            </div>
-
-                            {/* 3. 画像生成プロンプト */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm font-bold text-neutral-900">画像生成プロンプト</Label>
-                                        <p className="text-[10px] text-neutral-500 mt-0.5">Step 3: 記事内の画像プレースホルダーから画像を生成</p>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900"
-                                        onClick={() => {
-                                            const defaults = (settings as any)?.activeConfig?.defaults;
-                                            if (defaults?.imagePrompt) {
-                                                setFormData({...formData, imagePrompt: defaults.imagePrompt});
-                                            }
-                                        }}
-                                    >
-                                        デフォルトに戻す
-                                    </Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[160px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300 font-mono"
-                                        value={formData.imagePrompt || (settings as any)?.activeConfig?.prompts?.image || ''}
-                                        onChange={(e) => setFormData({...formData, imagePrompt: e.target.value})}
-                                        placeholder="画像生成プロンプトを入力..."
-                                    />
-                                </div>
-                            </div>
-
-                            {/* 4. キーワード提案プロンプト */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm font-bold text-neutral-900">キーワード提案プロンプト</Label>
-                                        <p className="text-[10px] text-neutral-500 mt-0.5">戦略設定でのキーワード提案に使用</p>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900"
-                                        onClick={() => {
-                                            const defaults = (settings as any)?.activeConfig?.defaults;
-                                            if (defaults?.keywordSuggestPrompt) {
-                                                setFormData({...formData, keywordSuggestPrompt: defaults.keywordSuggestPrompt});
-                                            }
-                                        }}
-                                    >
-                                        デフォルトに戻す
-                                    </Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[160px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300 font-mono"
-                                        value={formData.keywordSuggestPrompt || (settings as any)?.activeConfig?.prompts?.keywordSuggest || ''}
-                                        onChange={(e) => setFormData({...formData, keywordSuggestPrompt: e.target.value})}
-                                        placeholder="キーワード提案プロンプトを入力..."
-                                    />
-                                </div>
-                            </div>
-
-                            {/* 5. キーワード分析プロンプト */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm font-bold text-neutral-900">キーワード分析プロンプト</Label>
-                                        <p className="text-[10px] text-neutral-500 mt-0.5">（現在未使用）将来の機能拡張用</p>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900"
-                                        onClick={() => {
-                                            const defaults = (settings as any)?.activeConfig?.defaults;
-                                            if (defaults?.keywordPrompt) {
-                                                setFormData({...formData, keywordPrompt: defaults.keywordPrompt});
-                                            }
-                                        }}
-                                    >
-                                        デフォルトに戻す
-                                    </Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-neutral-200 bg-white focus-within:ring-1 focus-within:ring-neutral-900 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[160px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-300 font-mono"
-                                        value={formData.keywordPrompt || (settings as any)?.activeConfig?.prompts?.keywordAnalysis || ''}
-                                        onChange={(e) => setFormData({...formData, keywordPrompt: e.target.value})}
-                                        placeholder="キーワード分析プロンプトを入力..."
-                                    />
-                                </div>
-                            </div>
-
-                            {/* V4パイプライン専用プロンプト */}
-                            <div className="pt-8 border-t border-neutral-200">
-                                <h3 className="text-base font-bold text-neutral-900 mb-4 flex items-center gap-2">
-                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded">V4</span>
-                                    パイプライン専用プロンプト
-                                </h3>
-                                <p className="text-[11px] text-neutral-500 mb-6">
-                                    V4パイプライン（キーワードベース生成）でのみ使用されるプロンプトです。
-                                    ホワイトデータ（Web検索）とLLMo最適化（AI検索エンジン対応）の動作をカスタマイズできます。
-                                </p>
-                            </div>
-
-                            {/* ホワイトデータ検索プロンプト */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm font-bold text-neutral-900">ホワイトデータ検索プロンプト</Label>
-                                        <p className="text-[10px] text-neutral-500 mt-0.5">Web検索で信頼性の高い外部データを取得する際のプロンプト</p>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900"
-                                        onClick={() => {
-                                            setFormData({...formData, whiteDataPrompt: ''});
-                                        }}
-                                    >
-                                        デフォルトに戻す
-                                    </Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-blue-200 bg-blue-50/30 focus-within:ring-1 focus-within:ring-blue-500 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[200px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-400 font-mono bg-transparent"
-                                        value={formData.whiteDataPrompt || ''}
-                                        onChange={(e) => setFormData({...formData, whiteDataPrompt: e.target.value})}
-                                        placeholder={`空欄の場合はデフォルトプロンプトを使用します。
-
-【使用可能な変数】
-{{KEYWORD}} - 検索キーワード
-{{CURRENT_YEAR}} - 現在の年
-
-【出力形式】
-JSON配列で出力するよう指示してください：
-[
-  {
-    "content": "データ内容",
-    "sourceName": "出典名",
-    "sourceUrl": "URL",
-    "publishedYear": 2024,
-    "dataType": "survey|statistics|research"
-  }
-]`}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* LLMo最適化プロンプト */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm font-bold text-neutral-900">LLMo最適化プロンプト</Label>
-                                        <p className="text-[10px] text-neutral-500 mt-0.5">AI検索エンジン向けの要約・キーポイント生成プロンプト</p>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 text-[10px] text-neutral-400 hover:text-neutral-900"
-                                        onClick={() => {
-                                            setFormData({...formData, llmoPrompt: ''});
-                                        }}
-                                    >
-                                        デフォルトに戻す
-                                    </Button>
-                                </div>
-                                <div className="p-5 rounded-2xl border border-blue-200 bg-blue-50/30 focus-within:ring-1 focus-within:ring-blue-500 transition-shadow shadow-sm">
-                                    <Textarea
-                                        className="min-h-[200px] border-none p-0 resize-none text-xs leading-relaxed focus-visible:ring-0 placeholder:text-neutral-400 font-mono bg-transparent"
-                                        value={formData.llmoPrompt || ''}
-                                        onChange={(e) => setFormData({...formData, llmoPrompt: e.target.value})}
-                                        placeholder={`空欄の場合はデフォルトプロンプトを使用します。
-
-【使用可能な変数】
-{{TITLE}} - 記事タイトル
-{{AUTHOR_NAME}} - 監修者名
-{{HTML_CONTENT}} - 記事本文（最大8000文字）
-
-【出力形式】
-JSON形式で出力するよう指示してください：
-{
-  "llmoShortSummary": "100文字以内の要約",
-  "llmoKeyTakeaways": [
-    "重要ポイント1",
-    "重要ポイント2",
-    "重要ポイント3",
-    "重要ポイント4",
-    "重要ポイント5"
-  ]
-}`}
+                                        value={(settings as any)?.activeConfig?.v6Pipeline?.description || "読み込み中..."}
+                                        readOnly
+                                        className="font-mono text-sm bg-neutral-50 text-neutral-600 min-h-[400px] cursor-default"
                                     />
                                 </div>
                             </div>

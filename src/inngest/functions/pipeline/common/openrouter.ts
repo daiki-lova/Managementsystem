@@ -32,10 +32,18 @@ function extractAndParseJSON<T>(content: string): T {
 
   // 1. Markdownコードブロックを除去
   // ```json ... ``` または ``` ... ```
-  // greedy版を使用（最後の```まで取得）
-  const codeBlockMatch = cleanContent.match(/```(?:json)?\s*([\s\S]*)```\s*$/);
+  // 複数のパターンに対応（末尾に追加テキストがあっても対応）
+  const codeBlockMatch = cleanContent.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
     cleanContent = codeBlockMatch[1].trim();
+  }
+
+  // 追加: 先頭の```jsonだけある場合（閉じタグなし）
+  if (cleanContent.startsWith("```json")) {
+    cleanContent = cleanContent.replace(/^```json\s*/, "").trim();
+  }
+  if (cleanContent.startsWith("```")) {
+    cleanContent = cleanContent.replace(/^```\s*/, "").trim();
   }
 
   // 2. まずそのままパースを試みる
