@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback } from 'react';
-import { User, PenTool, Plus, Trash2, Search, MoreHorizontal, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy, Loader2, AlertTriangle, Calendar, Users, GraduationCap, BookOpen, Sparkles } from 'lucide-react';
+import { User, PenTool, Plus, Trash2, Search, MoreHorizontal, MoreVertical, Check, ChevronDown, ArrowUpZA, ArrowDownAZ, X, Copy, Loader2, AlertTriangle, Calendar, Users, GraduationCap, BookOpen, Sparkles, Link, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Input } from '../ui/input';
@@ -34,6 +34,7 @@ import {
 } from '../ui/tabs';
 import { cn } from '@/app/admin/lib/utils';
 import { ConfirmDialog } from '../ui/confirm-dialog';
+import { toast } from 'sonner';
 import type { Profile, Certification, Episode } from '@/app/admin/lib/types';
 import { useAuthors, useCreateAuthor, useUpdateAuthor, useDeleteAuthor, useUploadMedia } from '@/app/admin/lib/hooks';
 
@@ -453,7 +454,19 @@ export function AuthorsView({ profiles: _profiles, onProfilesChange: _onProfiles
                                                 <MoreVertical size={14} />
                                             </button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-32">
+                                        <DropdownMenuContent align="start" className="w-44">
+                                            <DropdownMenuItem onSelect={() => {
+                                                const url = `${window.location.origin}/supervisor-form/${profile.id}`;
+                                                navigator.clipboard.writeText(url);
+                                                toast.success('入力フォームURLをコピーしました');
+                                            }}>
+                                                <Link size={14} className="mr-2" /> フォームURLコピー
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => {
+                                                window.open(`/supervisor-form/${profile.id}`, '_blank');
+                                            }}>
+                                                <ExternalLink size={14} className="mr-2" /> フォームを開く
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem onSelect={() => {
                                                 createAuthor.mutate({
                                                     name: `${profile.name} (コピー)`,
