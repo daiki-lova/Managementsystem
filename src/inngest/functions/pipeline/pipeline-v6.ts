@@ -2005,7 +2005,32 @@ export const generateArticlePipelineV6 = inngest.createFunction(
     });
 
     // ========================================
-    // Step 5.5: HTML後処理
+    // Step 5.5: 関連記事を取得
+    // ========================================
+    const relatedArticles = await step.run("v6-fetch-related-articles", async () => {
+      // 同カテゴリの公開記事を最大5件取得（生成中の記事タイトルを除外）
+      const articles = await prisma.articles.findMany({
+        where: {
+          categoryId: pipelineData.categoryId,
+          status: "PUBLISHED",
+          deletedAt: null,
+          // 生成中の記事タイトルとの重複を避ける
+          title: { not: article.title }
+        },
+        select: {
+          title: true,
+          slug: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+
+      console.log(`[V6] Found ${articles.length} related articles in category`);
+      return articles;
+    });
+
+    // ========================================
+    // Step 5.6: HTML後処理
     // ========================================
     const processedArticle = await step.run("v6-post-process-html", async () => {
       let html = article.html;
@@ -2025,8 +2050,8 @@ export const generateArticlePipelineV6 = inngest.createFunction(
         console.log(`[V6] Natural CTA inserted: ${ctaConversion.name}`);
       }
 
-      // 関連記事セクション挿入
-      html = insertRelatedArticles(html, pipelineData.category!.slug);
+      // 関連記事セクション挿入（公開記事がある場合のみ）
+      html = insertRelatedArticles(html, pipelineData.category!.slug, relatedArticles);
 
       // テーブル修正
       html = fixTableHtml(html);

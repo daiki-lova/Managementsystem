@@ -1597,23 +1597,36 @@ export function insertNaturalCTA(html: string, cta: { name: string; url: string 
 }
 
 /**
- * 内部リンクが無い場合、関連記事セクションを挿入する
+ * 関連記事セクションを挿入する
+ * 関連記事がない場合はセクションを表示しない
  */
-export function insertRelatedArticles(html: string, categorySlug: string): string {
-  // すでに内部リンクがある場合はスキップ
-  if (html.includes('href="/')) {
+export function insertRelatedArticles(
+  html: string,
+  categorySlug: string,
+  relatedArticles: Array<{ title: string; slug: string }> = []
+): string {
+  // 関連記事がない場合は何も挿入しない
+  if (!relatedArticles || relatedArticles.length === 0) {
+    console.log("[V6] No related articles found, skipping related section");
     return html;
   }
 
+  // 記事リンクを生成
+  const articleLinks = relatedArticles
+    .map(article =>
+      `    <li style="margin-bottom:8px;"><a href="/${categorySlug}/${article.slug}" style="color:#333;text-decoration:none;border-bottom:1px solid #ccc;">${article.title}</a></li>`
+    )
+    .join("\n");
+
   const relatedSection = `
 <section style="margin:48px 0 24px;padding:24px;background:#f8f8f8;border-radius:12px;">
-  <h2 style="font-size:1.5em;font-weight:bold;margin:48px 0 24px;color:#333;border-bottom:3px solid #333;padding-bottom:12px;">関連記事</h2>
-  <p style="margin:0 0 12px;color:#666;">こちらの記事もおすすめです。</p>
-  <ul style="margin:0;padding-left:20px;">
-    <li style="margin-bottom:8px;"><a href="/${categorySlug}/yoga-beginner-guide" style="color:#333;">ヨガ初心者ガイド｜始め方から続け方まで</a></li>
-    <li style="margin-bottom:8px;"><a href="/${categorySlug}/yoga-benefits" style="color:#333;">ヨガの効果とは？心身への影響を解説</a></li>
+  <h2 style="font-size:1.3em;font-weight:bold;margin:0 0 16px;color:#333;">関連記事</h2>
+  <ul style="margin:0;padding-left:20px;list-style-type:disc;">
+${articleLinks}
   </ul>
 </section>`;
+
+  console.log(`[V6] Inserted ${relatedArticles.length} related article links`);
 
   // </article>の直前に挿入
   return html.replace(/<\/article>/i, `${relatedSection}\n</article>`);
