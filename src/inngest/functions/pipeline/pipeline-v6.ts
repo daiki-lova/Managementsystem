@@ -1717,26 +1717,34 @@ async function generateImagesV6(
 function insertImagesIntoHtml(html: string, images: GeneratedImage[]): string {
   let result = html;
 
-  for (const image of images) {
-    // カバー画像は本文には挿入しない（サムネイル専用）
-    if (image.slot === "cover") {
-      // 念のためプレースホルダーがあれば削除
-      const coverPlaceholder = `<!-- IMAGE_PLACEHOLDER: cover -->`;
-      result = result.replace(coverPlaceholder, "");
-      continue;
-    }
+  // AIが様々な形式でプレースホルダーを出力する可能性があるため、
+  // 正規表現で全てのIMAGE_PLACEHOLDERを検出し、順番に置換する
+  const placeholderRegex = /<!-- IMAGE_PLACEHOLDER:[^>]*-->/g;
+  const placeholders = result.match(placeholderRegex) || [];
 
-    const placeholder = `<!-- IMAGE_PLACEHOLDER: ${image.slot} -->`;
+  // カバー画像を除いた本文用画像を取得
+  const inbodyImages = images.filter(img => img.slot !== "cover");
 
-    // 本文画像は<figure>タグで囲む（SEO最適化）
-    const imgTag = `<img src="${image.url}" alt="${image.alt}" width="${image.width}" height="${image.height}" loading="lazy" />`;
-    const finalTag = `<figure style="margin:32px 0;text-align:center;">
+  console.log(`[V6] Found ${placeholders.length} placeholders, ${inbodyImages.length} inbody images`);
+
+  // プレースホルダーを順番に画像で置換
+  placeholders.forEach((placeholder, index) => {
+    if (index < inbodyImages.length) {
+      const image = inbodyImages[index];
+      const imgTag = `<img src="${image.url}" alt="${image.alt}" width="${image.width}" height="${image.height}" loading="lazy" />`;
+      const figureTag = `<figure style="margin:32px 0;text-align:center;">
   ${imgTag}
   <figcaption style="margin-top:8px;font-size:0.9em;color:#666;">${image.alt}</figcaption>
 </figure>`;
 
-    result = result.replace(placeholder, finalTag);
-  }
+      result = result.replace(placeholder, figureTag);
+      console.log(`[V6] Inserted image ${index + 1}: ${image.alt?.substring(0, 30)}...`);
+    } else {
+      // 画像が足りない場合はプレースホルダーを削除
+      result = result.replace(placeholder, "");
+      console.log(`[V6] Removed excess placeholder ${index + 1}`);
+    }
+  });
 
   return result;
 }
